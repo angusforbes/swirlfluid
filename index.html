@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0f1a">
+<title>swirlfluid</title>
+<meta name="description" content="Stir a posterized swirl fluid in your browser. Drag to stir, Shift+arrows to spin.">
+<meta property="og:title" content="swirlfluid">
+<meta property="og:description" content="Stir a posterized swirl fluid in your browser.">
+<meta property="og:image" content="https://angusforbes.github.io/swirlfluid/screenshot.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+  html, body { margin: 0; height: 100%; background: #0b0f1a; overflow: hidden; overscroll-behavior: none; }
+  canvas { display: block; width: 100vw; height: 100vh; height: 100dvh; touch-action: none; cursor: crosshair; }
+  .panel { position: fixed; font: 13px/1.45 ui-sans-serif, system-ui, sans-serif; color: #e9e4d8;
+           background: #0b0f1ad0; border-radius: 12px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+           transition: opacity .6s; user-select: none; -webkit-user-select: none; }
+  .faded { opacity: 0; pointer-events: none; }
+  #help { left: 16px; bottom: calc(14px + env(safe-area-inset-bottom)); padding: 10px 14px; max-width: min(520px, calc(100vw - 60px)); }
+  #help kbd { font: inherit; padding: 0 5px; border: 1px solid #e9e4d866; border-radius: 4px; }
+  #help a { color: inherit; }
+  #presets { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  button { font: inherit; color: #e9e4d8; background: #ffffff14; border: 1px solid #e9e4d833; border-radius: 999px;
+           padding: 3px 10px; cursor: pointer; }
+  button.on { background: #e9e4d8; color: #0b0f1a; }
+  #tuneBtn { position: fixed; right: 16px; top: calc(14px + env(safe-area-inset-top)); z-index: 2; padding: 6px 12px; background: #0b0f1ad0; backdrop-filter: blur(8px); transition: opacity .6s; }
+  #tuneBtn.on { background: #e9e4d8; color: #0b0f1a; }
+  #tune { right: 16px; top: calc(54px + env(safe-area-inset-top)); width: 260px; padding: 12px 14px; max-height: calc(100dvh - 90px); overflow-y: auto; display: none; }
+  #tune.open { display: block; }
+  #tune label { display: grid; grid-template-columns: 82px 1fr 40px; align-items: center; gap: 8px; margin: 3px 0; }
+  #tune .row { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0; }
+  #tune input[type=range] { width: 100%; accent-color: #f4d35e; }
+  #tune output { text-align: right; opacity: .7; font-variant-numeric: tabular-nums; }
+  #tune h4 { margin: 10px 0 2px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; opacity: .6; font-weight: 600; }
+  #tune p { margin: 2px 0 6px; opacity: .65; font-size: 12px; }
+  .dots { display: flex; gap: 7px; flex-wrap: wrap; margin: 4px 0; }
+  .dot { width: 22px; height: 22px; border-radius: 50%; border: 2px solid #0008; cursor: pointer; }
+  .dot.on { border-color: #e9e4d8; }
+  .touch { display: none; }
+  @media (pointer: coarse) { .touch { display: inline; } .mouse { display: none; } .panel { font-size: 15px; }
+    .dot { width: 30px; height: 30px; } button { padding: 6px 12px; }
+    #tune { left: 10px; right: 10px; width: auto; top: auto; bottom: calc(10px + env(safe-area-inset-bottom)); max-height: 60dvh; }
+    #tune label { grid-template-columns: 110px 1fr 48px; }
+    body.tuning #help { display: none; } }
+  #err { position: fixed; inset: 0; display: none; place-items: center; color: #f4d35e; font: 16px system-ui; padding: 20px; text-align: center; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<button id="tuneBtn" title="tune the fluid (t)">tune</button>
+<div id="tune" class="panel">
+  <h4>palette</h4><div class="dots" id="dots"></div>
+  <div id="sliders"></div>
+  <div class="row">
+    <button id="fluidsBtn" title="on: motion carries itself along, like a liquid. off: it stays where you put it">fluids</button>
+    <button id="inkBtn" title="ink: colours smear and blend. bands: crisp poster bands forever">ink</button>
+    <button id="shardBtn" title="grid cells: squares or cracked shards">shards</button>
+  </div>
+  <div class="row"><button id="shareBtn">copy link</button><button id="saveBtn">save PNG</button><button id="resetBtn2">reset</button></div>
+  <p>Ideas borrowed from <a href="https://github.com/CreativeCodingLab/FluidAutomataJS" style="color:inherit">Fluid Automata</a>. <a href="classic/" style="color:inherit">classic version</a> · <a href="https://github.com/angusforbes/swirlfluid" style="color:inherit">source</a></p>
+</div>
+<div id="help" class="panel">
+  <span class="mouse">drag to stir · hold <kbd>shift</kbd>+<kbd>→</kbd> / <kbd>shift</kbd>+<kbd>←</kbd> to spin a whirlpool under the cursor<br>
+  <kbd>1</kbd>–<kbd>8</kbd> presets · <kbd>p</kbd> palette · <kbd>t</kbd> tune · <kbd>space</kbd> reset · <kbd>s</kbd> save · <kbd>h</kbd> hide</span>
+  <span class="touch">one finger stirs · press and hold to spin · twist two fingers to spin either way · tap to bring this back</span>
+  <div id="presets"></div>
+</div>
+<div id="err"></div>
+<script src="swirl2.js"></script>
+<script>
+const canvas = document.getElementById('c');
+const gl = canvas.getContext('webgl2', { antialias: false, preserveDrawingBuffer: true });
+const help = document.getElementById('help'), tune = document.getElementById('tune'), tuneBtn = document.getElementById('tuneBtn');
+const PRESETS = Object.keys(SWIRL2_PRESETS), PALS = Object.keys(SWIRL2_PALETTES);
+const coarse = matchMedia('(pointer: coarse)').matches;
+const BASE = { freq: 3, palette: 'ocean', saturation: 1, brightness: 1, contrast: 1, gridShape: 'square' };
+// the knobs: [key, label, min, max, step, format]
+const KNOBS = [
+  ['fluidity', 'fluidity', 0.9, 0.999, 0.001, v => v.toFixed(3)],
+  ['viscosity', 'thickness', 0, 3, 0.05, v => v.toFixed(2)],
+  ['momentum', 'branching', 0, 1, 0.01, v => v.toFixed(2)],
+  ['angularity', 'branch angle', 0, Math.PI / 2, 0.01, v => Math.round(v * 180 / Math.PI) + '°'],
+  ['energy', 'energy', 0, 2.5, 0.05, v => v.toFixed(2)],
+  ['curl', 'curl', 0, 15, 0.5, v => v.toFixed(1)],
+  ['heal', 'heal', 0, 0.5, 0.01, v => v.toFixed(2)],
+  ['grid', 'grid', 0, 20, 1, v => v ? v : 'off'],
+  ['gridSharp', 'grid edges', 0, 1, 0.05, v => v.toFixed(2)],
+  ['freq', 'bands', 1, 6, 0.1, v => v.toFixed(1)],
+  ['cycle', 'colour drift', 0, 0.3, 0.01, v => v.toFixed(2)],
+];
+
+// state from the URL: ?preset=Jupiter&palette=dusk&curl=8 ...
+const q = new URLSearchParams(location.search);
+let preset = PRESETS.find(p => p.toLowerCase() === (q.get('preset') || '').toLowerCase()) || 'Poster';
+function presetOpts(name) { return Object.assign({}, BASE, SWIRL2_PRESETS[name]); }
+function urlOverrides() {
+  const o = {};
+  for (const [k] of KNOBS) if (q.has(k) && !isNaN(+q.get(k))) o[k] = +q.get(k);
+  if (PALS.includes(q.get('palette'))) o.palette = q.get('palette');
+  if (q.has('fluids')) o.fluids = q.get('fluids') !== '0';
+  if (['ink', 'bands'].includes(q.get('paint'))) o.paint = q.get('paint');
+  if (['square', 'shards'].includes(q.get('gridShape'))) o.gridShape = q.get('gridShape');
+  return o;
+}
+
+let swirl;
+function size() {
+  const dpr = Math.min(window.devicePixelRatio || 1, coarse ? 1.5 : 2);   // phones: fewer pixels, smoother
+  return [Math.round(innerWidth * dpr), Math.round(innerHeight * dpr)];
+}
+try {
+  if (!gl) throw new Error('This needs WebGL2, which this browser does not offer.');
+  const [w, h] = size(); canvas.width = w; canvas.height = h;
+  swirl = createSwirl2(gl, Object.assign({ width: w, height: h, simRes: coarse ? 128 : 160 }, presetOpts(preset), urlOverrides()));
+} catch (e) {
+  const el = document.getElementById('err'); el.textContent = e.message; el.style.display = 'grid'; throw e;
+}
+const o = swirl.opts;
+
+// ---- panel ----
+const presetsEl = document.getElementById('presets');
+PRESETS.forEach((n, i) => { const b = document.createElement('button'); b.textContent = n; b.title = `preset ${i + 1}`;
+  b.onclick = () => applyPreset(n); presetsEl.appendChild(b); });
+const dots = document.getElementById('dots');
+for (const n of PALS) {
+  const d = document.createElement('div'); d.className = 'dot'; d.dataset.n = n; d.title = n;
+  const p = SWIRL2_PALETTES[n].pal; d.style.background = `conic-gradient(${p[0]} 0 40%, ${p[2]} 0 60%, ${p[3]} 0 80%, ${p[4]} 0)`;
+  d.onclick = () => { swirl.set({ palette: n }); sync(); }; dots.appendChild(d);
+}
+const sliders = document.getElementById('sliders'), inputs = {};
+for (const [k, label, min, max, step, fmt] of KNOBS) {
+  const l = document.createElement('label');
+  l.innerHTML = `<span>${label}</span><input type="range" min="${min}" max="${max}" step="${step}"><output></output>`;
+  const inp = l.querySelector('input'), out = l.querySelector('output');
+  inp.oninput = () => { swirl.set({ [k]: +inp.value }); out.textContent = fmt(+inp.value); };
+  inputs[k] = { inp, out, fmt }; sliders.appendChild(l);
+}
+const fluidsBtn = document.getElementById('fluidsBtn'), inkBtn = document.getElementById('inkBtn'), shardBtn = document.getElementById('shardBtn');
+fluidsBtn.onclick = () => { swirl.set({ fluids: !o.fluids }); sync(); };
+inkBtn.onclick = () => { swirl.set({ paint: o.paint === 'ink' ? 'bands' : 'ink' }); sync(); };
+shardBtn.onclick = () => { swirl.set({ gridShape: o.gridShape === 'shards' ? 'square' : 'shards', grid: o.grid || 9 }); sync(); };
+function sync() {
+  [...presetsEl.children].forEach(b => b.classList.toggle('on', b.textContent === preset));
+  [...dots.children].forEach(d => d.classList.toggle('on', d.dataset.n === o.palette));
+  for (const k in inputs) { inputs[k].inp.value = o[k]; inputs[k].out.textContent = inputs[k].fmt(o[k]); }
+  fluidsBtn.classList.toggle('on', !!o.fluids); inkBtn.classList.toggle('on', o.paint === 'ink'); shardBtn.classList.toggle('on', o.gridShape === 'shards');
+}
+function applyPreset(n) { preset = n; swirl.set(presetOpts(n)); swirl.reset(); sync(); }
+function shareURL() {
+  const d = presetOpts(preset), p = new URLSearchParams({ preset });
+  for (const [k] of KNOBS) if (Math.abs(o[k] - (d[k] ?? 0)) > 1e-9) p.set(k, +(+o[k]).toFixed(4));
+  if (o.palette !== d.palette) p.set('palette', o.palette);
+  if (!!o.fluids !== !!d.fluids) p.set('fluids', o.fluids ? 1 : 0);
+  if (o.paint !== d.paint) p.set('paint', o.paint);
+  if (o.gridShape !== d.gridShape) p.set('gridShape', o.gridShape);
+  return location.origin + location.pathname + '?' + p;
+}
+document.getElementById('shareBtn').onclick = e => {
+  const u = shareURL(); history.replaceState(null, '', u);
+  (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(
+    () => { e.target.textContent = 'copied'; setTimeout(() => e.target.textContent = 'copy link', 1200); }, () => {});
+};
+function save() { const a = document.createElement('a'); a.download = `swirlfluid-${preset.replace(/\s/g, '')}-${Date.now()}.png`; a.href = canvas.toDataURL('image/png'); a.click(); }
+document.getElementById('saveBtn').onclick = save;
+document.getElementById('resetBtn2').onclick = () => swirl.reset();
+function toggleTune() { tune.classList.toggle('open'); document.body.classList.toggle('tuning', tune.classList.contains('open')); tuneBtn.classList.toggle('on', tune.classList.contains('open')); wake(true); }
+tuneBtn.onclick = toggleTune;
+sync();
+
+// ---- input ----
+//   mouse: drag stirs; Shift+→ / Shift+← (held) spins a whirlpool under the cursor, clockwise / anticlockwise
+//   touch: one finger stirs; press and hold still spins; two-finger twist spins the way you twist
+const pos = e => { const r = canvas.getBoundingClientRect(); return [(e.clientX - r.left) / r.width, 1 - (e.clientY - r.top) / r.height]; };
+const pts = new Map();
+let hover = null, lastHover = null, keySpin = 0, twist = null;
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+canvas.addEventListener('pointerdown', e => {
+  canvas.setPointerCapture(e.pointerId);
+  const p = pos(e); pts.set(e.pointerId, { p, last: p, t0: performance.now(), moved: 0, touch: e.pointerType !== 'mouse' });
+  if (pts.size === 2) twist = null;
+  if (coarse && tune.classList.contains('open')) toggleTune();
+  wake();
+});
+canvas.addEventListener('pointermove', e => {
+  const p = pos(e); hover = p;
+  const t = pts.get(e.pointerId);
+  if (!t) {
+    if (e.pointerType === 'mouse' && lastHover)
+      swirl.splat(p[0], p[1], (p[0] - lastHover[0]) * 1.2 * 60, (p[1] - lastHover[1]) * 1.2 * 60, 0, 0.003);
+    lastHover = p; return;
+  }
+  const dx = p[0] - t.last[0], dy = p[1] - t.last[1];
+  t.moved += Math.hypot(dx * innerWidth, dy * innerHeight);
+  if (pts.size === 1 && (dx || dy)) swirl.splat(p[0], p[1], dx * 5 * 60, dy * 5 * 60, 0, 0.006);
+  t.last = p; t.p = p;
+  if (pts.size === 1) wake();
+});
+const lift = e => {
+  const t = pts.get(e.pointerId); pts.delete(e.pointerId); twist = null;
+  if (t && t.touch && t.moved < 8 && performance.now() - t.t0 < 250) wake(true);   // a tap brings the help back
+};
+canvas.addEventListener('pointerup', lift); canvas.addEventListener('pointercancel', lift);
+canvas.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') lastHover = null; });
+addEventListener('blur', () => { keySpin = 0; pts.clear(); });
+
+function spinInput(dt, now) {
+  const SPIN = 90 * dt;
+  if (keySpin) { const p = hover || [0.5, 0.5]; swirl.splat(p[0], p[1], 0, 0, keySpin * SPIN, 0.008); }
+  if (pts.size === 1) {
+    const t = pts.values().next().value;
+    if (t.touch && t.moved < 12 && now - t.t0 > 350) swirl.splat(t.p[0], t.p[1], 0, 0, -SPIN, 0.008);
+  } else if (pts.size >= 2) {
+    const [a, b] = [...pts.values()];
+    const mid = [(a.p[0] + b.p[0]) / 2, (a.p[1] + b.p[1]) / 2];
+    const ang = Math.atan2((b.p[1] - a.p[1]) * innerHeight, (b.p[0] - a.p[0]) * innerWidth);
+    if (twist) {
+      let da = ang - twist.ang; da = Math.atan2(Math.sin(da), Math.cos(da));
+      const r = Math.max(0.006, Math.min(0.03, ((a.p[0] - b.p[0]) ** 2 + (a.p[1] - b.p[1]) ** 2) / 4));
+      swirl.splat(mid[0], mid[1], (mid[0] - twist.mid[0]) * 5 * 60, (mid[1] - twist.mid[1]) * 5 * 60, da * 60 * 1.5, r);
+    }
+    twist = { ang, mid };
+  }
+}
+
+addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.shiftKey && e.key === 'ArrowRight') { keySpin = -1; e.preventDefault(); wake(); return; }
+  if (e.shiftKey && e.key === 'ArrowLeft') { keySpin = 1; e.preventDefault(); wake(); return; }
+  if (e.key >= '1' && e.key <= String(PRESETS.length)) applyPreset(PRESETS[+e.key - 1]);
+  else if (e.key === 'p') { swirl.set({ palette: PALS[(PALS.indexOf(o.palette) + 1) % PALS.length] }); sync(); }
+  else if (e.key === 't') toggleTune();
+  else if (e.key === ' ') { swirl.reset(); e.preventDefault(); }
+  else if (e.key === 'h') { help.classList.toggle('faded'); tuneBtn.classList.toggle('faded', help.classList.contains('faded')); }
+  else if (e.key === 's') save();
+});
+addEventListener('keyup', e => { if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'Shift') keySpin = 0; });
+
+// help fades after a few idle seconds (not while the tune panel is open)
+let idle;
+function wake(force) {
+  if (coarse && !force && help.classList.contains('faded')) return;   // on a phone only a tap brings it back
+  help.classList.remove('faded'); tuneBtn.classList.remove('faded'); clearTimeout(idle);
+  idle = setTimeout(() => { if (!tune.classList.contains('open')) { help.classList.add('faded'); tuneBtn.classList.add('faded'); } }, 5000);
+}
+tune.addEventListener('pointerdown', () => wake(true));
+wake();
+
+let resizeT;
+addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => {
+  const [w, h] = size(); canvas.width = w; canvas.height = h; swirl.resize(w, h); }, 200); });
+
+let prev = performance.now(), t0 = prev;
+function frame(now) {
+  const dt = Math.min((now - prev) / 1000, 1 / 30); prev = now;
+  if (!document.hidden) { spinInput(dt, now); swirl.step(dt); swirl.render((now - t0) / 1000); }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

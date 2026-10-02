@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>swirlfluid classic</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0b0f1a; overflow: hidden; }
+  canvas { display: block; width: 100vw; height: 100vh; touch-action: none; cursor: crosshair; }
+  #ui { position: fixed; left: 18px; bottom: 16px; font: 13px/1.5 ui-sans-serif, system-ui, sans-serif;
+        color: #e9e4d8; opacity: .9; transition: opacity .6s; user-select: none;
+        background: #0b0f1acc; padding: 10px 14px; border-radius: 10px; backdrop-filter: blur(6px); }
+  #ui.hidden { opacity: 0; pointer-events: none; }
+  #ui .dots { display: flex; gap: 8px; margin-top: 8px; }
+  #ui .dot { width: 22px; height: 22px; border-radius: 50%; border: 2px solid #0008; cursor: pointer; }
+  #ui .dot.on { border-color: #e9e4d8; }
+  #ui kbd { font: inherit; padding: 0 5px; border: 1px solid #e9e4d866; border-radius: 4px; }
+  #ui a { color: inherit; }
+  .touch { display: none; } @media (pointer: coarse) { .touch { display: inline; } .mouse { display: none; } #ui { font-size: 15px; } #ui .dot { width: 30px; height: 30px; } }
+  #err { position: fixed; inset: 0; display: none; place-items: center; color: #f4d35e; font: 16px system-ui; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ui">
+  <span class="mouse">drag to stir · <kbd>shift</kbd>+<kbd>→</kbd> / <kbd>shift</kbd>+<kbd>←</kbd> spin a whirlpool under the cursor<br>
+  <kbd>1</kbd>–<kbd>5</kbd> palette · <kbd>space</kbd> reset · <kbd>s</kbd> save PNG · <kbd>h</kbd> hide this · <a href="../">new version</a></span>
+  <span class="touch">one finger stirs · press and hold to spin · twist two fingers to spin either way<br>
+  tap to bring this back · <a href="#" id="resetBtn">reset</a></span>
+  <div class="dots" id="dots"></div>
+</div>
+<div id="err"></div>
+<script src="swirl.js"></script>
+<script>
+const canvas = document.getElementById('c');
+const gl = canvas.getContext('webgl2', { antialias: false, preserveDrawingBuffer: true });
+const ui = document.getElementById('ui');
+const names = Object.keys(SWIRL_PALETTES);
+const coarse = matchMedia('(pointer: coarse)').matches;
+const params = new URLSearchParams(location.search);
+let swirl;
+function size() {
+  const dpr = Math.min(window.devicePixelRatio || 1, coarse ? 1.5 : 2);   // phones: fewer pixels, smoother
+  return [Math.round(innerWidth * dpr), Math.round(innerHeight * dpr)];
+}
+try {
+  if (!gl) throw new Error('WebGL2 is not available in this browser.');
+  const [w, h] = size(); canvas.width = w; canvas.height = h;
+  swirl = createSwirl(gl, { width: w, height: h, palette: params.get('palette') || 'ocean' });
+} catch (e) {
+  const el = document.getElementById('err'); el.textContent = e.message; el.style.display = 'grid'; throw e;
+}
+
+// palette dots
+const dots = document.getElementById('dots');
+function setPalette(n) { swirl.opts.palette = n; [...dots.children].forEach(d => d.classList.toggle('on', d.dataset.n === n)); }
+for (const n of names) {
+  const d = document.createElement('div'); d.className = 'dot'; d.dataset.n = n; d.title = n;
+  const p = SWIRL_PALETTES[n].pal; d.style.background = `conic-gradient(${p[0]} 0 40%, ${p[2]} 0 60%, ${p[3]} 0 80%, ${p[4]} 0)`;
+  d.onclick = () => setPalette(n); dots.appendChild(d);
+}
+setPalette(swirl.opts.palette);
+document.getElementById('resetBtn').onclick = e => { e.preventDefault(); swirl.reset(); };
+
+// input
+//   mouse: drag stirs; Shift+→ / Shift+← (held) spins a whirlpool under the cursor, clockwise / anticlockwise
+//   touch: one finger stirs; press and hold still spins; two-finger twist spins the way you twist
+const pos = e => { const r = canvas.getBoundingClientRect(); return [(e.clientX - r.left) / r.width, 1 - (e.clientY - r.top) / r.height]; };
+const pts = new Map();               // active pointers: id -> {p, last, t0, moved}
+let hover = null, keySpin = 0, holdSpin = null, twist = null;
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+canvas.addEventListener('pointerdown', e => {
+  canvas.setPointerCapture(e.pointerId);
+  const p = pos(e); pts.set(e.pointerId, { p, last: p, t0: performance.now(), moved: 0, touch: e.pointerType !== 'mouse' });
+  if (pts.size === 2) twist = null;  // reset twist baseline
+  wake();
+});
+canvas.addEventListener('pointermove', e => {
+  const p = pos(e); hover = p;
+  const t = pts.get(e.pointerId);
+  if (!t) {                          // mouse hovering: a gentle nudge
+    if (e.pointerType === 'mouse' && canvas._lastHover) { const l = canvas._lastHover;
+      swirl.splat(p[0], p[1], (p[0] - l[0]) * 1.2 * 60, (p[1] - l[1]) * 1.2 * 60, 0, 0.003); }
+    canvas._lastHover = p; return;
+  }
+  const dx = p[0] - t.last[0], dy = p[1] - t.last[1];
+  t.moved += Math.hypot(dx * innerWidth, dy * innerHeight);
+  if (pts.size === 1 && (dx || dy)) swirl.splat(p[0], p[1], dx * 5 * 60, dy * 5 * 60, 0, 0.006);
+  t.last = p; t.p = p;
+  if (pts.size === 1) wake();
+});
+const lift = e => {
+  const t = pts.get(e.pointerId); pts.delete(e.pointerId); twist = null;
+  // a quick tap that didn't move brings the help panel back
+  if (t && t.touch && t.moved < 8 && performance.now() - t.t0 < 250) wake(true);
+};
+canvas.addEventListener('pointerup', lift); canvas.addEventListener('pointercancel', lift);
+canvas.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') canvas._lastHover = null; });
+addEventListener('keydown', e => {
+  if (e.shiftKey && e.key === 'ArrowRight') { keySpin = -1; e.preventDefault(); }
+  if (e.shiftKey && e.key === 'ArrowLeft') { keySpin = 1; e.preventDefault(); }
+});
+addEventListener('keyup', e => { if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'Shift') keySpin = 0; });
+addEventListener('blur', () => { keySpin = 0; pts.clear(); });
+
+function spinInput(dt, now) {
+  const SPIN = 90 * dt;
+  if (keySpin) { const p = hover || [0.5, 0.5]; swirl.splat(p[0], p[1], 0, 0, keySpin * SPIN, 0.008); }
+  if (pts.size === 1) {              // touch: press and hold still -> spin (clockwise)
+    const t = pts.values().next().value;
+    if (t.touch && t.moved < 12 && now - t.t0 > 350) swirl.splat(t.p[0], t.p[1], 0, 0, -SPIN, 0.008);
+  } else if (pts.size >= 2) {        // two fingers: twist to spin, move together to stir
+    const [a, b] = [...pts.values()];
+    const mid = [(a.p[0] + b.p[0]) / 2, (a.p[1] + b.p[1]) / 2];
+    const ang = Math.atan2((b.p[1] - a.p[1]) * innerHeight, (b.p[0] - a.p[0]) * innerWidth);
+    if (twist) {
+      let da = ang - twist.ang; da = Math.atan2(Math.sin(da), Math.cos(da));
+      const r = Math.max(0.006, Math.min(0.03, ((a.p[0] - b.p[0]) ** 2 + (a.p[1] - b.p[1]) ** 2) / 4));
+      swirl.splat(mid[0], mid[1], (mid[0] - twist.mid[0]) * 5 * 60, (mid[1] - twist.mid[1]) * 5 * 60, da * 60 * 1.5, r);
+    }
+    twist = { ang, mid };
+  }
+}
+
+// keys
+addEventListener('keydown', e => {
+  if (e.key >= '1' && e.key <= String(names.length)) setPalette(names[+e.key - 1]);
+  else if (e.key === ' ') { swirl.reset(); e.preventDefault(); }
+  else if (e.key === 'h') ui.classList.toggle('hidden');
+  else if (e.key === 's') { const a = document.createElement('a'); a.download = `swirl-${swirl.opts.palette}-${Date.now()}.png`; a.href = canvas.toDataURL('image/png'); a.click(); }
+});
+let idle; function wake(force) {
+  if (coarse && !force && ui.style.opacity === '0') return;   // on a phone, stirring doesn't bring the panel back; a tap does
+  ui.style.opacity = ''; ui.style.pointerEvents = ''; clearTimeout(idle);
+  idle = setTimeout(() => { ui.style.opacity = '0'; ui.style.pointerEvents = 'none'; }, 4000); }
+wake();
+
+let resizeT;
+addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => {
+  const [w, h] = size(); canvas.width = w; canvas.height = h; swirl.resize(w, h); }, 200); });
+
+let prev = performance.now(), t0 = prev;
+function frame(now) {
+  const dt = Math.min((now - prev) / 1000, 1 / 30);
+    spinInput(dt, now);
+  swirl.step(dt); prev = now;
+  swirl.render((now - t0) / 1000);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
