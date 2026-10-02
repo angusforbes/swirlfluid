@@ -49,6 +49,17 @@ of dye it carries a texture of *material coordinates*; the display shader turns 
 bands with outlines, so the bands stay crisp however much they are stirred. Ink mode carries a colour image instead.
 No dependencies or build step: open `index.html` straight from disk. The first version lives at [`classic/`](classic/).
 
+## Fluid Automata ([`automata/`](automata/))
+
+A loose re-creation of Fluid Automata (Forbes, Höllerer, Legrady, CAe 2013) on the GPU: a grid of 8-bit energy
+vectors (256 orientations x 256 magnitudes); each step a cell's energy splits into forward / left / right streams
+(forward share, left:right split, angularity), each stream displaces a copy of the cell and hands partials to the cells
+it overlaps, then everything is damped (fluidity). Optional max outflow, jitter, wrap-around or bouncing walls. The
+image is a feedback loop: the previous frame distorted by the field, blended with a background (colour / grey / b&w
+noise, palette noise fields, live noise, camera, or a dropped image), then saturation, brightness and contrast.
+Profiles are the original JS presets plus a few from the paper (fine grids, max outflow, jitter, low-res b/w smear).
+`v` shows the vectors.
+
 ## Licence
 
 Apache-2.0
