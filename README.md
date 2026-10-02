@@ -33,7 +33,7 @@ Nine presets: Poster, Tar, Ice Cracks, Cubism, Silk, Kaleidoscope, Jupiter, Wate
 
 **fill** sets what the swirl engine stirs: **bands** (poster bands), **field** (smooth noise through the palette),
 **blobs** (posterized noise with ink outlines), **squares** (a grid of squares, each a random palette colour) or
-**colour noise** (squares in random full colours). The **squares** slider sets their size, 1 to 80 px. Noise fills start
+**colour noise** (squares in random full colours). The **resolution** slider pixelates any fill, from 8 rows of rectangles to 1 px; the cells are stirred with the fluid. Click the selected fill again (or `r`) for a new random one. Noise fills start
 straight (no swirl warp); every reset draws new noise, and the bands get a new random swirl layout. The fill and square
 size stay when you change preset; the palette colours them. Try `?preset=Ice%20Cracks&fill=squares&cell=24`.
 The knobs take ideas from [Fluid Automata](https://github.com/CreativeCodingLab/FluidAutomataJS)
