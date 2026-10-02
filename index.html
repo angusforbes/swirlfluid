@@ -323,9 +323,12 @@ canvas.addEventListener('pointerdown', e => {
 canvas.addEventListener('pointermove', e => {
   const p = pos(e); hover = p;
   const t = pts.get(e.pointerId);
-  if (!t) {   // swirl: a hovering mouse stirs gently
-    if (engine === 'swirl' && e.pointerType === 'mouse' && lastHover)
-      swirl.splat(p[0], p[1], (p[0] - lastHover[0]) * 1.2 * 60, (p[1] - lastHover[1]) * 1.2 * 60, 0, 0.003);
+  if (!t) {   // swirl: a hovering mouse stirs gently; on the lattice presets (Ice Cracks, Cubism, Silk) it stirs like a drag
+    if (engine === 'swirl' && e.pointerType === 'mouse' && lastHover) {
+      const lat = swirl.opts.grid >= 2, k = lat ? 5 : 1.2;
+      swirl.splat(p[0], p[1], (p[0] - lastHover[0]) * k * 60, (p[1] - lastHover[1]) * k * 60, 0, lat ? 0.006 : 0.003);
+      if (lat) wake();
+    }
     lastHover = p; return;
   }
   const dx = p[0] - t.last[0], dy = p[1] - t.last[1];
