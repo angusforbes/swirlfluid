@@ -39,7 +39,7 @@ const SWIRL2_PRESETS = {
   'Silk':        { fluids: true,  fluidity: 0.99,  viscosity: 0,   momentum: 0,    angularity: 0,     energy: 0.5, grid: 13, curl: 0, heal: 0.1, memory: 0.785, carry: 0, paint: 'ink', crisp: 0.1, palette: 'navygold' },
   'Kaleidoscope':{ fluids: true,  fluidity: 0.99,  viscosity: 0,   momentum: 0.45, angularity: 0.785, energy: 1,   grid: 0, curl: 0, heal: 0.08, paint: 'bands', palette: 'dusk' },
   "Jupiter":     { fluids: true,  fluidity: 0.95,  viscosity: 0.2, momentum: 0.3, angularity: 1.571, energy: 1.2, grid: 0, curl: 10, heal: 0.06, paint: 'bands', palette: 'wine', freq: 4.2 },
-  'Watercolour': { fluids: true,  fluidity: 0.985, viscosity: 0.4, momentum: 0.26, angularity: 1.18,  energy: 1,   grid: 0, curl: 3, heal: 0.06, paint: 'bands', wash: true, palette: 'sea', freq: 3.6 },
+  'Watercolour': { fluids: true,  fluidity: 0.985, viscosity: 0.9, momentum: 0.26, angularity: 1.18,  energy: 0.8, grid: 0, curl: 1.5, heal: 0.04, paint: 'ink', wash: true, palette: 'sea', freq: 3.2 },
   'Milky Way':   { fluids: true,  fluidity: 0.998, viscosity: 0,   momentum: 0.16, angularity: 0.785, energy: 0.8, grid: 0, curl: 6, heal: 0.02, paint: 'ink', crisp: 0.02, palette: 'ocean' },
 };
 
@@ -166,7 +166,23 @@ function createSwirl2(gl, opts = {}) {
       vec3 colAt(float k){ int i=int(mod(k,seqLen)); return pal[int(seq[i])]; }
       void main(){
         vec3 col;
-        if(inkOn>.5) col=texture(uInk,vUv).rgb;
+        if(inkOn>.5){
+          col=texture(uInk,vUv).rgb;
+          if(wash>.5){
+            // watercolour on the ink: a slightly wet (blurred) wash, pigment pooling darker where colours meet,
+            // granulation in the pigment, and paper grain showing through
+            vec2 t=1./vec2(textureSize(uInk,0));
+            vec3 l=texture(uInk,vUv-vec2(t.x,0.)*1.5).rgb, r=texture(uInk,vUv+vec2(t.x,0.)*1.5).rgb,
+                 d=texture(uInk,vUv-vec2(0.,t.y)*1.5).rgb, u=texture(uInk,vUv+vec2(0.,t.y)*1.5).rgb;
+            vec3 wet=(col*2.+l+r+d+u)/6.;
+            float edge=length(r-l)+length(u-d);
+            col=wet*(1.-.55*smoothstep(.04,.5,edge));
+            float lum=dot(col,vec3(.3,.59,.11));
+            col*=.9+.16*vnoise(gl_FragCoord.xy*.35)*(1.-lum*.5);
+            col=mix(col,vec3(.96,.94,.88),.06);
+            col*=.95+.06*hash(floor(gl_FragCoord.xy*.6));
+          }
+        }
         else {
           vec2 p=texture(uP,vUv).xy;
           if(blocky>.5) p=(floor(p*cells)+.5)/cells;   // resolution: one colour per cell, the cells move with the fluid
@@ -196,9 +212,10 @@ function createSwirl2(gl, opts = {}) {
             // watercolour: no ink outline; the next colour bleeds in softly, pigment pools darker along each edge,
             // granulates inside the band, and paper grain shows through
             vec3 nxt=mix(colAt(k+1.+sh), colAt(k+2.+sh), smoothstep(.97,1.,fract(ph)));
-            col=mix(col, nxt, smoothstep(1.-max(.06,w*3.),1.,fr)*.85);
+            float wide=smoothstep(.35,.08,w);   // edge effects only where bands are wide enough to hold them
+            col=mix(col, nxt, smoothstep(1.-max(.06,w*3.),1.,fr)*.85*wide);
             float px=min(fr,1.-fr)/max(w,1e-4);
-            col*=1.-.32*exp(-px/2.5);
+            col*=1.-.32*exp(-px/2.5)*wide;
             col*=.9+.14*vnoise(p*9.+k);
             col*=.96+.05*hash(floor(gl_FragCoord.xy*.7));
           } else if(blocky<.5) col=mix(col,outline,smoothstep(w*1.4,0.,min(fr,1.-fr)-.015));

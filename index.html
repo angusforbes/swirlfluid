@@ -329,6 +329,7 @@ canvas.addEventListener('pointermove', e => {
       swirl.splat(p[0], p[1], (p[0] - lastHover[0]) * k * 60, (p[1] - lastHover[1]) * k * 60, 0, lat ? 0.006 : 0.003);
       if (lat) wake();
     }
+    if (engine === 'automata' && e.pointerType === 'mouse' && lastHover) { auto.push(lastHover[0], lastHover[1], p[0], p[1]); wake(); }   // automata: hovering stirs like a drag
     lastHover = p; return;
   }
   const dx = p[0] - t.last[0], dy = p[1] - t.last[1];
