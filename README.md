@@ -30,7 +30,12 @@ for this renderer:
 - **fluidity**: how long motion lasts · **thickness**: velocity spreads into its neighbours (tar)
 - **branching** / **branch angle**: part of the motion peels off sideways at an angle
 - **energy**: how far paint is carried · **curl**: how hard small eddies are kept spinning
-- **heal**: how fast the picture relaxes back · **grid** / **grid edges**: paint follows square cells or cracked shards
+- **heal**: how fast the picture relaxes back
+- **lattice**: off = a smooth fluid; N = Fluid Automata's own lattice (used by Ice Cracks and Cubism): N×N cells,
+  each holding a vector that is handed on to its neighbours by overlap, and the picture is redrawn each frame through
+  that coarse mesh with every vertex shifted by its vector, so it tears along triangle edges · **memory**: how much of
+  the last frame survives each lattice frame
+- **crisp ink**: pulls smeared ink back toward the palette so it keeps hard edges · **wash**: draw bands as watercolour
 - **bands**: band density · **colour drift**: how fast bands change colour
 - **fluids** off: motion stays where you put it (a displacement) instead of flowing on
 - **ink**: colours smear and blend instead of staying crisp poster bands
