@@ -19,7 +19,7 @@
 // Classic script: defines createSwirl2(gl, opts), SWIRL2_PALETTES, SWIRL2_PRESETS.
 
 // what the fluid stirs: poster bands, or a noise field coloured by the palette
-const SWIRL2_FILLS = ['bands', 'field', 'blobs', 'grain', 'colour noise'];
+const SWIRL2_FILLS = ['bands', 'field', 'blobs', 'squares', 'colour noise'];
 const SWIRL2_PALETTES = {
   ocean:  { pal: ['#0d1b2a', '#1b4965', '#5fa8d3', '#f4d35e', '#ee964b'], seq: [0, 1, 0, 2, 1, 0, 3, 4], outline: '#08121c' },
   dusk:   { pal: ['#1d1a3a', '#4b3a78', '#c86b8a', '#f2b880', '#7a5aa6'], seq: [0, 1, 0, 2, 1, 0, 3, 4], outline: '#12102a' },
@@ -159,7 +159,7 @@ function createSwirl2(gl, opts = {}) {
       void main(){ vec3 c=mix(texture(uFresh,vUv).rgb, texture(uSrc,uv2()).rgb, blend);
         c=mix(vec3(dot(c,vec3(.2125,.7154,.0721))),c,sat); c*=bright; c=mix(vec3(.5),c,contrast);
         o=vec4(clamp(crisp(c),0.,1.),1.); }`,
-    display: `uniform sampler2D uP, uInk; uniform float time, freq, cycle, seqLen, inkOn, starsOn, wash, fill; uniform vec2 dir, res;
+    display: `uniform sampler2D uP, uInk; uniform float time, freq, cycle, seqLen, inkOn, starsOn, wash, fill, cells, seed; uniform vec2 dir, res;
       uniform vec3 pal[5]; uniform float seq[8]; uniform vec3 outline, starC;
       vec3 colAt(float k){ int i=int(mod(k,seqLen)); return pal[int(seq[i])]; }
       void main(){
@@ -167,10 +167,12 @@ function createSwirl2(gl, opts = {}) {
         if(inkOn>.5) col=texture(uInk,vUv).rgb;
         else {
           vec2 p=texture(uP,vUv).xy;
-          // fill: 0 bands, 1 field (smooth noise), 2 blobs (posterized noise), 3 grain (palette noise), 4 colour noise
+          // fill: 0 bands, 1 field (smooth noise), 2 blobs (posterized noise), 3 squares (a palette colour per square),
+          // 4 colour noise (a random colour per square); squares are "cells" per unit of p, new every reset (seed)
+          vec2 so=vec2(fract(seed*.00131),fract(seed*.00173))*97.;
           float b = fill<.5 ? (dot(p,dir)+(vnoise(p*1.2)-.5)*.35)*freq
-                  : fill<2.5 ? fbm(p*(.35+.25*freq)+3.3)*(2.+2.*freq)
-                  : floor(rnd(p*(30.+25.*freq),1.)*8.)+.5;
+                  : fill<2.5 ? fbm(p*(.35+.25*freq)+so)*(2.+2.*freq)
+                  : floor(rnd(p*cells,seed)*8.)+.5;
           float k=floor(b);
           // every band runs its own colour clock, so parts of the fluid change colour at different times
           float hk=hash(vec2(k*.731,3.17));
@@ -178,8 +180,8 @@ function createSwirl2(gl, opts = {}) {
           float sh=floor(ph);
           col=mix(colAt(k+sh), colAt(k+sh+1.), smoothstep(.97,1.,fract(ph)));
           float fr=fract(b), w=fwidth(b);
-          if(fill>3.5){ vec2 c=p*(30.+25.*freq); col=vec3(rnd(c,2.),rnd(c,3.),rnd(c,4.)); }
-          else if(fill>2.5){}   // grain: one palette colour per cell, no outlines
+          if(fill>3.5){ vec2 c=p*cells; col=vec3(rnd(c,seed+2.),rnd(c,seed+3.),rnd(c,seed+4.)); }
+          else if(fill>2.5){}   // squares: one palette colour per square, no outlines
           else if(fill>.5&&fill<1.5){   // field: soft gradients between the palette levels, a little paper grain
             vec3 nxt=mix(colAt(k+1.+sh), colAt(k+2.+sh), smoothstep(.97,1.,fract(ph)));
             col=mix(col,nxt,smoothstep(.15,.85,fr))*(.95+.08*vnoise(p*40.));
@@ -255,7 +257,7 @@ function createSwirl2(gl, opts = {}) {
     if (pr.u.texel) gl.uniform2f(pr.u.texel, 1 / tw.w, 1 / tw.h);
     if (pr.u.aspect) gl.uniform1f(pr.u.aspect, aspect());
     if (pr.u.sw) { const a = new Float32Array(24); o.swirls.slice(0, 6).forEach((s, i) => a.set(s, i * 4));
-      gl.uniform4fv(pr.u.sw, a); gl.uniform1i(pr.u.nsw, Math.min(6, o.swirls.length)); }
+      gl.uniform4fv(pr.u.sw, a); gl.uniform1i(pr.u.nsw, o.fill && o.fill !== 'bands' ? 0 : Math.min(6, o.swirls.length)); }   // noise fills start straight
     if (pr.u.simTexel) gl.uniform2f(pr.u.simTexel, 1 / S.sw, 1 / S.sh);
     if (pr.u.facet) gl.uniform1f(pr.u.facet, o.facets ? 1 : 0);
     if (pr.u.snap && name !== 'display') { const pl = SWIRL2_PALETTES[o.palette] || o.palette;
@@ -268,8 +270,12 @@ function createSwirl2(gl, opts = {}) {
     gl.bindVertexArray(vao); gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
   const clear = f => { gl.bindFramebuffer(gl.FRAMEBUFFER, f.fb); gl.viewport(0, 0, f.w, f.h); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT); };
-  let time = 0;
+  let time = 0, seed = 1 + Math.floor(Math.random() * 1e5), resets = 0;
+  // a fresh start: new noise, and (after the first) a new random swirl layout for the bands
+  const rndSwirl = (sgn) => [(Math.random() * 2 - 1) * aspect() * 0.8, (Math.random() * 2 - 1) * 0.75, sgn * (2.5 + Math.random() * 3.5), 0.35 + Math.random() * 0.45];
   function reset() {
+    seed = 1 + Math.floor(Math.random() * 1e5);
+    if (resets++ && !o.fixedSwirls) { const n = 2 + Math.floor(Math.random() * 3); o.swirls = Array.from({ length: n }, (_, i) => rndSwirl(i % 2 ? -1 : 1)); }
     gl.disable(gl.BLEND); gl.disable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE); gl.disable(gl.SCISSOR_TEST);
     [S.vel.read, S.vel.write, S.press.read, S.press.write].forEach(clear);
     if (L) { L.ms.fill(0); L.os.fill(0); }
@@ -283,6 +289,7 @@ function createSwirl2(gl, opts = {}) {
     gl.uniform1i(u.uP, tex(0, src)); gl.uniform1i(u.uInk, tex(1, S.div));   // placeholder: never sample the target
     gl.uniform1f(u.inkOn, 0); gl.uniform1f(u.starsOn, stars && !o.wash ? 1 : 0); gl.uniform1f(u.wash, o.wash ? 1 : 0);
     gl.uniform1f(u.time, t); gl.uniform1f(u.freq, o.freq); gl.uniform1f(u.fill, Math.max(0, SWIRL2_FILLS.indexOf(o.fill)));
+    gl.uniform1f(u.seed, seed); gl.uniform1f(u.cells, o.height / 2 / Math.max(1, (o.cell || 6) * (o.height / Math.max(1, o.cssHeight || o.height))));
     gl.uniform1f(u.cycle, o.cycle); gl.uniform2f(u.dir, o.dir[0], o.dir[1]); gl.uniform2f(u.res, o.width, o.height);
     gl.uniform3fv(u.pal, new Float32Array(pl.pal.flatMap(hex))); gl.uniform1fv(u.seq, new Float32Array(pl.seq));
     gl.uniform1f(u.seqLen, pl.seq.length); gl.uniform3fv(u.outline, hex(pl.outline)); gl.uniform3fv(u.starC, hex(pl.star || '#f7f1e1'));
@@ -468,8 +475,9 @@ function createSwirl2(gl, opts = {}) {
   }
   // switching paint mode: start the ink from the current bands so nothing jumps
   function set(params) {
-    const wasInk = o.paint === 'ink';
+    const wasInk = o.paint === 'ink', fillWas = o.fill;
     Object.assign(o, params);
+    if (o.fill !== fillWas) { reset(); return; }   // the starting picture differs (noise fills start unswirled)
     if (o.paint === 'ink' && !wasInk) { renderBands(S.P.read, S.ink.read, time, false); blit(S.ink.read); }
   }
   function resize(w, h) { o.width = w; o.height = h; alloc(); }

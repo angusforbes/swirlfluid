@@ -102,7 +102,7 @@ const PRESETS = Object.keys(SWIRL2_PRESETS), PALS = Object.keys(SWIRL2_PALETTES)
 const PROFILES = Object.keys(AUTOMATA_PROFILES), BGS = Object.keys(AUTOMATA_BGS);
 const coarse = matchMedia('(pointer: coarse)').matches;
 const FILLS = SWIRL2_FILLS;
-const BASE = { fill: 'bands', freq: 3, palette: 'ocean', saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, wash: false, facets: false, jitter: 0 };
+const BASE = { fill: 'bands', cell: 6, freq: 3, palette: 'ocean', saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, wash: false, facets: false, jitter: 0 };
 // the knobs: [key, label, min, max, step, format]
 const KNOBS = [
   ['fluidity', 'fluidity', 0.9, 0.999, 0.001, v => v.toFixed(3)],
@@ -118,6 +118,7 @@ const KNOBS = [
   ['carry', 'carry', 0, 1.5, 0.05, v => v.toFixed(2)],
   ['crisp', 'crisp ink', 0, 0.3, 0.005, v => v.toFixed(3)],
   ['freq', 'bands', 1, 6, 0.1, v => v.toFixed(1)],
+  ['cell', 'squares', 1, 80, 1, v => v + ' px'],
   ['cycle', 'colour drift', 0, 0.3, 0.01, v => v.toFixed(2)],
 ];
 const FLUID_KNOBS = [
@@ -173,7 +174,7 @@ function fail(msg) { const el = $('err'); el.textContent = msg; el.style.display
 if (!gl) fail('This needs WebGL2, which this browser does not offer.');
 { const [w, h] = size(); canvas.width = w; canvas.height = h; }
 function getSwirl() {
-  if (!swirl) swirl = createSwirl2(gl, Object.assign({ width: canvas.width, height: canvas.height, simRes: coarse ? 128 : 160 },
+  if (!swirl) swirl = createSwirl2(gl, Object.assign({ width: canvas.width, height: canvas.height, cssHeight: innerHeight, simRes: coarse ? 128 : 160 },
     presetOpts(preset), engine === 'swirl' ? urlOverrides(KNOBS) : {}));
   return swirl;
 }
@@ -242,7 +243,7 @@ function setEngine(e) {
   if (e === engine) return;
   engine = e; const x = cur(); x.reset(); sync();
 }
-function applyPreset(n) { preset = n; engine = 'swirl'; const fill = getSwirl().opts.fill; swirl.set(Object.assign(presetOpts(n), { fill })); swirl.reset(); sync(); }   // the fill stays as you chose it
+function applyPreset(n) { preset = n; engine = 'swirl'; const { fill, cell } = getSwirl().opts; swirl.set(Object.assign(presetOpts(n), { fill, cell })); swirl.reset(); sync(); }   // the fill stays as you chose it
 function applyProfile(n) {
   const a = getAuto(), keepBg = a.opts.bg, user = AUTOMATA_BGS[keepBg]?.mode === 4;   // keep your camera / image
   profile = n; engine = 'automata';
@@ -392,7 +393,7 @@ wake();
 
 let resizeT;
 addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => {
-  const [w, h] = size(); canvas.width = w; canvas.height = h; swirl?.resize(w, h); auto?.resize(w, h); }, 200); });
+  const [w, h] = size(); canvas.width = w; canvas.height = h; swirl?.set({ cssHeight: innerHeight }); swirl?.resize(w, h); auto?.resize(w, h); }, 200); });
 
 let prev = performance.now(), t0 = prev;
 function frame(now) {

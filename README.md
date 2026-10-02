@@ -32,8 +32,10 @@ or `?engine=automata&profile=Milky%20Way&blend=0.9`.
 Nine presets: Poster, Tar, Ice Cracks, Cubism, Silk, Kaleidoscope, Jupiter, Watercolour, Milky Way.
 
 **fill** sets what the swirl engine stirs: **bands** (poster bands), **field** (smooth noise through the palette),
-**blobs** (posterized noise with ink outlines), **grain** (fine noise, one palette colour per cell) or **colour noise**
-(full-colour static, like the automata's default). The fill stays when you change preset; the palette colours it.
+**blobs** (posterized noise with ink outlines), **squares** (a grid of squares, each a random palette colour) or
+**colour noise** (squares in random full colours). The **squares** slider sets their size, 1 to 80 px. Noise fills start
+straight (no swirl warp); every reset draws new noise, and the bands get a new random swirl layout. The fill and square
+size stay when you change preset; the palette colours them. Try `?preset=Ice%20Cracks&fill=squares&cell=24`.
 The knobs take ideas from [Fluid Automata](https://github.com/CreativeCodingLab/FluidAutomataJS)
 (Forbes, Höllerer, Legrady, *Generative fluid profiles for interactive media arts projects*, CAe 2013), reworked
 for this renderer:
