@@ -20,6 +20,7 @@ Two engines share the page: **swirl** (the poster fluid, with Ice Cracks, Cubism
 | swap engine | `e` or click a row's label | tap the other row's label |
 | background / vectors (automata) | `b` / `v`, or drop an image | buttons in **tune** |
 | palette | `p` or the dots in **tune** | dots in **tune** |
+| fill (what gets stirred) | `f` or the **fill** buttons in **tune** | **fill** buttons in **tune** |
 | tune panel | `t` | **tune** button |
 | reset / save PNG / hide help | `space` / `s` / `h` | buttons in **tune**; tap to bring the help back |
 
@@ -29,6 +30,10 @@ or `?engine=automata&profile=Milky%20Way&blend=0.9`.
 ## Presets and knobs
 
 Nine presets: Poster, Tar, Ice Cracks, Cubism, Silk, Kaleidoscope, Jupiter, Watercolour, Milky Way.
+
+**fill** sets what the swirl engine stirs: **bands** (poster bands), **field** (smooth noise through the palette),
+**blobs** (posterized noise with ink outlines), **grain** (fine noise, one palette colour per cell) or **colour noise**
+(full-colour static, like the automata's default). The fill stays when you change preset; the palette colours it.
 The knobs take ideas from [Fluid Automata](https://github.com/CreativeCodingLab/FluidAutomataJS)
 (Forbes, Höllerer, Legrady, *Generative fluid profiles for interactive media arts projects*, CAe 2013), reworked
 for this renderer:

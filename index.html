@@ -58,6 +58,7 @@
 <div id="tune" class="panel">
   <div id="swirlTune">
     <h4>palette</h4><div class="dots" id="dots"></div>
+    <h4>fill</h4><div class="row bgs" id="fills"></div>
     <div id="sliders"></div>
     <div class="row">
       <button id="fluidsBtn" title="on: motion carries itself along, like a liquid. off: it stays where you put it">fluids</button>
@@ -82,7 +83,7 @@
 </div>
 <div id="help" class="panel">
   <span class="mouse">drag to stir · hold <kbd>shift</kbd>+<kbd>→</kbd> / <kbd>shift</kbd>+<kbd>←</kbd> to spin a whirlpool under the cursor<br>
-  <kbd>1</kbd>–<kbd>9</kbd> presets · <kbd>e</kbd> swap engine · <kbd>t</kbd> tune · <kbd>space</kbd> reset · <kbd>s</kbd> save · <kbd>h</kbd> hide<span class="swirlOnly"> · <kbd>p</kbd> palette</span><span class="autoOnly"> · <kbd>b</kbd> background · <kbd>v</kbd> vectors · drop an image to smear it</span></span>
+  <kbd>1</kbd>–<kbd>9</kbd> presets · <kbd>e</kbd> swap engine · <kbd>t</kbd> tune · <kbd>space</kbd> reset · <kbd>s</kbd> save · <kbd>h</kbd> hide<span class="swirlOnly"> · <kbd>p</kbd> palette · <kbd>f</kbd> fill</span><span class="autoOnly"> · <kbd>b</kbd> background · <kbd>v</kbd> vectors · drop an image to smear it</span></span>
   <span class="touch">one finger stirs · press and hold to spin · twist two fingers to spin either way · tap to bring this back</span>
   <div class="rowlabel" id="swirlLabel">swirl</div><div class="presets" id="presets"></div>
   <div class="rowlabel" id="autoLabel">fluid automata</div><div class="presets" id="profiles"></div>
@@ -100,7 +101,8 @@ const help = $('help'), tune = $('tune'), tuneBtn = $('tuneBtn');
 const PRESETS = Object.keys(SWIRL2_PRESETS), PALS = Object.keys(SWIRL2_PALETTES);
 const PROFILES = Object.keys(AUTOMATA_PROFILES), BGS = Object.keys(AUTOMATA_BGS);
 const coarse = matchMedia('(pointer: coarse)').matches;
-const BASE = { freq: 3, palette: 'ocean', saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, wash: false, facets: false, jitter: 0 };
+const FILLS = SWIRL2_FILLS;
+const BASE = { fill: 'bands', freq: 3, palette: 'ocean', saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, wash: false, facets: false, jitter: 0 };
 // the knobs: [key, label, min, max, step, format]
 const KNOBS = [
   ['fluidity', 'fluidity', 0.9, 0.999, 0.001, v => v.toFixed(3)],
@@ -151,6 +153,7 @@ function urlOverrides(knobs) {
   if (q.has('fluids')) o.fluids = q.get('fluids') !== '0';
   if (engine === 'swirl') {
     if (PALS.includes(q.get('palette'))) o.palette = q.get('palette');
+    if (FILLS.includes(q.get('fill'))) o.fill = q.get('fill');
     if (q.has('facets')) o.facets = q.get('facets') !== '0';
     if (q.has('wash')) o.wash = q.get('wash') !== '0';
     if (['ink', 'bands'].includes(q.get('paint'))) o.paint = q.get('paint');
@@ -190,6 +193,7 @@ function buttons(el, names, onclick) {
 buttons($('presets'), PRESETS, n => applyPreset(n));
 buttons($('profiles'), PROFILES, n => applyProfile(n));
 buttons($('bgs'), BGS, n => setBg(n));
+buttons($('fills'), FILLS, n => { swirl.set({ fill: n }); sync(); });
 $('swirlLabel').onclick = () => applyPreset(preset); $('autoLabel').onclick = () => applyProfile(profile);
 const dots = $('dots');
 for (const n of PALS) {
@@ -229,6 +233,7 @@ function sync() {
     $('aFluidsBtn').classList.toggle('on', !!o.fluids); $('torusBtn').classList.toggle('on', !!o.torus); $('vecBtn').classList.toggle('on', !!o.vectors);
   } else {
     [...dots.children].forEach(d => d.classList.toggle('on', d.dataset.n === o.palette));
+    [...$('fills').children].forEach(b => b.classList.toggle('on', b.textContent === o.fill));
     $('fluidsBtn').classList.toggle('on', !!o.fluids); $('inkBtn').classList.toggle('on', o.paint === 'ink');
     $('washBtn').classList.toggle('on', !!o.wash); $('facetBtn').classList.toggle('on', !!o.facets);
   }
@@ -237,7 +242,7 @@ function setEngine(e) {
   if (e === engine) return;
   engine = e; const x = cur(); x.reset(); sync();
 }
-function applyPreset(n) { preset = n; engine = 'swirl'; getSwirl().set(presetOpts(n)); swirl.reset(); sync(); }
+function applyPreset(n) { preset = n; engine = 'swirl'; const fill = getSwirl().opts.fill; swirl.set(Object.assign(presetOpts(n), { fill })); swirl.reset(); sync(); }   // the fill stays as you chose it
 function applyProfile(n) {
   const a = getAuto(), keepBg = a.opts.bg, user = AUTOMATA_BGS[keepBg]?.mode === 4;   // keep your camera / image
   profile = n; engine = 'automata';
@@ -272,6 +277,7 @@ function shareURL() {
   if (engine === 'swirl') {
     const d = presetOpts(preset); p.set('preset', preset); diff(KNOBS, d);
     if (o.palette !== d.palette) p.set('palette', o.palette);
+    if (o.fill !== 'bands') p.set('fill', o.fill);
     if (o.paint !== d.paint) p.set('paint', o.paint);
     flag('fluids', 'fluids', d); flag('facets', 'facets', d); flag('wash', 'wash', d);
   } else {
@@ -363,6 +369,7 @@ addEventListener('keydown', e => {
   if (e.key >= '1' && e.key <= '9' && list[+e.key - 1]) (A ? applyProfile : applyPreset)(list[+e.key - 1]);
   else if (e.key === 'e') A ? applyPreset(preset) : applyProfile(profile);
   else if (e.key === 'p' && !A) { swirl.set({ palette: PALS[(PALS.indexOf(swirl.opts.palette) + 1) % PALS.length] }); sync(); }
+  else if (e.key === 'f' && !A) { swirl.set({ fill: FILLS[(FILLS.indexOf(swirl.opts.fill) + 1) % FILLS.length] }); sync(); }
   else if (e.key === 'b' && A) { const n = BGS.filter(k => AUTOMATA_BGS[k].mode !== 4); setBg(n[(n.indexOf(auto.opts.bg) + 1) % n.length]); }
   else if (e.key === 'v' && A) { auto.set({ vectors: !auto.opts.vectors }); sync(); }
   else if (e.key === 't') toggleTune();

@@ -18,6 +18,8 @@
 //               'ink': a colour image is smeared with feedback (brightness, contrast, saturation per frame)
 // Classic script: defines createSwirl2(gl, opts), SWIRL2_PALETTES, SWIRL2_PRESETS.
 
+// what the fluid stirs: poster bands, or a noise field coloured by the palette
+const SWIRL2_FILLS = ['bands', 'field', 'blobs', 'grain', 'colour noise'];
 const SWIRL2_PALETTES = {
   ocean:  { pal: ['#0d1b2a', '#1b4965', '#5fa8d3', '#f4d35e', '#ee964b'], seq: [0, 1, 0, 2, 1, 0, 3, 4], outline: '#08121c' },
   dusk:   { pal: ['#1d1a3a', '#4b3a78', '#c86b8a', '#f2b880', '#7a5aa6'], seq: [0, 1, 0, 2, 1, 0, 3, 4], outline: '#12102a' },
@@ -61,6 +63,10 @@ function createSwirl2(gl, opts = {}) {
   float hash(vec2 p){ p=fract(p*vec2(123.34,456.21)); p+=dot(p,p+45.32); return fract(p.x*p.y); }
   float vnoise(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.-2.*f);
     return mix(mix(hash(i),hash(i+vec2(1,0)),f.x), mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x), f.y); }
+  // integer hash for the noise fills: random everywhere (no repeating tiles)
+  uint ih(uint x){ x^=x>>16; x*=0x7feb352du; x^=x>>15; x*=0x846ca68bu; x^=x>>16; return x; }
+  float rnd(vec2 c, float k){ uvec2 u=uvec2(ivec2(floor(c))+ivec2(65536)); return float(ih(u.x^ih(u.y^ih(uint(k)))))/4294967295.; }
+  float fbm(vec2 p){ float f=0., a=.55; for(int i=0;i<5;i++){ f+=a*vnoise(p); p=p*2.03+vec2(7.1,3.7); a*=.5; } return f; }
   mat2 rot(float a){ return mat2(cos(a),sin(a),-sin(a),cos(a)); }
   `;
   const INIT = `
@@ -153,7 +159,7 @@ function createSwirl2(gl, opts = {}) {
       void main(){ vec3 c=mix(texture(uFresh,vUv).rgb, texture(uSrc,uv2()).rgb, blend);
         c=mix(vec3(dot(c,vec3(.2125,.7154,.0721))),c,sat); c*=bright; c=mix(vec3(.5),c,contrast);
         o=vec4(clamp(crisp(c),0.,1.),1.); }`,
-    display: `uniform sampler2D uP, uInk; uniform float time, freq, cycle, seqLen, inkOn, starsOn, wash; uniform vec2 dir, res;
+    display: `uniform sampler2D uP, uInk; uniform float time, freq, cycle, seqLen, inkOn, starsOn, wash, fill; uniform vec2 dir, res;
       uniform vec3 pal[5]; uniform float seq[8]; uniform vec3 outline, starC;
       vec3 colAt(float k){ int i=int(mod(k,seqLen)); return pal[int(seq[i])]; }
       void main(){
@@ -161,7 +167,10 @@ function createSwirl2(gl, opts = {}) {
         if(inkOn>.5) col=texture(uInk,vUv).rgb;
         else {
           vec2 p=texture(uP,vUv).xy;
-          float b=(dot(p,dir)+(vnoise(p*1.2)-.5)*.35)*freq;
+          // fill: 0 bands, 1 field (smooth noise), 2 blobs (posterized noise), 3 grain (palette noise), 4 colour noise
+          float b = fill<.5 ? (dot(p,dir)+(vnoise(p*1.2)-.5)*.35)*freq
+                  : fill<2.5 ? fbm(p*(.35+.25*freq)+3.3)*(2.+2.*freq)
+                  : floor(rnd(p*(30.+25.*freq),1.)*8.)+.5;
           float k=floor(b);
           // every band runs its own colour clock, so parts of the fluid change colour at different times
           float hk=hash(vec2(k*.731,3.17));
@@ -169,7 +178,12 @@ function createSwirl2(gl, opts = {}) {
           float sh=floor(ph);
           col=mix(colAt(k+sh), colAt(k+sh+1.), smoothstep(.97,1.,fract(ph)));
           float fr=fract(b), w=fwidth(b);
-          if(wash>.5){
+          if(fill>3.5){ vec2 c=p*(30.+25.*freq); col=vec3(rnd(c,2.),rnd(c,3.),rnd(c,4.)); }
+          else if(fill>2.5){}   // grain: one palette colour per cell, no outlines
+          else if(fill>.5&&fill<1.5){   // field: soft gradients between the palette levels, a little paper grain
+            vec3 nxt=mix(colAt(k+1.+sh), colAt(k+2.+sh), smoothstep(.97,1.,fract(ph)));
+            col=mix(col,nxt,smoothstep(.15,.85,fr))*(.95+.08*vnoise(p*40.));
+          } else if(wash>.5){
             // watercolour: no ink outline; the next colour bleeds in softly, pigment pools darker along each edge,
             // granulates inside the band, and paper grain shows through
             vec3 nxt=mix(colAt(k+1.+sh), colAt(k+2.+sh), smoothstep(.97,1.,fract(ph)));
@@ -268,7 +282,7 @@ function createSwirl2(gl, opts = {}) {
     const u = use('display', target || { w: o.width, h: o.height });
     gl.uniform1i(u.uP, tex(0, src)); gl.uniform1i(u.uInk, tex(1, S.div));   // placeholder: never sample the target
     gl.uniform1f(u.inkOn, 0); gl.uniform1f(u.starsOn, stars && !o.wash ? 1 : 0); gl.uniform1f(u.wash, o.wash ? 1 : 0);
-    gl.uniform1f(u.time, t); gl.uniform1f(u.freq, o.freq);
+    gl.uniform1f(u.time, t); gl.uniform1f(u.freq, o.freq); gl.uniform1f(u.fill, Math.max(0, SWIRL2_FILLS.indexOf(o.fill)));
     gl.uniform1f(u.cycle, o.cycle); gl.uniform2f(u.dir, o.dir[0], o.dir[1]); gl.uniform2f(u.res, o.width, o.height);
     gl.uniform3fv(u.pal, new Float32Array(pl.pal.flatMap(hex))); gl.uniform1fv(u.seq, new Float32Array(pl.seq));
     gl.uniform1f(u.seqLen, pl.seq.length); gl.uniform3fv(u.outline, hex(pl.outline)); gl.uniform3fv(u.starC, hex(pl.star || '#f7f1e1'));
@@ -462,4 +476,4 @@ function createSwirl2(gl, opts = {}) {
   alloc();
   return { step, render, splat, reset, resize, set, opts: o };
 }
-if (typeof window !== 'undefined') { window.createSwirl2 = createSwirl2; window.SWIRL2_PALETTES = SWIRL2_PALETTES; window.SWIRL2_PRESETS = SWIRL2_PRESETS; }
+if (typeof window !== 'undefined') { window.createSwirl2 = createSwirl2; window.SWIRL2_PALETTES = SWIRL2_PALETTES; window.SWIRL2_PRESETS = SWIRL2_PRESETS; window.SWIRL2_FILLS = SWIRL2_FILLS; }
