@@ -7,6 +7,9 @@ Stir a posterized swirl fluid in your browser. **Live: https://angusforbes.githu
 Flat poster-coloured swirl bands painted onto a real fluid simulation: stirring marbles them like paper, and when
 left alone the picture slowly heals back to its original pattern. Each colour band changes colour on its own clock.
 
+Two engines share the page: **swirl** (the poster fluid, with Ice Cracks, Cubism, Silk, ...) and **fluid automata**
+(an 8-bit energy automaton smearing a background, see below). Pick a preset from either row; `e` swaps engines.
+
 ## Controls
 
 | | desktop | phone / tablet |
@@ -14,11 +17,14 @@ left alone the picture slowly heals back to its original pattern. Each colour ba
 | stir | drag | one finger |
 | spin a whirlpool | hold `Shift`+`→` (clockwise) or `Shift`+`←` (anticlockwise); spins under the cursor | press and hold still; or twist two fingers (either way) |
 | presets | `1`–`9` or the buttons | buttons |
+| swap engine | `e` or click a row's label | tap the other row's label |
+| background / vectors (automata) | `b` / `v`, or drop an image | buttons in **tune** |
 | palette | `p` or the dots in **tune** | dots in **tune** |
 | tune panel | `t` | **tune** button |
 | reset / save PNG / hide help | `space` / `s` / `h` | buttons in **tune**; tap to bring the help back |
 
-**copy link** in the tune panel copies a URL with your settings, e.g. `?preset=Jupiter&palette=sea&curl=12`.
+**copy link** in the tune panel copies a URL with your settings, e.g. `?preset=Jupiter&palette=sea&curl=12`
+or `?engine=automata&profile=Milky%20Way&blend=0.9`.
 
 ## Presets and knobs
 
@@ -49,16 +55,17 @@ of dye it carries a texture of *material coordinates*; the display shader turns 
 bands with outlines, so the bands stay crisp however much they are stirred. Ink mode carries a colour image instead.
 No dependencies or build step: open `index.html` straight from disk. The first version lives at [`classic/`](classic/).
 
-## Fluid Automata ([`automata/`](automata/))
+## Fluid Automata engine ([`automata.js`](automata.js))
 
 A loose re-creation of Fluid Automata (Forbes, Höllerer, Legrady, CAe 2013) on the GPU: a grid of 8-bit energy
 vectors (256 orientations x 256 magnitudes); each step a cell's energy splits into forward / left / right streams
 (forward share, left:right split, angularity), each stream displaces a copy of the cell and hands partials to the cells
 it overlaps, then everything is damped (fluidity). Optional max outflow, jitter, wrap-around or bouncing walls. The
 image is a feedback loop: the previous frame distorted by the field, blended with a background (colour / grey / b&w
-noise, palette noise fields, live noise, camera, or a dropped image), then saturation, brightness and contrast.
+noise, palette noise fields, the swirl's poster bands, live noise, camera, or a dropped image), then saturation, brightness and contrast.
 Profiles are the original JS presets plus a few from the paper (fine grids, max outflow, jitter, low-res b/w smear).
-`v` shows the vectors.
+`v` shows the vectors. The noise uses an integer hash, so it stays random across the whole screen. The old
+`automata/` address forwards here.
 
 ## Licence
 

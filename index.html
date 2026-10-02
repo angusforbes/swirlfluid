@@ -20,7 +20,13 @@
   #help { left: 16px; bottom: calc(14px + env(safe-area-inset-bottom)); padding: 10px 14px; max-width: min(520px, calc(100vw - 60px)); }
   #help kbd { font: inherit; padding: 0 5px; border: 1px solid #e9e4d866; border-radius: 4px; }
   #help a { color: inherit; }
-  #presets { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .presets { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+  .rowlabel { margin-top: 8px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; opacity: .55; }
+  .rowlabel { cursor: pointer; }
+  .rowlabel.cur { opacity: 1; color: #f4d35e; }
+  @media (pointer: coarse) { .presets.idle { display: none; } .rowlabel:not(.cur)::after { content: ' ▸ tap to switch'; } }
+  .hide { display: none !important; }
+  #tune .bgs button { padding: 2px 8px; font-size: 12px; }
   button { font: inherit; color: #e9e4d8; background: #ffffff14; border: 1px solid #e9e4d833; border-radius: 999px;
            padding: 3px 10px; cursor: pointer; }
   button.on { background: #e9e4d8; color: #0b0f1a; }
@@ -48,32 +54,51 @@
 </head>
 <body>
 <canvas id="c"></canvas>
-<button id="tuneBtn" title="tune the fluid (t)">tune</button>
+<button id="tuneBtn" title="tune (t)">tune</button>
 <div id="tune" class="panel">
-  <h4>palette</h4><div class="dots" id="dots"></div>
-  <div id="sliders"></div>
-  <div class="row">
-    <button id="fluidsBtn" title="on: motion carries itself along, like a liquid. off: it stays where you put it">fluids</button>
-    <button id="inkBtn" title="ink: colours smear and blend. bands: crisp poster bands forever">ink</button>
-    <button id="facetBtn" title="lattice: each triangle moves its piece rigidly, like cut planes">facets</button>
-    <button id="washBtn" title="draw the bands as watercolour instead of poster">wash</button>
+  <div id="swirlTune">
+    <h4>palette</h4><div class="dots" id="dots"></div>
+    <div id="sliders"></div>
+    <div class="row">
+      <button id="fluidsBtn" title="on: motion carries itself along, like a liquid. off: it stays where you put it">fluids</button>
+      <button id="inkBtn" title="ink: colours smear and blend. bands: crisp poster bands forever">ink</button>
+      <button id="facetBtn" title="lattice: each triangle moves its piece rigidly, like cut planes">facets</button>
+      <button id="washBtn" title="draw the bands as watercolour instead of poster">wash</button>
+    </div>
+  </div>
+  <div id="autoTune" class="hide">
+    <h4>background</h4><div class="row bgs" id="bgs"></div>
+    <h4>fluid</h4><div id="fluidSliders"></div>
+    <h4>image</h4><div id="imageSliders"></div>
+    <div class="row">
+      <button id="aFluidsBtn" title="on: energy flows from cell to cell. off: it stays where you put it">fluids</button>
+      <button id="torusBtn" title="on: the edges wrap around. off: energy bounces off the walls">wrap</button>
+      <button id="vecBtn" title="draw the energy vectors (v)">vectors</button>
+    </div>
+    <input type="file" id="file" accept="image/*" hidden>
   </div>
   <div class="row"><button id="shareBtn">copy link</button><button id="saveBtn">save PNG</button><button id="resetBtn2">reset</button></div>
-  <p>Ideas borrowed from <a href="https://github.com/CreativeCodingLab/FluidAutomataJS" style="color:inherit">Fluid Automata</a>. <a href="automata/" style="color:inherit">fluid automata</a> · <a href="classic/" style="color:inherit">classic version</a> · <a href="https://github.com/angusforbes/swirlfluid" style="color:inherit">source</a></p>
+  <p>Ideas borrowed from <a href="https://github.com/CreativeCodingLab/FluidAutomataJS" style="color:inherit">Fluid Automata</a>. <a href="classic/" style="color:inherit">classic version</a> · <a href="https://github.com/angusforbes/swirlfluid" style="color:inherit">source</a></p>
 </div>
 <div id="help" class="panel">
   <span class="mouse">drag to stir · hold <kbd>shift</kbd>+<kbd>→</kbd> / <kbd>shift</kbd>+<kbd>←</kbd> to spin a whirlpool under the cursor<br>
-  <kbd>1</kbd>–<kbd>9</kbd> presets · <kbd>p</kbd> palette · <kbd>t</kbd> tune · <kbd>space</kbd> reset · <kbd>s</kbd> save · <kbd>h</kbd> hide</span>
+  <kbd>1</kbd>–<kbd>9</kbd> presets · <kbd>e</kbd> swap engine · <kbd>t</kbd> tune · <kbd>space</kbd> reset · <kbd>s</kbd> save · <kbd>h</kbd> hide<span class="swirlOnly"> · <kbd>p</kbd> palette</span><span class="autoOnly"> · <kbd>b</kbd> background · <kbd>v</kbd> vectors · drop an image to smear it</span></span>
   <span class="touch">one finger stirs · press and hold to spin · twist two fingers to spin either way · tap to bring this back</span>
-  <div id="presets"></div>
+  <div class="rowlabel" id="swirlLabel">swirl</div><div class="presets" id="presets"></div>
+  <div class="rowlabel" id="autoLabel">fluid automata</div><div class="presets" id="profiles"></div>
 </div>
 <div id="err"></div>
 <script src="swirl2.js"></script>
+<script src="automata.js"></script>
 <script>
+// Two engines on one canvas: "swirl" (swirl2.js: a velocity fluid that paints poster bands, ink, facets...) and
+// "fluid automata" (automata.js: an 8-bit energy automaton that smears a background image). Only one runs at a time.
 const canvas = document.getElementById('c');
-const gl = canvas.getContext('webgl2', { antialias: false, preserveDrawingBuffer: true });
-const help = document.getElementById('help'), tune = document.getElementById('tune'), tuneBtn = document.getElementById('tuneBtn');
+const gl = canvas.getContext('webgl2', { antialias: false, preserveDrawingBuffer: true, alpha: false });
+const $ = id => document.getElementById(id);
+const help = $('help'), tune = $('tune'), tuneBtn = $('tuneBtn');
 const PRESETS = Object.keys(SWIRL2_PRESETS), PALS = Object.keys(SWIRL2_PALETTES);
+const PROFILES = Object.keys(AUTOMATA_PROFILES), BGS = Object.keys(AUTOMATA_BGS);
 const coarse = matchMedia('(pointer: coarse)').matches;
 const BASE = { freq: 3, palette: 'ocean', saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, wash: false, facets: false, jitter: 0 };
 // the knobs: [key, label, min, max, step, format]
@@ -93,98 +118,191 @@ const KNOBS = [
   ['freq', 'bands', 1, 6, 0.1, v => v.toFixed(1)],
   ['cycle', 'colour drift', 0, 0.3, 0.01, v => v.toFixed(2)],
 ];
+const FLUID_KNOBS = [
+  ['grid', 'grid', 4, 160, 1, v => v + ' rows'],
+  ['forward', 'forward', 0, 1, 0.01, v => Math.round(v * 100) + '%'],
+  ['dir', 'left / right', 0, 1, 0.01, v => Math.round((1 - v) * 100) + ':' + Math.round(v * 100)],
+  ['ang', 'angularity', 0, Math.PI, 0.01, v => Math.round(v * 180 / Math.PI) + '°'],
+  ['fluidity', 'fluidity', 0.85, 1, 0.0005, v => v.toFixed(4)],
+  ['maxOut', 'max outflow', 0.02, 1, 0.01, v => v >= 1 ? 'none' : v.toFixed(2)],
+  ['jitter', 'jitter', 0, 2, 0.01, v => v.toFixed(2)],
+  ['sens', 'sensitivity', 0.02, 1, 0.01, v => v.toFixed(2)],
+];
+const IMAGE_KNOBS = [
+  ['energy', 'energy', 0, 1, 0.005, v => v.toFixed(3)],
+  ['blend', 'blend', 0, 0.995, 0.001, v => v.toFixed(3)],
+  ['bright', 'brightness', 0.8, 1.25, 0.001, v => v.toFixed(3)],
+  ['contrast', 'contrast', 0.8, 1.3, 0.001, v => v.toFixed(3)],
+  ['sat', 'saturation', 0, 1.4, 0.005, v => v.toFixed(3)],
+];
+const A_KNOBS = FLUID_KNOBS.concat(IMAGE_KNOBS);
 
-// state from the URL: ?preset=Jupiter&palette=dusk&curl=8 ...
+// state from the URL: ?preset=Poster&palette=dusk&curl=8 (swirl) or ?engine=automata&profile=Milky%20Way&blend=.9
 const q = new URLSearchParams(location.search);
-let preset = PRESETS.find(p => p.toLowerCase() === (q.get('preset') || '').toLowerCase()) || 'Poster';
-function presetOpts(name) { return Object.assign({}, BASE, SWIRL2_PRESETS[name]); }
-function urlOverrides() {
+const find = (list, n) => list.find(p => p.toLowerCase() === (n || '').toLowerCase());
+let engine = q.get('engine') === 'automata' || find(PROFILES, q.get('profile')) ? 'automata' : 'swirl';
+let preset = find(PRESETS, q.get('preset')) || 'Poster';
+let profile = find(PROFILES, q.get('profile')) || 'Watercolors';
+const presetOpts = n => Object.assign({}, BASE, SWIRL2_PRESETS[n]);
+const profileOpts = n => Object.assign({}, AUTOMATA_PROFILES[n]);
+function urlOverrides(knobs) {
   const o = {};
-  for (const [k] of KNOBS) if (q.has(k) && !isNaN(+q.get(k))) o[k] = +q.get(k);
-  if (PALS.includes(q.get('palette'))) o.palette = q.get('palette');
-  if (q.has('facets')) o.facets = q.get('facets') !== '0';
-  if (q.has('wash')) o.wash = q.get('wash') !== '0';
+  for (const [k] of knobs) if (q.has(k) && !isNaN(+q.get(k))) o[k] = +q.get(k);
   if (q.has('fluids')) o.fluids = q.get('fluids') !== '0';
-  if (['ink', 'bands'].includes(q.get('paint'))) o.paint = q.get('paint');
+  if (engine === 'swirl') {
+    if (PALS.includes(q.get('palette'))) o.palette = q.get('palette');
+    if (q.has('facets')) o.facets = q.get('facets') !== '0';
+    if (q.has('wash')) o.wash = q.get('wash') !== '0';
+    if (['ink', 'bands'].includes(q.get('paint'))) o.paint = q.get('paint');
+  } else {
+    if (AUTOMATA_BGS[q.get('bg')] && AUTOMATA_BGS[q.get('bg')].mode !== 4) o.bg = q.get('bg');
+    if (q.has('wrap')) o.torus = q.get('wrap') !== '0';
+  }
   return o;
 }
 
-let swirl;
 function size() {
   const dpr = Math.min(window.devicePixelRatio || 1, coarse ? 1.5 : 2);   // phones: fewer pixels, smoother
   return [Math.round(innerWidth * dpr), Math.round(innerHeight * dpr)];
 }
-try {
-  if (!gl) throw new Error('This needs WebGL2, which this browser does not offer.');
-  const [w, h] = size(); canvas.width = w; canvas.height = h;
-  swirl = createSwirl2(gl, Object.assign({ width: w, height: h, simRes: coarse ? 128 : 160 }, presetOpts(preset), urlOverrides()));
-} catch (e) {
-  const el = document.getElementById('err'); el.textContent = e.message; el.style.display = 'grid'; throw e;
+let swirl = null, auto = null;   // created when first used
+function fail(msg) { const el = $('err'); el.textContent = msg; el.style.display = 'grid'; throw new Error(msg); }
+if (!gl) fail('This needs WebGL2, which this browser does not offer.');
+{ const [w, h] = size(); canvas.width = w; canvas.height = h; }
+function getSwirl() {
+  if (!swirl) swirl = createSwirl2(gl, Object.assign({ width: canvas.width, height: canvas.height, simRes: coarse ? 128 : 160 },
+    presetOpts(preset), engine === 'swirl' ? urlOverrides(KNOBS) : {}));
+  return swirl;
 }
-const o = swirl.opts;
+function getAuto() {
+  if (!auto) auto = createAutomata(gl, Object.assign({ width: canvas.width, height: canvas.height }, profileOpts(profile),
+    engine === 'automata' ? urlOverrides(A_KNOBS) : {}));
+  return auto;
+}
+const cur = () => engine === 'swirl' ? getSwirl() : getAuto();
+try { cur(); } catch (e) { fail(e.message); }
 
 // ---- panel ----
-const presetsEl = document.getElementById('presets');
-PRESETS.forEach((n, i) => { const b = document.createElement('button'); b.textContent = n; b.title = `preset ${i + 1}`;
-  b.onclick = () => applyPreset(n); presetsEl.appendChild(b); });
-const dots = document.getElementById('dots');
+function buttons(el, names, onclick) {
+  names.forEach((n, i) => { const b = document.createElement('button'); b.textContent = n; if (i < 9) b.title = `${i + 1}`;
+    b.onclick = () => onclick(n); el.appendChild(b); });
+}
+buttons($('presets'), PRESETS, n => applyPreset(n));
+buttons($('profiles'), PROFILES, n => applyProfile(n));
+buttons($('bgs'), BGS, n => setBg(n));
+$('swirlLabel').onclick = () => applyPreset(preset); $('autoLabel').onclick = () => applyProfile(profile);
+const dots = $('dots');
 for (const n of PALS) {
   const d = document.createElement('div'); d.className = 'dot'; d.dataset.n = n; d.title = n;
   const p = SWIRL2_PALETTES[n].pal; d.style.background = `conic-gradient(${p[0]} 0 40%, ${p[2]} 0 60%, ${p[3]} 0 80%, ${p[4]} 0)`;
   d.onclick = () => { swirl.set({ palette: n }); sync(); }; dots.appendChild(d);
 }
-const sliders = document.getElementById('sliders'), inputs = {};
-for (const [k, label, min, max, step, fmt] of KNOBS) {
-  const l = document.createElement('label');
-  l.innerHTML = `<span>${label}</span><input type="range" min="${min}" max="${max}" step="${step}"><output></output>`;
-  const inp = l.querySelector('input'), out = l.querySelector('output');
-  inp.oninput = () => { swirl.set({ [k]: +inp.value }); out.textContent = fmt(+inp.value); };
-  inputs[k] = { inp, out, fmt }; sliders.appendChild(l);
+const inputs = { swirl: {}, automata: {} };
+function sliders(knobs, el, which) {
+  for (const [k, label, min, max, step, fmt] of knobs) {
+    const l = document.createElement('label');
+    l.innerHTML = `<span>${label}</span><input type="range" min="${min}" max="${max}" step="${step}"><output></output>`;
+    const inp = l.querySelector('input'), out = l.querySelector('output');
+    inp.oninput = () => { cur().set({ [k]: +inp.value }); out.textContent = fmt(+inp.value); };
+    inputs[which][k] = { inp, out, fmt }; el.appendChild(l);
+  }
 }
-const fluidsBtn = document.getElementById('fluidsBtn'), inkBtn = document.getElementById('inkBtn');
-fluidsBtn.onclick = () => { swirl.set({ fluids: !o.fluids }); sync(); };
-document.getElementById('facetBtn').onclick = () => { swirl.set({ facets: !o.facets }); sync(); };
-document.getElementById('washBtn').onclick = () => { swirl.set({ wash: !o.wash }); sync(); };
-inkBtn.onclick = () => { swirl.set({ paint: o.paint === 'ink' ? 'bands' : 'ink' }); sync(); };
+sliders(KNOBS, $('sliders'), 'swirl');
+sliders(FLUID_KNOBS, $('fluidSliders'), 'automata'); sliders(IMAGE_KNOBS, $('imageSliders'), 'automata');
+const toggle = (id, key, eng) => $(id).onclick = () => { const e = eng(); e.set({ [key]: !e.opts[key] }); sync(); };
+toggle('fluidsBtn', 'fluids', getSwirl); toggle('facetBtn', 'facets', getSwirl); toggle('washBtn', 'wash', getSwirl);
+$('inkBtn').onclick = () => { swirl.set({ paint: swirl.opts.paint === 'ink' ? 'bands' : 'ink' }); sync(); };
+toggle('aFluidsBtn', 'fluids', getAuto); toggle('torusBtn', 'torus', getAuto); toggle('vecBtn', 'vectors', getAuto);
+
 function sync() {
-  [...presetsEl.children].forEach(b => b.classList.toggle('on', b.textContent === preset));
-  [...dots.children].forEach(d => d.classList.toggle('on', d.dataset.n === o.palette));
-  for (const k in inputs) { inputs[k].inp.value = o[k]; inputs[k].out.textContent = inputs[k].fmt(o[k]); }
-  fluidsBtn.classList.toggle('on', !!o.fluids); inkBtn.classList.toggle('on', o.paint === 'ink'); document.getElementById('washBtn').classList.toggle('on', !!o.wash); document.getElementById('facetBtn').classList.toggle('on', !!o.facets);
+  const isA = engine === 'automata', o = cur().opts;
+  $('swirlTune').classList.toggle('hide', isA); $('autoTune').classList.toggle('hide', !isA);
+  document.querySelectorAll('.swirlOnly').forEach(e => e.classList.toggle('hide', isA));
+  document.querySelectorAll('.autoOnly').forEach(e => e.classList.toggle('hide', !isA));
+  $('swirlLabel').classList.toggle('cur', !isA); $('autoLabel').classList.toggle('cur', isA);
+  $('presets').classList.toggle('idle', isA); $('profiles').classList.toggle('idle', !isA);
+  [...$('presets').children].forEach(b => b.classList.toggle('on', !isA && b.textContent === preset));
+  [...$('profiles').children].forEach(b => b.classList.toggle('on', isA && b.textContent === profile));
+  for (const [k, x] of Object.entries(inputs[engine])) { x.inp.value = o[k]; x.out.textContent = x.fmt(+o[k]); }
+  if (isA) {
+    [...$('bgs').children].forEach(b => b.classList.toggle('on', b.textContent === o.bg));
+    $('aFluidsBtn').classList.toggle('on', !!o.fluids); $('torusBtn').classList.toggle('on', !!o.torus); $('vecBtn').classList.toggle('on', !!o.vectors);
+  } else {
+    [...dots.children].forEach(d => d.classList.toggle('on', d.dataset.n === o.palette));
+    $('fluidsBtn').classList.toggle('on', !!o.fluids); $('inkBtn').classList.toggle('on', o.paint === 'ink');
+    $('washBtn').classList.toggle('on', !!o.wash); $('facetBtn').classList.toggle('on', !!o.facets);
+  }
 }
-function applyPreset(n) { preset = n; swirl.set(presetOpts(n)); swirl.reset(); sync(); }
+function setEngine(e) {
+  if (e === engine) return;
+  engine = e; const x = cur(); x.reset(); sync();
+}
+function applyPreset(n) { preset = n; engine = 'swirl'; getSwirl().set(presetOpts(n)); swirl.reset(); sync(); }
+function applyProfile(n) {
+  const a = getAuto(), keepBg = a.opts.bg, user = AUTOMATA_BGS[keepBg]?.mode === 4;   // keep your camera / image
+  profile = n; engine = 'automata';
+  a.set(Object.assign(profileOpts(n), user ? { bg: keepBg } : {})); a.reset(); sync();
+}
+function setBg(n) {
+  const b = AUTOMATA_BGS[n];
+  if (b.image) { $('file').click(); return; }
+  if (b.camera) { startCamera(); return; }
+  auto.setSource(null); auto.set({ bg: n }); sync();
+}
+async function startCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+    const v = document.createElement('video'); v.playsInline = true; v.muted = true; v.srcObject = stream; await v.play();
+    setEngine('automata'); auto.set({ bg: 'camera' }); auto.setSource(v); sync();
+  } catch (e) { alert('Camera not available: ' + e.message); }
+}
+function loadImage(file) {
+  const im = new Image();
+  im.onload = () => { setEngine('automata'); auto.set({ bg: 'image…' }); auto.setSource(im); sync(); };
+  im.src = URL.createObjectURL(file);
+}
+$('file').onchange = e => e.target.files[0] && loadImage(e.target.files[0]);
+addEventListener('dragover', e => e.preventDefault());
+addEventListener('drop', e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f && f.type.startsWith('image/')) loadImage(f); });
+
 function shareURL() {
-  const d = presetOpts(preset), p = new URLSearchParams({ preset });
-  for (const [k] of KNOBS) if (Math.abs(o[k] - (d[k] ?? 0)) > 1e-9) p.set(k, +(+o[k]).toFixed(4));
-  if (o.palette !== d.palette) p.set('palette', o.palette);
-  if (!!o.fluids !== !!d.fluids) p.set('fluids', o.fluids ? 1 : 0);
-  if (o.paint !== d.paint) p.set('paint', o.paint);
-  if (!!o.facets !== !!d.facets) p.set('facets', o.facets ? 1 : 0);
-  if (!!o.wash !== !!d.wash) p.set('wash', o.wash ? 1 : 0);
+  const o = cur().opts, p = new URLSearchParams();
+  const diff = (knobs, d) => { for (const [k] of knobs) if (Math.abs(o[k] - (d[k] ?? 0)) > 1e-9) p.set(k, +(+o[k]).toFixed(4)); };
+  const flag = (k, name, d) => { if (!!o[k] !== !!d[k]) p.set(name, o[k] ? 1 : 0); };
+  if (engine === 'swirl') {
+    const d = presetOpts(preset); p.set('preset', preset); diff(KNOBS, d);
+    if (o.palette !== d.palette) p.set('palette', o.palette);
+    if (o.paint !== d.paint) p.set('paint', o.paint);
+    flag('fluids', 'fluids', d); flag('facets', 'facets', d); flag('wash', 'wash', d);
+  } else {
+    const d = profileOpts(profile); p.set('engine', 'automata'); p.set('profile', profile); diff(A_KNOBS, d);
+    if (o.bg !== d.bg && AUTOMATA_BGS[o.bg].mode !== 4) p.set('bg', o.bg);
+    flag('fluids', 'fluids', d); flag('torus', 'wrap', d);
+  }
   return location.origin + location.pathname + '?' + p;
 }
-document.getElementById('shareBtn').onclick = e => {
+$('shareBtn').onclick = e => {
   const u = shareURL(); history.replaceState(null, '', u);
   (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(
     () => { e.target.textContent = 'copied'; setTimeout(() => e.target.textContent = 'copy link', 1200); }, () => {});
 };
-function save() { const a = document.createElement('a'); a.download = `swirlfluid-${preset.replace(/\s/g, '')}-${Date.now()}.png`; a.href = canvas.toDataURL('image/png'); a.click(); }
-document.getElementById('saveBtn').onclick = save;
-document.getElementById('resetBtn2').onclick = () => swirl.reset();
+function save() { const a = document.createElement('a'); a.download = `swirlfluid-${(engine === 'swirl' ? preset : profile).replace(/[^\w]/g, '')}-${Date.now()}.png`; a.href = canvas.toDataURL('image/png'); a.click(); }
+$('saveBtn').onclick = save;
+$('resetBtn2').onclick = () => cur().reset();
 function toggleTune() { tune.classList.toggle('open'); document.body.classList.toggle('tuning', tune.classList.contains('open')); tuneBtn.classList.toggle('on', tune.classList.contains('open')); wake(true); }
 tuneBtn.onclick = toggleTune;
 sync();
 
 // ---- input ----
 //   mouse: drag stirs; Shift+→ / Shift+← (held) spins a whirlpool under the cursor, clockwise / anticlockwise
-//   touch: one finger stirs; press and hold still spins; two-finger twist spins the way you twist
+//   touch: one finger stirs; press and hold still spins (swirl) or keeps pushing (automata); two-finger twist spins
 const pos = e => { const r = canvas.getBoundingClientRect(); return [(e.clientX - r.left) / r.width, 1 - (e.clientY - r.top) / r.height]; };
 const pts = new Map();
 let hover = null, lastHover = null, keySpin = 0, twist = null;
 canvas.addEventListener('contextmenu', e => e.preventDefault());
 canvas.addEventListener('pointerdown', e => {
   canvas.setPointerCapture(e.pointerId);
-  const p = pos(e); pts.set(e.pointerId, { p, last: p, t0: performance.now(), moved: 0, touch: e.pointerType !== 'mouse' });
+  const p = pos(e); pts.set(e.pointerId, { p, last: p, t0: performance.now(), moved: 0, still: 0, touch: e.pointerType !== 'mouse' });
   if (pts.size === 2) twist = null;
   if (coarse && tune.classList.contains('open')) toggleTune();
   wake();
@@ -192,14 +310,17 @@ canvas.addEventListener('pointerdown', e => {
 canvas.addEventListener('pointermove', e => {
   const p = pos(e); hover = p;
   const t = pts.get(e.pointerId);
-  if (!t) {
-    if (e.pointerType === 'mouse' && lastHover)
+  if (!t) {   // swirl: a hovering mouse stirs gently
+    if (engine === 'swirl' && e.pointerType === 'mouse' && lastHover)
       swirl.splat(p[0], p[1], (p[0] - lastHover[0]) * 1.2 * 60, (p[1] - lastHover[1]) * 1.2 * 60, 0, 0.003);
     lastHover = p; return;
   }
   const dx = p[0] - t.last[0], dy = p[1] - t.last[1];
   t.moved += Math.hypot(dx * innerWidth, dy * innerHeight);
-  if (pts.size === 1 && (dx || dy)) swirl.splat(p[0], p[1], dx * 5 * 60, dy * 5 * 60, 0, 0.006);
+  if (pts.size === 1 && (dx || dy)) {
+    if (engine === 'swirl') swirl.splat(p[0], p[1], dx * 5 * 60, dy * 5 * 60, 0, 0.006);
+    else { auto.push(t.last[0], t.last[1], p[0], p[1]); t.still = 0; }
+  }
   t.last = p; t.p = p;
   if (pts.size === 1) wake();
 });
@@ -212,19 +333,23 @@ canvas.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') la
 addEventListener('blur', () => { keySpin = 0; pts.clear(); });
 
 function spinInput(dt, now) {
-  const SPIN = 90 * dt;
-  if (keySpin) { const p = hover || [0.5, 0.5]; swirl.splat(p[0], p[1], 0, 0, keySpin * SPIN, 0.008); }
+  const A = engine === 'automata', SPIN = 90 * dt;
+  if (keySpin) { const p = hover || [0.5, 0.5]; A ? auto.spin(p[0], p[1], keySpin * 0.6) : swirl.splat(p[0], p[1], 0, 0, keySpin * SPIN, 0.008); }
   if (pts.size === 1) {
     const t = pts.values().next().value;
-    if (t.touch && t.moved < 12 && now - t.t0 > 350) swirl.splat(t.p[0], t.p[1], 0, 0, -SPIN, 0.008);
+    if (A) { if (++t.still > 2) auto.hold(t.last[0], t.last[1]); }   // held still: keep pushing the last way
+    else if (t.touch && t.moved < 12 && now - t.t0 > 350) swirl.splat(t.p[0], t.p[1], 0, 0, -SPIN, 0.008);
   } else if (pts.size >= 2) {
     const [a, b] = [...pts.values()];
     const mid = [(a.p[0] + b.p[0]) / 2, (a.p[1] + b.p[1]) / 2];
     const ang = Math.atan2((b.p[1] - a.p[1]) * innerHeight, (b.p[0] - a.p[0]) * innerWidth);
     if (twist) {
       let da = ang - twist.ang; da = Math.atan2(Math.sin(da), Math.cos(da));
-      const r = Math.max(0.006, Math.min(0.03, ((a.p[0] - b.p[0]) ** 2 + (a.p[1] - b.p[1]) ** 2) / 4));
-      swirl.splat(mid[0], mid[1], (mid[0] - twist.mid[0]) * 5 * 60, (mid[1] - twist.mid[1]) * 5 * 60, da * 60 * 1.5, r);
+      if (A) { if (Math.abs(da) > 1e-3) auto.spin(mid[0], mid[1], Math.max(-1, Math.min(1, da * 8)) * 2, 2.5); }
+      else {
+        const r = Math.max(0.006, Math.min(0.03, ((a.p[0] - b.p[0]) ** 2 + (a.p[1] - b.p[1]) ** 2) / 4));
+        swirl.splat(mid[0], mid[1], (mid[0] - twist.mid[0]) * 5 * 60, (mid[1] - twist.mid[1]) * 5 * 60, da * 60 * 1.5, r);
+      }
     }
     twist = { ang, mid };
   }
@@ -234,10 +359,14 @@ addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT') return;
   if (e.shiftKey && e.key === 'ArrowRight') { keySpin = -1; e.preventDefault(); wake(); return; }
   if (e.shiftKey && e.key === 'ArrowLeft') { keySpin = 1; e.preventDefault(); wake(); return; }
-  if (e.key >= '1' && e.key <= String(PRESETS.length)) applyPreset(PRESETS[+e.key - 1]);
-  else if (e.key === 'p') { swirl.set({ palette: PALS[(PALS.indexOf(o.palette) + 1) % PALS.length] }); sync(); }
+  const A = engine === 'automata', list = A ? PROFILES : PRESETS;
+  if (e.key >= '1' && e.key <= '9' && list[+e.key - 1]) (A ? applyProfile : applyPreset)(list[+e.key - 1]);
+  else if (e.key === 'e') A ? applyPreset(preset) : applyProfile(profile);
+  else if (e.key === 'p' && !A) { swirl.set({ palette: PALS[(PALS.indexOf(swirl.opts.palette) + 1) % PALS.length] }); sync(); }
+  else if (e.key === 'b' && A) { const n = BGS.filter(k => AUTOMATA_BGS[k].mode !== 4); setBg(n[(n.indexOf(auto.opts.bg) + 1) % n.length]); }
+  else if (e.key === 'v' && A) { auto.set({ vectors: !auto.opts.vectors }); sync(); }
   else if (e.key === 't') toggleTune();
-  else if (e.key === ' ') { swirl.reset(); e.preventDefault(); }
+  else if (e.key === ' ') { cur().reset(); e.preventDefault(); }
   else if (e.key === 'h') { help.classList.toggle('faded'); tuneBtn.classList.toggle('faded', help.classList.contains('faded')); }
   else if (e.key === 's') save();
 });
@@ -251,16 +380,17 @@ function wake(force) {
   idle = setTimeout(() => { if (!tune.classList.contains('open')) { help.classList.add('faded'); tuneBtn.classList.add('faded'); } }, 5000);
 }
 tune.addEventListener('pointerdown', () => wake(true));
+help.addEventListener('pointerdown', () => wake(true));
 wake();
 
 let resizeT;
 addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => {
-  const [w, h] = size(); canvas.width = w; canvas.height = h; swirl.resize(w, h); }, 200); });
+  const [w, h] = size(); canvas.width = w; canvas.height = h; swirl?.resize(w, h); auto?.resize(w, h); }, 200); });
 
 let prev = performance.now(), t0 = prev;
 function frame(now) {
   const dt = Math.min((now - prev) / 1000, 1 / 30); prev = now;
-  if (!document.hidden) { spinInput(dt, now); swirl.step(dt); swirl.render((now - t0) / 1000); }
+  if (!document.hidden) { spinInput(dt, now); const x = cur(); x.step(dt); x.render((now - t0) / 1000); }
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
