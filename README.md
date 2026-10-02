@@ -13,7 +13,7 @@ left alone the picture slowly heals back to its original pattern. Each colour ba
 |---|---|---|
 | stir | drag | one finger |
 | spin a whirlpool | hold `Shift`+`→` (clockwise) or `Shift`+`←` (anticlockwise); spins under the cursor | press and hold still; or twist two fingers (either way) |
-| presets | `1`–`8` or the buttons | buttons |
+| presets | `1`–`9` or the buttons | buttons |
 | palette | `p` or the dots in **tune** | dots in **tune** |
 | tune panel | `t` | **tune** button |
 | reset / save PNG / hide help | `space` / `s` / `h` | buttons in **tune**; tap to bring the help back |
@@ -22,7 +22,7 @@ left alone the picture slowly heals back to its original pattern. Each colour ba
 
 ## Presets and knobs
 
-Eight presets: Poster, Tar, Ice Cracks, Cubism, Kaleidoscope, Jupiter, Watercolour, Milky Way.
+Nine presets: Poster, Tar, Ice Cracks, Cubism, Silk, Kaleidoscope, Jupiter, Watercolour, Milky Way.
 The knobs take ideas from [Fluid Automata](https://github.com/CreativeCodingLab/FluidAutomataJS)
 (Forbes, Höllerer, Legrady, *Generative fluid profiles for interactive media arts projects*, CAe 2013), reworked
 for this renderer:
@@ -35,6 +35,8 @@ for this renderer:
   each holding a vector that is handed on to its neighbours by overlap, and the picture is redrawn each frame through
   that coarse mesh with every vertex shifted by its vector, so it tears along triangle edges · **memory**: how much of
   the last frame survives each lattice frame
+- **carry**: how hard the lattice drags the bands underneath · **jitter**: irregular lattice · **facets**: each triangle
+  moves its piece rigidly with its own shade (Cubism)
 - **crisp ink**: pulls smeared ink back toward the palette so it keeps hard edges · **wash**: draw bands as watercolour
 - **bands**: band density · **colour drift**: how fast bands change colour
 - **fluids** off: motion stays where you put it (a displacement) instead of flowing on

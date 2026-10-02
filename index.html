@@ -55,6 +55,7 @@
   <div class="row">
     <button id="fluidsBtn" title="on: motion carries itself along, like a liquid. off: it stays where you put it">fluids</button>
     <button id="inkBtn" title="ink: colours smear and blend. bands: crisp poster bands forever">ink</button>
+    <button id="facetBtn" title="lattice: each triangle moves its piece rigidly, like cut planes">facets</button>
     <button id="washBtn" title="draw the bands as watercolour instead of poster">wash</button>
   </div>
   <div class="row"><button id="shareBtn">copy link</button><button id="saveBtn">save PNG</button><button id="resetBtn2">reset</button></div>
@@ -62,7 +63,7 @@
 </div>
 <div id="help" class="panel">
   <span class="mouse">drag to stir · hold <kbd>shift</kbd>+<kbd>→</kbd> / <kbd>shift</kbd>+<kbd>←</kbd> to spin a whirlpool under the cursor<br>
-  <kbd>1</kbd>–<kbd>8</kbd> presets · <kbd>p</kbd> palette · <kbd>t</kbd> tune · <kbd>space</kbd> reset · <kbd>s</kbd> save · <kbd>h</kbd> hide</span>
+  <kbd>1</kbd>–<kbd>9</kbd> presets · <kbd>p</kbd> palette · <kbd>t</kbd> tune · <kbd>space</kbd> reset · <kbd>s</kbd> save · <kbd>h</kbd> hide</span>
   <span class="touch">one finger stirs · press and hold to spin · twist two fingers to spin either way · tap to bring this back</span>
   <div id="presets"></div>
 </div>
@@ -74,7 +75,7 @@ const gl = canvas.getContext('webgl2', { antialias: false, preserveDrawingBuffer
 const help = document.getElementById('help'), tune = document.getElementById('tune'), tuneBtn = document.getElementById('tuneBtn');
 const PRESETS = Object.keys(SWIRL2_PRESETS), PALS = Object.keys(SWIRL2_PALETTES);
 const coarse = matchMedia('(pointer: coarse)').matches;
-const BASE = { freq: 3, palette: 'ocean', saturation: 1, brightness: 1, contrast: 1, memory: 0.82, crisp: 0, wash: false };
+const BASE = { freq: 3, palette: 'ocean', saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, wash: false, facets: false, jitter: 0 };
 // the knobs: [key, label, min, max, step, format]
 const KNOBS = [
   ['fluidity', 'fluidity', 0.9, 0.999, 0.001, v => v.toFixed(3)],
@@ -85,7 +86,9 @@ const KNOBS = [
   ['curl', 'curl', 0, 15, 0.5, v => v.toFixed(1)],
   ['heal', 'heal', 0, 0.5, 0.01, v => v.toFixed(2)],
   ['grid', 'lattice', 0, 32, 1, v => v >= 2 ? v + '×' + v : 'off'],
+  ['jitter', 'jitter', 0, 0.45, 0.01, v => v.toFixed(2)],
   ['memory', 'memory', 0.5, 0.99, 0.005, v => v.toFixed(3)],
+  ['carry', 'carry', 0, 1.5, 0.05, v => v.toFixed(2)],
   ['crisp', 'crisp ink', 0, 0.3, 0.005, v => v.toFixed(3)],
   ['freq', 'bands', 1, 6, 0.1, v => v.toFixed(1)],
   ['cycle', 'colour drift', 0, 0.3, 0.01, v => v.toFixed(2)],
@@ -99,6 +102,7 @@ function urlOverrides() {
   const o = {};
   for (const [k] of KNOBS) if (q.has(k) && !isNaN(+q.get(k))) o[k] = +q.get(k);
   if (PALS.includes(q.get('palette'))) o.palette = q.get('palette');
+  if (q.has('facets')) o.facets = q.get('facets') !== '0';
   if (q.has('wash')) o.wash = q.get('wash') !== '0';
   if (q.has('fluids')) o.fluids = q.get('fluids') !== '0';
   if (['ink', 'bands'].includes(q.get('paint'))) o.paint = q.get('paint');
@@ -139,13 +143,14 @@ for (const [k, label, min, max, step, fmt] of KNOBS) {
 }
 const fluidsBtn = document.getElementById('fluidsBtn'), inkBtn = document.getElementById('inkBtn');
 fluidsBtn.onclick = () => { swirl.set({ fluids: !o.fluids }); sync(); };
+document.getElementById('facetBtn').onclick = () => { swirl.set({ facets: !o.facets }); sync(); };
 document.getElementById('washBtn').onclick = () => { swirl.set({ wash: !o.wash }); sync(); };
 inkBtn.onclick = () => { swirl.set({ paint: o.paint === 'ink' ? 'bands' : 'ink' }); sync(); };
 function sync() {
   [...presetsEl.children].forEach(b => b.classList.toggle('on', b.textContent === preset));
   [...dots.children].forEach(d => d.classList.toggle('on', d.dataset.n === o.palette));
   for (const k in inputs) { inputs[k].inp.value = o[k]; inputs[k].out.textContent = inputs[k].fmt(o[k]); }
-  fluidsBtn.classList.toggle('on', !!o.fluids); inkBtn.classList.toggle('on', o.paint === 'ink'); document.getElementById('washBtn').classList.toggle('on', !!o.wash);
+  fluidsBtn.classList.toggle('on', !!o.fluids); inkBtn.classList.toggle('on', o.paint === 'ink'); document.getElementById('washBtn').classList.toggle('on', !!o.wash); document.getElementById('facetBtn').classList.toggle('on', !!o.facets);
 }
 function applyPreset(n) { preset = n; swirl.set(presetOpts(n)); swirl.reset(); sync(); }
 function shareURL() {
@@ -154,6 +159,7 @@ function shareURL() {
   if (o.palette !== d.palette) p.set('palette', o.palette);
   if (!!o.fluids !== !!d.fluids) p.set('fluids', o.fluids ? 1 : 0);
   if (o.paint !== d.paint) p.set('paint', o.paint);
+  if (!!o.facets !== !!d.facets) p.set('facets', o.facets ? 1 : 0);
   if (!!o.wash !== !!d.wash) p.set('wash', o.wash ? 1 : 0);
   return location.origin + location.pathname + '?' + p;
 }

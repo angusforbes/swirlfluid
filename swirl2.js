@@ -8,9 +8,11 @@
 //   energy      how far the paint is carried per unit of motion
 //   grid        0: smooth fluid. N: Fluid Automata's lattice, N x N cells of vectors passing energy to their
 //               neighbours, the picture warped through the lattice mesh each frame (cracks, facets)
-//   memory      lattice only: how much of the last frame survives each frame (the rest is the original)
+//   memory      lattice only: how much of the last frame survives each frame (the rest is the fluid underneath)
+//   carry       lattice + ink: how strongly the lattice also drags the band pattern underneath along
 //   fluids      on: motion propagates (advects itself, incompressible); off: it stays where you put it
 //   heal        how fast the picture relaxes back to the original pattern (the automaton's "blend")
+//   facets      lattice: each triangle moves its piece of the picture rigidly (hard-edged planes) · jitter: irregular lattice
 //   wash        bands drawn as watercolour (soft bleeding edges, pooled pigment, paper grain) instead of poster
 //   paint       'bands': poster bands drawn from stirred coordinates (crisp forever)
 //               'ink': a colour image is smeared with feedback (brightness, contrast, saturation per frame)
@@ -23,14 +25,16 @@ const SWIRL2_PALETTES = {
   wine:   { pal: ['#1a0b1a', '#4a1c34', '#e07a5f', '#f4e3c1', '#8c2f4a'], seq: [0, 1, 0, 4, 0, 2, 1, 3], outline: '#100610' },
   sea:    { pal: ['#051719', '#0f3d3e', '#5fb3a1', '#f2c46d', '#1f6f6b'], seq: [0, 1, 0, 4, 0, 2, 1, 3], outline: '#020c0d' },
   ice:    { pal: ['#0a1622', '#dfeaf2', '#7fa7c4', '#294a66', '#b9d3e6'], seq: [0, 3, 0, 2, 3, 0, 4, 1], outline: '#050c14' },
+  cubist: { pal: ['#2b2620', '#8a6f4d', '#d2bf94', '#5d6b6a', '#a3542f'], seq: [0, 1, 3, 2, 1, 4, 3, 2], outline: '#1a1612' },
   tar:    { pal: ['#0b0907', '#2a211b', '#6b4e3a', '#c08a52', '#3d2f25'], seq: [0, 1, 0, 4, 1, 0, 2, 3], outline: '#050403' },
 };
 
 const SWIRL2_PRESETS = {
   'Poster':      { fluids: true,  fluidity: 0.982, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4, heal: 0.1,  paint: 'bands' },
   'Tar':         { fluids: true,  fluidity: 0.99,  viscosity: 2.5, momentum: 0.4,  angularity: 0.785, energy: 0.3, grid: 0, curl: 0, heal: 0.02, paint: 'bands', palette: 'tar', freq: 2.6 },
-  'Ice Cracks':  { fluids: false, fluidity: 1.0,   viscosity: 0,   momentum: 0,    angularity: 0,     energy: 0.25, grid: 14, curl: 0, heal: 0.1, memory: 0.824, paint: 'ink', crisp: 0.1, palette: 'ice', freq: 3.4 },
-  'Cubism':      { fluids: true,  fluidity: 0.99,  viscosity: 0,   momentum: 0,    angularity: 0,     energy: 0.5, grid: 13, curl: 0, heal: 0.1, memory: 0.785, paint: 'ink', crisp: 0.1, palette: 'navygold' },
+  'Ice Cracks':  { fluids: false, fluidity: 1.0,   viscosity: 0,   momentum: 0,    angularity: 0,     energy: 0.25, grid: 14, curl: 0, heal: 0.05, memory: 0.92, carry: 0.6, paint: 'ink', crisp: 0.12, palette: 'ice', freq: 3.4 },
+  'Cubism':      { fluids: true,  fluidity: 0.94,  viscosity: 0,   momentum: 0.3,  angularity: 0.785, energy: 0.6, grid: 8, curl: 0, heal: 0.04, memory: 0.99, carry: 0.35, facets: true, jitter: 0.32, paint: 'bands', palette: 'cubist', freq: 2.6 },
+  'Silk':        { fluids: true,  fluidity: 0.99,  viscosity: 0,   momentum: 0,    angularity: 0,     energy: 0.5, grid: 13, curl: 0, heal: 0.1, memory: 0.785, carry: 0, paint: 'ink', crisp: 0.1, palette: 'navygold' },
   'Kaleidoscope':{ fluids: true,  fluidity: 0.99,  viscosity: 0,   momentum: 0.45, angularity: 0.785, energy: 1,   grid: 0, curl: 0, heal: 0.08, paint: 'bands', palette: 'dusk' },
   "Jupiter":     { fluids: true,  fluidity: 0.95,  viscosity: 0.2, momentum: 0.3, angularity: 1.571, energy: 1.2, grid: 0, curl: 10, heal: 0.06, paint: 'bands', palette: 'wine', freq: 4.2 },
   'Watercolour': { fluids: true,  fluidity: 0.985, viscosity: 0.4, momentum: 0.26, angularity: 1.18,  energy: 1,   grid: 0, curl: 3, heal: 0.06, paint: 'bands', wash: true, palette: 'sea', freq: 3.6 },
@@ -42,7 +46,7 @@ function createSwirl2(gl, opts = {}) {
     width: gl.drawingBufferWidth, height: gl.drawingBufferHeight,
     simRes: 160, coordRes: 900, palette: 'ocean', freq: 3.0, dir: [0.4, 2.2],
     swirls: [[-0.55, 0.12, 5.5, 0.75], [0.7, -0.3, -4.5, 0.6], [0.15, 0.75, 2.5, 0.4]],
-    cycle: 0.07, ambient: 1, saturation: 1, brightness: 1, contrast: 1, memory: 0.82, crisp: 0, wash: false,
+    cycle: 0.07, ambient: 1, saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, wash: false, facets: false, jitter: 0,
   }, SWIRL2_PRESETS.Poster, opts);
   if (!gl.getExtension('EXT_color_buffer_float') && !gl.getExtension('EXT_color_buffer_half_float'))
     throw new Error('swirl: this GPU cannot render to float textures');
@@ -138,10 +142,15 @@ function createSwirl2(gl, opts = {}) {
       void main(){ float L=texture(uP,vL).x, R=texture(uP,vR).x, T=texture(uP,vT).x, B=texture(uP,vB).x;
         o=vec4(texture(uVel,vUv).xy-vec2(R-L,T-B),0.,1.); }`,
     // Fluid Automata feedback: the last frame redrawn through the coarse lattice mesh, each vertex shifted by its vector
-    meshP: INIT + `in vec2 vUv2; uniform sampler2D uSrc; uniform float blend;
-      void main(){ o=vec4(mix(initP(vUv), texture(uSrc,vUv2).xy, blend),0.,1.); }`,
-    meshInk: SNAP + `in vec2 vUv2; uniform sampler2D uSrc, uFresh; uniform float blend, sat, bright, contrast;
-      void main(){ vec3 c=mix(texture(uFresh,vUv).rgb, texture(uSrc,vUv2).rgb, blend);
+    meshP: INIT + `in vec2 vUv2; flat in vec2 vFlat; flat in float vFace; uniform float facet; vec2 uv2(){ return facet>.5 ? vUv+vFlat : vUv2; }
+      uniform sampler2D uSrc; uniform float blend;
+      void main(){ vec3 s=texture(uSrc,uv2()).xyz;
+        // facets: a moving plane takes on its own flat light/dark tone (stored in z, carried along with the plane)
+        float mv=facet>.5 ? clamp(length(vFlat)*80.,0.,1.) : 0.;
+        o=vec4(mix(initP(vUv), s.xy, blend), mix(s.z, vFace-.5, mv*.25)*blend, 1.); }`,
+    meshInk: SNAP + `in vec2 vUv2; flat in vec2 vFlat; flat in float vFace; uniform float facet; vec2 uv2(){ return facet>.5 ? vUv+vFlat : vUv2; }
+      uniform sampler2D uSrc, uFresh; uniform float blend, sat, bright, contrast;
+      void main(){ vec3 c=mix(texture(uFresh,vUv).rgb, texture(uSrc,uv2()).rgb, blend);
         c=mix(vec3(dot(c,vec3(.2125,.7154,.0721))),c,sat); c*=bright; c=mix(vec3(.5),c,contrast);
         o=vec4(clamp(crisp(c),0.,1.),1.); }`,
     display: `uniform sampler2D uP, uInk; uniform float time, freq, cycle, seqLen, inkOn, starsOn, wash; uniform vec2 dir, res;
@@ -170,6 +179,7 @@ function createSwirl2(gl, opts = {}) {
             col*=.9+.14*vnoise(p*9.+k);
             col*=.96+.05*hash(floor(gl_FragCoord.xy*.7));
           } else col=mix(col,outline,smoothstep(w*1.4,0.,min(fr,1.-fr)-.015));
+          float shade=texture(uP,vUv).z; col=shade>0. ? mix(col,vec3(1.,.97,.9),shade*.7) : col*(1.+shade*1.1);
         }
         if(starsOn>.5){
           vec2 g=gl_FragCoord.xy/res.y*14.; vec2 i=floor(g), f=fract(g)-.5;
@@ -189,8 +199,8 @@ function createSwirl2(gl, opts = {}) {
     if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error('swirl shader: ' + gl.getShaderInfoLog(s)); return s; };
   const vs = sh(gl.VERTEX_SHADER, VS);
   const meshVs = sh(gl.VERTEX_SHADER, `#version 300 es
-  in vec2 a, off; out vec2 vUv, vUv2, vL, vR, vT, vB;
-  void main(){ vUv=a*.5+.5; vUv2=vUv+off; vL=vUv; vR=vUv; vT=vUv; vB=vUv; gl_Position=vec4(a,0.,1.); }`);
+  in vec2 a, off; uniform float offScale; out vec2 vUv, vUv2, vL, vR, vT, vB; flat out vec2 vFlat; flat out float vFace;
+  void main(){ vUv=a*.5+.5; vUv2=vUv+off*offScale; vFlat=off*offScale; vFace=fract(sin(dot(a,vec2(12.9898,78.233)))*43758.5453); vL=vUv; vR=vUv; vT=vUv; vB=vUv; gl_Position=vec4(a,0.,1.); }`);
   const P = {};
   for (const [name, src] of Object.entries(FS)) {
     const p = gl.createProgram(); gl.attachShader(p, name.startsWith('mesh') ? meshVs : vs); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, HEAD + src));
@@ -233,6 +243,7 @@ function createSwirl2(gl, opts = {}) {
     if (pr.u.sw) { const a = new Float32Array(24); o.swirls.slice(0, 6).forEach((s, i) => a.set(s, i * 4));
       gl.uniform4fv(pr.u.sw, a); gl.uniform1i(pr.u.nsw, Math.min(6, o.swirls.length)); }
     if (pr.u.simTexel) gl.uniform2f(pr.u.simTexel, 1 / S.sw, 1 / S.sh);
+    if (pr.u.facet) gl.uniform1f(pr.u.facet, o.facets ? 1 : 0);
     if (pr.u.snap && name !== 'display') { const pl = SWIRL2_PALETTES[o.palette] || o.palette;
       gl.uniform3fv(pr.u.pal, new Float32Array(pl.pal.flatMap(hex))); gl.uniform1f(pr.u.snap, o.crisp); }
     return pr.u;
@@ -273,11 +284,17 @@ function createSwirl2(gl, opts = {}) {
   let L = null;
   function lattice() {
     const N = Math.max(2, Math.round(o.grid));
-    if (L && L.N === N) return L;
+    if (L && L.N === N && L.jitter === o.jitter) return L;
     const nv = N + 1, n = nv * nv;
     const pos = new Float32Array(n * 2), idx = [];
-    for (let r = 0; r < nv; r++) for (let c = 0; c < nv; c++) { pos[(r * nv + c) * 2] = c / N * 2 - 1; pos[(r * nv + c) * 2 + 1] = r / N * 2 - 1; }
-    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) { const i = r * nv + c; idx.push(i, i + 1, i + nv, i + 1, i + nv + 1, i + nv); }
+    const jit = (c, r, k) => { const v = Math.sin(c * 127.1 + r * 311.7 + k * 74.7) * 43758.5453; return (v - Math.floor(v) - 0.5) * 2 * o.jitter; };
+    for (let r = 0; r < nv; r++) for (let c = 0; c < nv; c++) {
+      pos[(r * nv + c) * 2] = (c + (c > 0 && c < N ? jit(c, r, 1) : 0)) / N * 2 - 1;
+      pos[(r * nv + c) * 2 + 1] = (r + (r > 0 && r < N ? jit(c, r, 2) : 0)) / N * 2 - 1; }
+    // the last vertex of each triangle sets its flat (facet) offset: two different vertices per cell, so two facets
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) { const i = r * nv + c;
+      if ((r + c) % 2) idx.push(i + 1, i + nv, i, i + nv, i + 1, i + nv + 1);
+      else idx.push(i + nv, i + nv + 1, i, i, i + nv + 1, i + 1); }
     const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
     const pb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, pb); gl.bufferData(gl.ARRAY_BUFFER, pos, gl.STATIC_DRAW);
     gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
@@ -285,7 +302,7 @@ function createSwirl2(gl, opts = {}) {
     gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 0, 0);
     const ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(idx), gl.STATIC_DRAW);
     gl.bindVertexArray(vao_);
-    L = { N, nv, n, vao, ob, count: idx.length, ms: new Float32Array(n), os: new Float32Array(n), off: new Float32Array(n * 2),
+    L = { N, jitter: o.jitter, nv, n, vao, ob, count: idx.length, ms: new Float32Array(n), os: new Float32Array(n), off: new Float32Array(n * 2),
           inM: new Float32Array(n * 27), inO: new Float32Array(n * 27), inN: new Uint8Array(n), acc: 0 };
     return L;
   }
@@ -323,7 +340,6 @@ function createSwirl2(gl, opts = {}) {
     lattice();
     L.acc = Math.min(L.acc + dt * 60, 3);              // the automaton runs at 60 frames a second whatever the display rate
     const ink = o.paint === 'ink';
-    if (ink && L.acc >= 1) { renderBands(S.P0, S.fresh, time, false); blit(S.fresh); }
     while (L.acc >= 1) {
       L.acc -= 1;
       if (o.fluids) latticeAutomaton();
@@ -332,11 +348,16 @@ function createSwirl2(gl, opts = {}) {
       gl.bindBuffer(gl.ARRAY_BUFFER, L.ob); gl.bufferSubData(gl.ARRAY_BUFFER, 0, off);
       let u;
       if (ink) {
-        u = use('meshInk', S.ink.write); gl.uniform1i(u.uSrc, tex(0, S.ink.read)); gl.uniform1i(u.uFresh, tex(1, S.fresh));
+        // the lattice also carries the band pattern underneath (healing back slowly), and the smear blends toward
+        // that moving pattern, so the cracks drag the fluid with them instead of sitting on top of a still picture
+        u = use('meshP', S.P.write); gl.uniform1i(u.uSrc, tex(0, S.P.read)); gl.uniform1f(u.blend, Math.exp(-o.heal / 60));
+        gl.uniform1f(u.offScale, o.carry); drawMesh(S.P.write); S.P.swap();
+        renderBands(S.P.read, S.fresh, time, false); blit(S.fresh);
+        u = use('meshInk', S.ink.write); gl.uniform1f(u.offScale, 1); gl.uniform1i(u.uSrc, tex(0, S.ink.read)); gl.uniform1i(u.uFresh, tex(1, S.fresh));
         gl.uniform1f(u.blend, o.memory); gl.uniform1f(u.sat, o.saturation); gl.uniform1f(u.bright, o.brightness); gl.uniform1f(u.contrast, o.contrast);
         drawMesh(S.ink.write); S.ink.swap();
       } else {
-        u = use('meshP', S.P.write); gl.uniform1i(u.uSrc, tex(0, S.P.read)); gl.uniform1f(u.blend, o.memory);
+        u = use('meshP', S.P.write); gl.uniform1i(u.uSrc, tex(0, S.P.read)); gl.uniform1f(u.blend, o.memory); gl.uniform1f(u.offScale, 1);
         drawMesh(S.P.write); S.P.swap();
       }
       for (let i = 0; i < n; i++) ms[i] *= o.fluidity;
