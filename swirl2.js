@@ -97,12 +97,13 @@ function createSwirl2(gl, opts = {}) {
   mat2 rot(float a){ return mat2(cos(a),sin(a),-sin(a),cos(a)); }
   `;
   const INIT = `
-  uniform vec4 sw[6]; uniform int nsw; uniform float aspect;
+  uniform vec4 sw[6]; uniform int nsw; uniform float aspect, zA; uniform vec2 zB;
   vec2 swirl(vec2 p, vec4 s){ vec2 d=p-s.xy; float r=length(d);
     float an=s.z*exp(-r*r/(s.w*s.w)); return s.xy+mat2(cos(an),-sin(an),sin(an),cos(an))*d; }
   // the coordinate field stores each pixel's ORIGINAL (unswirled) position; the swirls are applied when drawing,
   // so the background can be pixelated in square cells first (resolution) and then swirled
-  vec2 initP(vec2 uv){ return (uv-.5)*vec2(aspect,1.)*2.; }
+  // zoom (diving in): the screen shows the region zA*uv+zB of the original picture
+  vec2 initP(vec2 uv){ return (zA*uv+zB-.5)*vec2(aspect,1.)*2.; }
   vec2 swirled(vec2 p){ for(int i=0;i<6;i++) if(i<nsw) p=swirl(p,sw[i]); return p; }
   `;
   const VELAT = `
@@ -117,6 +118,12 @@ function createSwirl2(gl, opts = {}) {
 `;
   const FS = {
     init: INIT + `void main(){ o=vec4(initP(vUv),0.,1.); }`,
+    // dive: everything grows outward from zc by zs (what was at zc+(uv-zc)/zs is now at uv); motion grows with it
+    // (mul scales the vectors). What comes in from outside (zooming out) is taken from uFb, or nothing
+    zoomTex: `uniform sampler2D uSrc, uFb; uniform vec2 zc; uniform float zs, fb; uniform vec4 mul;
+      void main(){ vec2 y=zc+(vUv-zc)/zs;
+        if(any(lessThan(y,vec2(0.)))||any(greaterThan(y,vec2(1.)))) o = fb>.5 ? texture(uFb,vUv) : vec4(0.,0.,0.,1.);
+        else o=texture(uSrc,y)*mul; }`,
     advect: `uniform sampler2D uVel, uSrc; uniform vec2 simTexel; uniform float dt;
       void main(){ vec2 c=vUv-dt*texture(uVel,vUv).xy*simTexel; o=texture(uSrc,c); }`,
     advectP: INIT + VELAT + `uniform sampler2D uSrc; uniform vec2 simTexel; uniform float dt, relax, flow, disp;
@@ -211,6 +218,15 @@ function createSwirl2(gl, opts = {}) {
       float raw(vec2 c, float n, float first){ return n<.5 ? first : floor(rnd(c,seed+20.+n)*npal); }
       float pick(vec2 c, float n, float first){ if(n<.5) return first;
         float a=raw(c,n,first); return a==raw(c,n-1.,first) ? mod(a+1.,npal) : a; }
+      // the colour of one square (squares and colour noise fills), from its cell in the stirred coordinates
+      vec3 cellCol(vec2 cell){
+        vec2 c=swirled((cell+.5)/cells)*cells; vec2 ck=clock(rnd(c,seed+11.));
+        if(fill>3.5){ float qs=ck.x;
+          vec3 a=vec3(rnd(c,seed+2.+qs*3.),rnd(c,seed+3.+qs*3.),rnd(c,seed+4.+qs*3.)),
+               b=vec3(rnd(c,seed+5.+qs*3.),rnd(c,seed+6.+qs*3.),rnd(c,seed+7.+qs*3.));
+          return mix(a,b,ck.y); }
+        float kk=floor(rnd(c,seed+7.)*npal);
+        return mix(pal[int(pick(c,ck.x,kk))], pal[int(pick(c,ck.x+1.,kk))], ck.y); }
       void main(){
         vec3 col;
         if(inkOn>.5){
@@ -249,15 +265,19 @@ function createSwirl2(gl, opts = {}) {
           vec2 ck=clock(hk); float sh=ck.x, fade=ck.y;
           col=mix(colAt(k+sh), colAt(k+sh+1.), fade);
           float fr=fract(b), w=fwidth(b);
-          if(fill>3.5){   // colour noise: each square drifts (on its own clock) from one random colour to the next
-            vec2 c=p*cells; vec2 ck=clock(rnd(c,seed+11.)); float qs=ck.x, qf=ck.y;
-            vec3 a=vec3(rnd(c,seed+2.+qs*3.),rnd(c,seed+3.+qs*3.),rnd(c,seed+4.+qs*3.)),
-                 b=vec3(rnd(c,seed+5.+qs*3.),rnd(c,seed+6.+qs*3.),rnd(c,seed+7.+qs*3.));
-            col=mix(a,b,qf); }
-          else if(fill>2.5){   // squares: one palette colour per square (any of the palette's colours), no outlines
-            vec2 c=p*cells; float kk=floor(rnd(c,seed+7.)*npal); vec2 ck=clock(rnd(c,seed+11.));
-            float a=pick(c,ck.x,kk), b=pick(c,ck.x+1.,kk);
-            col=mix(pal[int(a)], pal[int(b)], ck.y); }
+          if(fill>2.5){   // squares / colour noise: one colour per square, each drifting on its own clock
+            vec2 raw=texture(uP,vUv).xy*cells, cell=floor(raw);
+            col=cellCol(cell);
+            if(wash>.5){   // watercolour: pigment pools darker where a square meets a different colour, grain inside
+              vec2 f=fract(raw), px=max(fwidth(raw),vec2(1e-4)); float d=9.;
+              if(length(cellCol(cell-vec2(1,0))-col)>.08) d=min(d,f.x/px.x);
+              if(length(cellCol(cell+vec2(1,0))-col)>.08) d=min(d,(1.-f.x)/px.x);
+              if(length(cellCol(cell-vec2(0,1))-col)>.08) d=min(d,f.y/px.y);
+              if(length(cellCol(cell+vec2(0,1))-col)>.08) d=min(d,(1.-f.y)/px.y);
+              col*=1.-.32*exp(-d/2.5);
+              col*=mix(1., .9+.14*vnoise(raw*1.7), grain);
+              col*=mix(1., .96+.05*hash(floor(gl_FragCoord.xy*.7)), grain);
+            } }
           else if(fill>.5&&fill<1.5){   // field: soft gradients between the palette levels, a little paper grain
             vec3 nxt=mix(colAt(k+1.+sh), colAt(k+2.+sh), fade);
             col=mix(col,nxt,smoothstep(.15,.85,fr))*mix(1., .95+.08*vnoise(p*40.), grain);
@@ -308,13 +328,16 @@ function createSwirl2(gl, opts = {}) {
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
   gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
 
-  const fbo = (w, h) => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, w, h, 0, gl.RGBA, gl.HALF_FLOAT, null);
+  // full float for the picture's coordinates where the GPU can (deep zooms need the precision), else half float
+  const f32 = !!(gl.getExtension('EXT_color_buffer_float') && gl.getExtension('OES_texture_float_linear'));
+  const fbo = (w, h, hi) => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+    if (hi && f32) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, w, h, 0, gl.RGBA, gl.FLOAT, null);
+    else gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, w, h, 0, gl.RGBA, gl.HALF_FLOAT, null);
     for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
     const fb = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0);
     return { t, fb, w, h }; };
-  const dbl = (w, h) => { let a = fbo(w, h), b = fbo(w, h);
+  const dbl = (w, h, hi) => { let a = fbo(w, h, hi), b = fbo(w, h, hi);
     return { get read() { return a; }, get write() { return b; }, swap() { [a, b] = [b, a]; } }; };
 
   let S = {};
@@ -323,7 +346,7 @@ function createSwirl2(gl, opts = {}) {
     const sh_ = o.simRes, sw_ = Math.round(sh_ * aspect());
     const ch = Math.min(o.coordRes, o.height), cw = Math.round(ch * aspect());
     S = { vel: dbl(sw_, sh_), press: dbl(sw_, sh_), div: fbo(sw_, sh_), curl: fbo(sw_, sh_), v0: fbo(sw_, sh_),
-          P: dbl(cw, ch), P0: fbo(cw, ch), ink: dbl(cw, ch), fresh: fbo(cw, ch), tmp: fbo(cw, ch), out: fbo(o.width, o.height), sw: sw_, sh: sh_ };
+          P: dbl(cw, ch, true), P0: fbo(cw, ch, true), ink: dbl(cw, ch), fresh: fbo(cw, ch), tmp: fbo(cw, ch), out: fbo(o.width, o.height), sw: sw_, sh: sh_ };
     reset();
   }
   const palArr = pl => { const a = new Float32Array(24); pl.pal.slice(0, 8).forEach((c, i) => a.set(hex(c), i * 3)); return a; };
@@ -334,6 +357,7 @@ function createSwirl2(gl, opts = {}) {
     const tw = texelOf || target;
     if (pr.u.texel) gl.uniform2f(pr.u.texel, 1 / tw.w, 1 / tw.h);
     if (pr.u.aspect) gl.uniform1f(pr.u.aspect, aspect());
+    if (pr.u.zA) { gl.uniform1f(pr.u.zA, zoomA); gl.uniform2f(pr.u.zB, zoomB[0], zoomB[1]); }
     if (pr.u.sw) { const a = new Float32Array(24); o.swirls.slice(0, 6).forEach((s, i) => a.set(s, i * 4));
       gl.uniform4fv(pr.u.sw, a); gl.uniform1i(pr.u.nsw, o.fill && o.fill !== 'bands' ? 0 : Math.min(6, o.swirls.length)); }   // noise fills start straight
     if (pr.u.simTexel) gl.uniform2f(pr.u.simTexel, 1 / S.sw, 1 / S.sh);
@@ -348,6 +372,7 @@ function createSwirl2(gl, opts = {}) {
     gl.bindVertexArray(vao); gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
   const clear = f => { gl.bindFramebuffer(gl.FRAMEBUFFER, f.fb); gl.viewport(0, 0, f.w, f.h); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT); };
+  let zoomA = 1, zoomB = [0, 0];
   let time = 0, seed = 1 + Math.floor(Math.random() * 1e5), resets = 0;
   // a fresh start: new noise, and (after the first) a new random swirl layout for the bands
   const rndSwirl = (sgn) => [(Math.random() * 2 - 1) * aspect() * 0.8, (Math.random() * 2 - 1) * 0.75, sgn * (2.5 + Math.random() * 3.5), 0.35 + Math.random() * 0.45];
@@ -358,6 +383,7 @@ function createSwirl2(gl, opts = {}) {
       const a = Math.random() * Math.PI * 2, m = 1.8 + Math.random() * 0.9; o.dir = [Math.cos(a) * m, Math.sin(a) * m];
     }
     gl.disable(gl.BLEND); gl.disable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE); gl.disable(gl.SCISSOR_TEST);
+    zoomA = 1; zoomB = [0, 0];
     [S.vel.read, S.vel.write, S.press.read, S.press.write].forEach(clear);
     if (L) { L.ms.fill(0); L.os.fill(0); }
     use('init', S.P.write); blit(S.P.write); S.P.swap();
@@ -493,6 +519,22 @@ function createSwirl2(gl, opts = {}) {
     gl.uniform2f(u.force, fx * S.sw, fy * S.sh); gl.uniform1f(u.spin, spin * S.sh); gl.uniform1f(u.radius, radius);
     blit(S.vel.write); S.vel.swap();
   }
+  // dive into the fluid at (x, y) (0..1, y up) by factor s (>1 in, <1 out): the picture, the coordinates it is drawn
+  // from and the motion all grow outward from that point, keeping their direction, so stirring carries on at the
+  // new scale. With ink off fresh detail appears as you go in (the pattern is drawn from coordinates)
+  const ZMIN = f32 ? 1e-4 : 0.03;   // how deep: past this the coordinates run out of precision
+  function zoom(x, y, s) {
+    if (o.grid >= 2 || !(s > 0)) return;
+    s = Math.min(s, zoomA / ZMIN); s = Math.max(s, zoomA / 1); if (Math.abs(s - 1) < 1e-6) return;   // no further out than the start
+    gl.disable(gl.BLEND); gl.disable(gl.DEPTH_TEST);
+    zoomB = [zoomB[0] + zoomA * x * (1 - 1 / s), zoomB[1] + zoomA * y * (1 - 1 / s)]; zoomA /= s;
+    use('init', S.P0); blit(S.P0);   // the starting picture, now of the zoomed region
+    const z = (src, dst, fb, mul) => { const u = use('zoomTex', dst); gl.uniform1i(u.uSrc, tex(0, src)); gl.uniform1i(u.uFb, tex(1, fb || src));
+      gl.uniform2f(u.zc, x, y); gl.uniform1f(u.zs, s); gl.uniform1f(u.fb, fb ? 1 : 0); gl.uniform4fv(u.mul, mul); blit(dst); };
+    z(S.P.read, S.P.write, S.P0, [1, 1, 1, 1]); S.P.swap();
+    z(S.vel.read, S.vel.write, null, [s, s, 1, 1]); S.vel.swap();
+    if (o.paint === 'ink') { renderBands(S.P0, S.fresh, time, false); blit(S.fresh); z(S.ink.read, S.ink.write, S.fresh, [1, 1, 1, 1]); S.ink.swap(); }
+  }
   let ambT = 0, idleT = 0;
   function step(dt) {
     dt = Math.min(dt, 1 / 30); time += dt;
@@ -575,6 +617,6 @@ function createSwirl2(gl, opts = {}) {
   }
   function resize(w, h) { o.width = w; o.height = h; alloc(); }
   alloc();
-  return { step, render, splat, reset, resize, set, opts: o };
+  return { step, render, splat, zoom, reset, resize, set, opts: o, get depth() { return 1 / zoomA; } };
 }
 if (typeof window !== 'undefined') { window.createSwirl2 = createSwirl2; window.SWIRL2_PALETTES = SWIRL2_PALETTES; window.SWIRL2_PRESETS = SWIRL2_PRESETS; window.SWIRL2_FILLS = SWIRL2_FILLS; }

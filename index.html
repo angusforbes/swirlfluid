@@ -94,15 +94,15 @@
   <p>Ideas borrowed from <a href="https://github.com/CreativeCodingLab/FluidAutomataJS" style="color:inherit">Fluid Automata</a>. <a href="classic/" style="color:inherit">classic version</a> · <a href="https://github.com/angusforbes/swirlfluid" style="color:inherit">source</a></p>
 </div>
 <div id="help" class="panel">
-  <span class="mouse">drag to stir · hold <kbd>shift</kbd>+<kbd>→</kbd> / <kbd>shift</kbd>+<kbd>←</kbd> to spin a whirlpool under the cursor<br>
+  <span class="mouse">drag to stir · hold <kbd>shift</kbd>+<kbd>→</kbd> / <kbd>shift</kbd>+<kbd>←</kbd> to spin a whirlpool under the cursor · hold <kbd>z</kbd> / <kbd>x</kbd> or scroll to dive in / out<br>
   <kbd>1</kbd>–<kbd>9</kbd> presets · <kbd>e</kbd> swap engine · <kbd>t</kbd> tune · <kbd>space</kbd> reset · <kbd>s</kbd> save · <kbd>h</kbd> hide<span class="swirlOnly"> · <kbd>p</kbd> palette · <kbd>f</kbd> fill · <kbd>r</kbd> re-roll</span><span class="autoOnly"> · <kbd>b</kbd> background · <kbd>v</kbd> vectors · drop an image to smear it</span></span>
-  <span class="touch">one finger stirs · press and hold to spin · twist two fingers to spin either way · tap to bring this back</span>
+  <span class="touch">one finger stirs · press and hold to spin · twist two fingers to spin either way · spread two fingers to dive in · tap to bring this back</span>
   <div class="rowlabel" id="swirlLabel">swirl</div><div class="presets" id="presets"></div>
   <div class="rowlabel" id="autoLabel">fluid automata</div><div class="presets" id="profiles"></div>
 </div>
 <div id="err"></div>
-<script src="swirl2.js?v=18"></script>
-<script src="automata.js?v=18"></script>
+<script src="swirl2.js?v=19"></script>
+<script src="automata.js?v=19"></script>
 <script>
 // Two engines on one canvas: "swirl" (swirl2.js: a velocity fluid that paints poster bands, ink, facets...) and
 // "fluid automata" (automata.js: an 8-bit energy automaton that smears a background image). Only one runs at a time.
@@ -378,10 +378,15 @@ const lift = e => {
 };
 canvas.addEventListener('pointerup', lift); canvas.addEventListener('pointercancel', lift);
 canvas.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') lastHover = null; });
-addEventListener('blur', () => { keySpin = 0; pts.clear(); });
+addEventListener('blur', () => { keySpin = 0; zoomKey = 0; pts.clear(); });
+// dive: hold z (in) / x (out) over a spot, or scroll; everything grows outward from there
+let zoomKey = 0;
+canvas.addEventListener('wheel', e => { if (engine !== 'swirl') return; e.preventDefault(); const p = pos(e);
+  swirl.zoom(p[0], p[1], Math.exp(-Math.max(-100, Math.min(100, e.deltaY)) * 0.004)); wake(); }, { passive: false });
 
 function spinInput(dt, now) {
   const A = engine === 'automata', SPIN = 90 * dt;
+  if (zoomKey && !A) { const p = hover || [0.5, 0.5]; swirl.zoom(p[0], p[1], Math.pow(2, zoomKey * dt)); }
   if (keySpin) { const p = hover || [0.5, 0.5]; A ? auto.spin(p[0], p[1], keySpin * 0.6) : swirl.splat(p[0], p[1], 0, 0, keySpin * SPIN, 0.008); }
   if (pts.size === 1) {
     const t = pts.values().next().value;
@@ -391,6 +396,8 @@ function spinInput(dt, now) {
     const [a, b] = [...pts.values()];
     const mid = [(a.p[0] + b.p[0]) / 2, (a.p[1] + b.p[1]) / 2];
     const ang = Math.atan2((b.p[1] - a.p[1]) * innerHeight, (b.p[0] - a.p[0]) * innerWidth);
+    const dist = Math.hypot((b.p[1] - a.p[1]) * innerHeight, (b.p[0] - a.p[0]) * innerWidth);
+    if (twist && !A && twist.dist > 20) swirl.zoom(mid[0], mid[1], dist / twist.dist);   // spread two fingers: dive in there
     if (twist) {
       let da = ang - twist.ang; da = Math.atan2(Math.sin(da), Math.cos(da));
       if (A) { if (Math.abs(da) > 1e-3) auto.spin(mid[0], mid[1], Math.max(-1, Math.min(1, da * 8)) * 2, 2.5); }
@@ -399,7 +406,7 @@ function spinInput(dt, now) {
         swirl.splat(mid[0], mid[1], (mid[0] - twist.mid[0]) * 5 * 60, (mid[1] - twist.mid[1]) * 5 * 60, da * 60 * 1.5, r);
       }
     }
-    twist = { ang, mid };
+    twist = { ang, mid, dist };
   }
 }
 
@@ -408,6 +415,7 @@ addEventListener('keydown', e => {
   if (e.shiftKey && e.key === 'ArrowRight') { keySpin = -1; e.preventDefault(); wake(); return; }
   if (e.shiftKey && e.key === 'ArrowLeft') { keySpin = 1; e.preventDefault(); wake(); return; }
   const A = engine === 'automata', list = A ? PROFILES : PRESETS;
+  if ((e.key === 'z' || e.key === 'x') && !A) { zoomKey = e.key === 'z' ? 1 : -1; wake(); return; }
   if (e.key === '0' && list[9]) (A ? applyProfile : applyPreset)(list[9]);
   else if (e.key >= '1' && e.key <= '9' && list[+e.key - 1]) (A ? applyProfile : applyPreset)(list[+e.key - 1]);
   else if (e.key === 'e') A ? applyPreset(preset) : applyProfile(profile);
@@ -421,7 +429,7 @@ addEventListener('keydown', e => {
   else if (e.key === 'h') { help.classList.toggle('faded'); tuneBtn.classList.toggle('faded', help.classList.contains('faded')); }
   else if (e.key === 's') save();
 });
-addEventListener('keyup', e => { if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'Shift') keySpin = 0; });
+addEventListener('keyup', e => { if (e.key === 'z' || e.key === 'x') zoomKey = 0; if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'Shift') keySpin = 0; });
 
 // help fades after a few idle seconds (not while the tune panel is open)
 let idle;

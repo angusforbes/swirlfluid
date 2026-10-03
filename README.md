@@ -55,6 +55,7 @@ for this renderer:
 - **carry**: how hard the lattice drags the bands underneath · **jitter**: irregular lattice · **facets**: each triangle
   moves its piece rigidly with its own shade (Cubism)
 - **crisp ink**: pulls smeared ink back toward the palette so it keeps hard edges · **wash**: draw bands as watercolour
+- **dive**: hold `z` (in) / `x` (out) or scroll over a spot, or spread two fingers on a phone: the picture, the pattern it is drawn from and the motion all grow outward from that point, so you travel into the fluid and can keep stirring at the new scale (ink off: fresh detail all the way in). Reset returns to the full view
 - **grain** (with wash): pigment granulation and paper grain; off keeps the colours solid while the soft pooled edges stay
 - **outline**: a thin black line (one pixel) around every colour region of the finished picture, the colours inside left clean (pairs well with wash off)
 - **bands**: band density · **colour fade**: one slider with two knobs, the shortest and longest time (seconds) a square or band takes to fade into a randomly chosen palette colour; each takes its own time in between. Left knob at 0 = off
