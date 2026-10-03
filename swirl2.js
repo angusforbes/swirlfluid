@@ -14,7 +14,7 @@
 //   heal        how fast the picture relaxes back to the original pattern (the automaton's "blend")
 //   facets      lattice: each triangle moves its piece of the picture rigidly (hard-edged planes) · jitter: irregular lattice
 //   wash        bands drawn as watercolour (soft bleeding edges, pooled pigment, paper grain) instead of poster
-//   outline     a dark line around every colour region of the finished picture; the colours inside stay clean
+//   outline     a thin black line (one pixel) around every colour region of the finished picture; the colours inside stay clean
 //   paint       'bands': poster bands drawn from stirred coordinates (crisp forever)
 //               'ink': a colour image is smeared with feedback (brightness, contrast, saturation per frame)
 // Classic script: defines createSwirl2(gl, opts), SWIRL2_PALETTES, SWIRL2_PRESETS.
@@ -178,10 +178,11 @@ function createSwirl2(gl, opts = {}) {
         o=vec4((L+R+B+T-texture(uDiv,vUv).x)*.25,0.,0.,1.); }`,
     // outline: a dark line wherever the finished picture changes colour (around every colour region), the
     // colours inside left exactly as they are. Small differences (paper grain, a fade in progress) draw no line
-    outline: `uniform sampler2D uSrc; uniform vec3 lineC; uniform float lw;
-      void main(){ vec2 t=lw/vec2(textureSize(uSrc,0)); vec3 c=texture(uSrc,vUv).rgb; float e=0.;
-        for(int i=0;i<8;i++){ float a=float(i)*.7854; e=max(e, length(texture(uSrc,vUv+vec2(cos(a),sin(a))*t).rgb-c)); }
-        o=vec4(mix(c, lineC, smoothstep(.1,.25,e)), 1.); }`,
+    // one device pixel wide and black: only the pixel on one side of each edge (compared with its right and upper neighbour)
+    outline: `uniform sampler2D uSrc;
+      void main(){ ivec2 q=ivec2(gl_FragCoord.xy), m=textureSize(uSrc,0)-1; vec3 c=texelFetch(uSrc,q,0).rgb;
+        float e=max(length(texelFetch(uSrc,min(q+ivec2(1,0),m),0).rgb-c), length(texelFetch(uSrc,min(q+ivec2(0,1),m),0).rgb-c));
+        o=vec4(mix(c, vec3(0.), smoothstep(.1,.25,e)), 1.); }`,
     grad: `uniform sampler2D uP, uVel;
       void main(){ float L=texture(uP,vL).x, R=texture(uP,vR).x, T=texture(uP,vT).x, B=texture(uP,vB).x;
         o=vec4(texture(uVel,vUv).xy-vec2(R-L,T-B),0.,1.); }`,
@@ -560,9 +561,8 @@ function createSwirl2(gl, opts = {}) {
     gl.uniform1f(u.inkOn, o.paint === 'ink' ? 1 : 0); gl.uniform1i(u.uInk, tex(1, S.ink.read));
     blit(to);
     if (line) {   // outline: draw the picture, then the lines around its colour regions on top
-      const pl = SWIRL2_PALETTES[o.palette] || o.palette, v = use('outline', target || { w: o.width, h: o.height });
-      gl.uniform1i(v.uSrc, tex(0, S.out)); gl.uniform3fv(v.lineC, hex(pl.outline));
-      gl.uniform1f(v.lw, 1.2 * Math.max(1, o.height / Math.max(1, o.cssHeight || o.height))); blit(target);
+      const v = use('outline', target || { w: o.width, h: o.height });
+      gl.uniform1i(v.uSrc, tex(0, S.out)); blit(target);
     }
   }
   // switching paint mode: start the ink from the current bands so nothing jumps
