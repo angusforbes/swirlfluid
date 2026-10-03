@@ -148,7 +148,7 @@ const find = (list, n) => list.find(p => p.toLowerCase() === (n || '').toLowerCa
 let engine = q.get('engine') === 'automata' || find(PROFILES, q.get('profile')) ? 'automata' : 'swirl';
 let preset = find(PRESETS, q.get('preset')) || 'Poster';
 let profile = find(PROFILES, q.get('profile')) || 'Watercolors';
-const presetOpts = n => Object.assign({}, BASE, SWIRL2_PRESETS[n]);
+const presetOpts = n => { const o = Object.assign({}, BASE, SWIRL2_PRESETS[n]); if (o.rows) o.cell = Math.max(1, Math.round(innerHeight / o.rows)); return o; };
 const profileOpts = n => Object.assign({}, AUTOMATA_PROFILES[n]);
 function urlOverrides(knobs) {
   const o = {};
@@ -249,7 +249,7 @@ function setEngine(e) {
   if (e === engine) return;
   engine = e; const x = cur(); x.reset(); sync();
 }
-function applyPreset(n) { preset = n; engine = 'swirl'; const { fill, cell } = getSwirl().opts; swirl.set(Object.assign(presetOpts(n), { fill, cell })); swirl.reset(); sync(); }   // the fill stays as you chose it
+function applyPreset(n) { preset = n; engine = 'swirl'; const { fill, cell } = getSwirl().opts, d = presetOpts(n); swirl.set(SWIRL2_PRESETS[n].fill ? d : Object.assign(d, { fill, cell })); swirl.reset(); sync(); }   // the fill stays as you chose it
 function applyProfile(n) {
   const a = getAuto(), keepBg = a.opts.bg, user = AUTOMATA_BGS[keepBg]?.mode === 4;   // keep your camera / image
   profile = n; engine = 'automata';
@@ -284,7 +284,7 @@ function shareURL() {
   if (engine === 'swirl') {
     const d = presetOpts(preset); p.set('preset', preset); diff(KNOBS, d);
     if (o.palette !== d.palette) p.set('palette', o.palette);
-    if (o.fill !== BASE.fill) p.set('fill', o.fill);
+    if (o.fill !== d.fill) p.set('fill', o.fill);
     if (o.paint !== d.paint) p.set('paint', o.paint);
     flag('fluids', 'fluids', d); flag('facets', 'facets', d); flag('wash', 'wash', d);
   } else {
@@ -377,7 +377,8 @@ addEventListener('keydown', e => {
   if (e.shiftKey && e.key === 'ArrowRight') { keySpin = -1; e.preventDefault(); wake(); return; }
   if (e.shiftKey && e.key === 'ArrowLeft') { keySpin = 1; e.preventDefault(); wake(); return; }
   const A = engine === 'automata', list = A ? PROFILES : PRESETS;
-  if (e.key >= '1' && e.key <= '9' && list[+e.key - 1]) (A ? applyProfile : applyPreset)(list[+e.key - 1]);
+  if (e.key === '0' && list[9]) (A ? applyProfile : applyPreset)(list[9]);
+  else if (e.key >= '1' && e.key <= '9' && list[+e.key - 1]) (A ? applyProfile : applyPreset)(list[+e.key - 1]);
   else if (e.key === 'e') A ? applyPreset(preset) : applyProfile(profile);
   else if (e.key === 'p' && !A) { swirl.set({ palette: PALS[(PALS.indexOf(swirl.opts.palette) + 1) % PALS.length] }); sync(); }
   else if (e.key === 'f' && !A) $('fills').children[(FILLS.indexOf(swirl.opts.fill) + 1) % FILLS.length].click();

@@ -35,6 +35,7 @@ const SWIRL2_PALETTES = {
   candy:  { pal: ['#011627', '#ff4365', '#00d9c0', '#fffb46', '#7b2cbf', '#ff9f1c', '#2ec4ff', '#fdfffc'], seq: [0, 1, 2, 3, 4, 5, 0, 6, 7, 1, 3, 2], outline: '#000b14' },
   tropic: { pal: ['#0b3954', '#00a6a6', '#efca08', '#f49f0a', '#d81159', '#8f2d56', '#7ae582', '#ffe8d6'], seq: [0, 1, 2, 3, 4, 0, 5, 6, 7, 1, 2, 4], outline: '#05202f' },
   neon:   { pal: ['#0b0b16', '#39ff14', '#ff073a', '#00f0ff', '#fffc00', '#bc13fe', '#ff6ec7', '#1f1f3a'], seq: [0, 1, 7, 2, 0, 3, 7, 4, 0, 5, 6, 7], outline: '#000000' },
+  jelly:  { pal: ['#2b2a4f', '#7e5bb5', '#5c72c6', '#d8637a', '#efc38e', '#ead35b', '#bdd36f', '#557258'], seq: [0, 1, 3, 2, 4, 1, 5, 6, 7, 3, 2, 4], outline: '#1c1b33' },
   // pastel
   pastel: { pal: ['#ffc8dd', '#bde0fe', '#cdb4db', '#ffafcc', '#a2d2ff', '#fdffb6', '#caffbf', '#9bf6ff'], seq: [0, 1, 2, 3, 4, 5, 6, 7, 2, 5, 0, 4], outline: '#8d7a99' },
   sorbet: { pal: ['#f7ede2', '#f6bd60', '#f5cac3', '#84a59d', '#f28482', '#b8e0d2', '#eac4d5', '#95b8d1'], seq: [0, 1, 2, 3, 0, 4, 5, 6, 0, 7, 2, 1], outline: '#6b705c' },
@@ -51,6 +52,10 @@ const SWIRL2_PRESETS = {
   "Jupiter":     { fluids: true,  fluidity: 0.95,  viscosity: 0.2, momentum: 0.3, angularity: 1.571, energy: 1.2, grid: 0, curl: 10, heal: 0.06, paint: 'bands', palette: 'wine', freq: 4.2 },
   'Watercolour': { fluids: true,  fluidity: 0.985, viscosity: 0.9, momentum: 0.26, angularity: 1.18,  energy: 0.8, grid: 0, curl: 1.5, heal: 0.04, paint: 'ink', wash: true, palette: 'sea', freq: 3.2 },
   'Milky Way':   { fluids: true,  fluidity: 0.998, viscosity: 0,   momentum: 0.16, angularity: 0.785, energy: 0.8, grid: 0, curl: 6, heal: 0.02, paint: 'ink', crisp: 0.02, palette: 'ocean' },
+  // Angus's picture (2026-10-02): big 8-row squares melted into soft, crisp-edged watercolour jelly
+  'Jelly':       { fluids: true,  fluidity: 0.985, viscosity: 2,   momentum: 0.4,  angularity: 1.18,  energy: 0.7, grid: 0, curl: 2, heal: 0.02, paint: 'ink', wash: true, crisp: 0.1, palette: 'jelly', freq: 3.2, fill: 'squares', rows: 8 },
+  // Angus's phone find (2026-10-03): fluids off, so stirring winds the squares into concentric tunnel rings
+  'Wormhole':    { fluids: false, fluidity: 0.999, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4, heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'ink', wash: true, facets: false, crisp: 0, palette: 'pop', freq: 4.9, cycle: 0.07, fill: 'squares', rows: 28 },
 };
 
 function createSwirl2(gl, opts = {}) {
@@ -109,7 +114,7 @@ function createSwirl2(gl, opts = {}) {
     inkFwd: VELAT + `uniform sampler2D uSrc; uniform vec2 simTexel; uniform float dt;
       void main(){ o=texture(uSrc, vUv-dt*velAt(vUv)*simTexel); }`,
     // MacCormack: forward step, backward check, correct half the error, clamp to the source texels (keeps ink sharp)
-    advectInk: INIT + VELAT + SNAP + `uniform sampler2D uSrc, uFresh, uFwd; uniform vec2 simTexel, texel; uniform float dt, relax, sat, bright, contrast, flow, disp;
+    advectInk: INIT + VELAT + SNAP + `uniform sampler2D uSrc, uFresh, uFwd; uniform vec2 simTexel, texel; uniform float dt, relax, sat, bright, contrast, flow, disp, mac;
       void main(){ vec2 d=dt*velAt(vUv)*simTexel, c=vUv-d;
         vec3 col;
         if(flow<.5) col=mix(texture(uSrc,vUv).rgb, texture(uFresh,vUv-velAt(vUv)*simTexel*disp).rgb, .2);
@@ -120,6 +125,7 @@ function createSwirl2(gl, opts = {}) {
           vec3 a=texture(uSrc,(i+.5)*texel).rgb, b=texture(uSrc,(i+vec2(1.5,.5))*texel).rgb,
                e=texture(uSrc,(i+vec2(.5,1.5))*texel).rgb, f=texture(uSrc,(i+1.5)*texel).rgb;
           m=clamp(m, min(min(a,b),min(e,f)), max(max(a,b),max(e,f)));
+          if(mac<.5) m=fwd;   // smooth: plain advection (soft, rounded shapes, no speckle) instead of MacCormack
           col=mix(m, texture(uFresh,vUv).rgb, relax);
         }
         float l=dot(col,vec3(.2125,.7154,.0721));
@@ -500,7 +506,7 @@ function createSwirl2(gl, opts = {}) {
       renderBands(S.P0, S.fresh, time, false); blit(S.fresh);
       u = use('inkFwd', S.tmp); gl.uniform1i(u.uVel, tex(0, S.vel.read)); gl.uniform1i(u.uSrc, tex(1, S.ink.read)); gl.uniform1f(u.dt, dt * o.energy); blit(S.tmp);
       u = use('advectInk', S.ink.write); gl.uniform1i(u.uFwd, tex(3, S.tmp)); gl.uniform1i(u.uVel, tex(0, S.vel.read)); gl.uniform1i(u.uSrc, tex(1, S.ink.read)); gl.uniform1i(u.uFresh, tex(2, S.fresh));
-      gl.uniform1f(u.dt, dt * o.energy); gl.uniform1f(u.relax, relax); gl.uniform1f(u.flow, o.fluids ? 1 : 0); gl.uniform1f(u.disp, o.energy * 0.06);
+      gl.uniform1f(u.dt, dt * o.energy); gl.uniform1f(u.relax, relax); gl.uniform1f(u.flow, o.fluids ? 1 : 0); gl.uniform1f(u.disp, o.energy * 0.06); gl.uniform1f(u.mac, o.smooth ? 0 : 1);
       gl.uniform1f(u.sat, Math.pow(o.saturation, f60)); gl.uniform1f(u.bright, Math.pow(o.brightness, f60)); gl.uniform1f(u.contrast, Math.pow(o.contrast, f60));
       blit(S.ink.write); S.ink.swap();
     } else {
