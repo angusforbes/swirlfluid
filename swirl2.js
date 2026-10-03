@@ -109,7 +109,9 @@ function createSwirl2(gl, opts = {}) {
   const SNAP = `
   uniform vec3 pal[8]; uniform float snap, npal;
   // crisp: pull each pixel part of the way to the nearest palette colour, so smears keep hard edges instead of blurring
-  vec3 crisp(vec3 c){ vec3 b=pal[0]; float bd=9.; for(int i=0;i<8;i++){ if(float(i)>=npal) break; vec3 d=c-pal[i]; float dd=dot(d,d); if(dd<bd){ bd=dd; b=pal[i]; } } return mix(c,b,snap); }
+  // f: the colour the picture is drifting towards (colour drift fades between palette colours); it counts as a
+  // palette colour, so in-between colours of a fade are kept instead of snapping (which made the drift blink)
+  vec3 crisp(vec3 c, vec3 f){ vec3 b=f; float bd=dot(c-f,c-f); for(int i=0;i<8;i++){ if(float(i)>=npal) break; vec3 d=c-pal[i]; float dd=dot(d,d); if(dd<bd){ bd=dd; b=pal[i]; } } return mix(c,b,snap); }
 `;
   const FS = {
     init: INIT + `void main(){ o=vec4(initP(vUv),0.,1.); }`,
@@ -127,7 +129,8 @@ function createSwirl2(gl, opts = {}) {
     advectInk: INIT + VELAT + SNAP + `uniform sampler2D uSrc, uFresh, uFwd; uniform vec2 simTexel, texel; uniform float dt, relax, sat, bright, contrast, flow, disp, mac;
       void main(){ vec2 d=dt*velAt(vUv)*simTexel, c=vUv-d;
         vec3 col;
-        if(flow<.5) col=mix(texture(uSrc,vUv).rgb, texture(uFresh,vUv-velAt(vUv)*simTexel*disp).rgb, .2);
+        vec3 fr=vec3(9.);
+        if(flow<.5){ fr=texture(uFresh,vUv-velAt(vUv)*simTexel*disp).rgb; col=mix(texture(uSrc,vUv).rgb, fr, .2); }
         else {
           vec3 fwd=texture(uFwd,vUv).rgb, back=texture(uFwd,vUv+d).rgb;
           vec3 m=fwd+.5*(texture(uSrc,vUv).rgb-back);
@@ -140,7 +143,7 @@ function createSwirl2(gl, opts = {}) {
         }
         float l=dot(col,vec3(.2125,.7154,.0721));
         col=mix(vec3(l),col,sat); col*=bright; col=mix(vec3(.5),col,contrast);
-        o=vec4(clamp(crisp(col),0.,1.),1.); }`,
+        o=vec4(clamp(crisp(col,fr),0.,1.),1.); }`,
     splat: `uniform sampler2D uTarget; uniform vec2 point, force; uniform float radius, aspect, spin;
       void main(){ vec2 d=vUv-point; d.x*=aspect; float r2=dot(d,d); float g=exp(-r2/radius);
         vec2 tan_=vec2(-d.y,d.x)*radius/(r2+radius)*exp(-r2/(radius*5.));
@@ -184,9 +187,9 @@ function createSwirl2(gl, opts = {}) {
         o=vec4(mix(initP(vUv), s.xy, blend), mix(s.z, vFace-.5, mv*.25)*blend, 1.); }`,
     meshInk: SNAP + `in vec2 vUv2; flat in vec2 vFlat; flat in float vFace; uniform float facet; vec2 uv2(){ return facet>.5 ? vUv+vFlat : vUv2; }
       uniform sampler2D uSrc, uFresh; uniform float blend, sat, bright, contrast;
-      void main(){ vec3 c=mix(texture(uFresh,vUv).rgb, texture(uSrc,uv2()).rgb, blend);
+      void main(){ vec3 fr=texture(uFresh,vUv).rgb, c=mix(fr, texture(uSrc,uv2()).rgb, blend);
         c=mix(vec3(dot(c,vec3(.2125,.7154,.0721))),c,sat); c*=bright; c=mix(vec3(.5),c,contrast);
-        o=vec4(clamp(crisp(c),0.,1.),1.); }`,
+        o=vec4(clamp(crisp(c,fr),0.,1.),1.); }`,
     display: INIT + `uniform sampler2D uP, uInk; uniform float time, freq, cycle, change, seqLen, inkOn, starsOn, wash, fill, cells, seed, blocky; uniform vec2 dir, res;
       uniform vec3 pal[8]; uniform float seq[12], npal; uniform vec3 outline, starC;
       vec3 colAt(float k){ int i=int(mod(k,seqLen)); return pal[int(seq[i])]; }
@@ -226,21 +229,21 @@ function createSwirl2(gl, opts = {}) {
           // every band runs its own colour clock, so parts of the fluid change colour at different times
           float hk=hash(vec2(k*.731,3.17));
           float ph=time*cycle*(.6+.8*hk)+hk*9.;
-          // a changing band (share "change") holds its colour for half its clock, then fades smoothly into the next
-          float sh=hk<change ? floor(ph) : 0., fade=hk<change ? smoothstep(.5,1.,fract(ph)) : 0.;
+          // a changing band (share "change") fades slowly and continuously into the next over its whole clock
+          float sh=hk<change ? floor(ph) : 0., fade=hk<change ? smoothstep(0.,1.,fract(ph)) : 0.;
           col=mix(colAt(k+sh), colAt(k+sh+1.), fade);
           float fr=fract(b), w=fwidth(b);
           if(fill>3.5){   // colour noise: each square drifts (on its own clock) from one random colour to the next
             vec2 c=p*cells; float r=rnd(c,seed+11.), q=time*cycle*(.6+.8*r)+r*9.;
-            float qs=r<change ? floor(q) : 0., qf=r<change ? smoothstep(.5,1.,fract(q)) : 0.;
+            float qs=r<change ? floor(q) : 0., qf=r<change ? smoothstep(0.,1.,fract(q)) : 0.;
             vec3 a=vec3(rnd(c,seed+2.+qs*3.),rnd(c,seed+3.+qs*3.),rnd(c,seed+4.+qs*3.)),
                  b=vec3(rnd(c,seed+5.+qs*3.),rnd(c,seed+6.+qs*3.),rnd(c,seed+7.+qs*3.));
             col=mix(a,b,qf); }
           else if(fill>2.5){   // squares: one palette colour per square (any of the palette's colours), no outlines
             // colour drift: each square runs its own clock; "changing" is the share of squares that change at all,
-            // and a changing square holds its colour, then fades smoothly into the next one
+            // and a changing square fades slowly and continuously into the next colour
             vec2 c=p*cells; float kk=floor(rnd(c,seed+7.)*npal), r=rnd(c,seed+11.);
-            float q=time*cycle*(.6+.8*r)+r*9., qs=r<change ? floor(q) : 0., qf=r<change ? smoothstep(.5,1.,fract(q)) : 0.;
+            float q=time*cycle*(.6+.8*r)+r*9., qs=r<change ? floor(q) : 0., qf=r<change ? smoothstep(0.,1.,fract(q)) : 0.;
             col=mix(pal[int(mod(kk+qs,npal))], pal[int(mod(kk+qs+1.,npal))], qf); }
           else if(fill>.5&&fill<1.5){   // field: soft gradients between the palette levels, a little paper grain
             vec3 nxt=mix(colAt(k+1.+sh), colAt(k+2.+sh), fade);
