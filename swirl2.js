@@ -211,7 +211,7 @@ function createSwirl2(gl, opts = {}) {
       void main(){ vec3 fr=texture(uFresh,vUv).rgb, c=mix(fr, texture(uSrc,uv2()).rgb, blend);
         c=mix(vec3(dot(c,vec3(.2125,.7154,.0721))),c,sat); c*=bright; c=mix(vec3(.5),c,contrast);
         o=vec4(clamp(crisp(c,fr),0.,1.),1.); }`,
-    display: INIT + `uniform sampler2D uP, uInk; uniform float time, freq, fadeMin, fadeMax, grain, seqLen, inkOn, starsOn, wash, fill, cells, seed, blocky; uniform vec2 dir, res;
+    display: INIT + `uniform sampler2D uP, uInk; uniform float peek, time, freq, fadeMin, fadeMax, grain, seqLen, inkOn, starsOn, wash, fill, cells, seed, blocky; uniform vec2 dir, res;
       uniform vec3 pal[8]; uniform float seq[12], npal; uniform vec3 outline, starC;
       vec3 colAt(float k){ int i=int(mod(k,seqLen)); return pal[int(seq[i])]; }
       // colour fade: every square (or band) fades from its colour into a randomly chosen palette colour, each
@@ -232,9 +232,12 @@ function createSwirl2(gl, opts = {}) {
           return mix(a,b,ck.y); }
         float kk=floor(rnd(c,seed+7.)*npal);
         return mix(pal[int(pick(c,ck.x,kk))], pal[int(pick(c,ck.x+1.,kk))], ck.y); }
+      // peek: show the hidden map unstirred, zoomed out PZ times around the screen centre, the screen framed in white
+      const float PZ=4.;
+      vec2 PU(){ return peek>.5 ? initP(vec2(.5))+(initP(vUv)-initP(vec2(.5)))*PZ : texture(uP,vUv).xy; }
       void main(){
         vec3 col;
-        if(inkOn>.5){
+        if(inkOn>.5&&peek<.5){
           col=texture(uInk,vUv).rgb;
           if(wash>.5){
             // watercolour on the ink: a slightly wet (blurred) wash, pigment pooling darker where colours meet,
@@ -252,7 +255,7 @@ function createSwirl2(gl, opts = {}) {
           }
         }
         else {
-          vec2 p=texture(uP,vUv).xy;
+          vec2 p=PU();
           if(blocky>.5) p=(floor(p*cells)+.5)/cells;   // resolution: one colour per cell, the cells move with the fluid
           p=swirled(p);
           // fill: 0 bands, 1 field (smooth noise), 2 blobs (posterized noise), 3 squares (a palette colour per square),
@@ -271,7 +274,7 @@ function createSwirl2(gl, opts = {}) {
           col=mix(colAt(k+sh), colAt(k+sh+1.), fade);
           float fr=fract(b), w=fwidth(b);
           if(fill>2.5){   // squares / colour noise: one colour per square, each drifting on its own clock
-            vec2 raw=texture(uP,vUv).xy*cells, cell=floor(raw);
+            vec2 raw=PU()*cells, cell=floor(raw);
             col=cellCol(cell);
             if(wash>.5){   // watercolour: pigment pools darker where a square meets a different colour, grain inside
               vec2 f=fract(raw), px=max(fwidth(raw),vec2(1e-4)); float d=9.;
@@ -297,7 +300,7 @@ function createSwirl2(gl, opts = {}) {
             col*=mix(1., .9+.14*vnoise(p*9.+k), grain);
             col*=mix(1., .96+.05*hash(floor(gl_FragCoord.xy*.7)), grain);
           } else if(blocky<.5) col=mix(col,outline,smoothstep(w*1.4,0.,min(fr,1.-fr)-.015));
-          float shade=texture(uP,vUv).z; col=shade>0. ? mix(col,vec3(1.,.97,.9),shade*.7) : col*(1.+shade*1.1);
+          float shade=peek>.5 ? 0. : texture(uP,vUv).z; col=shade>0. ? mix(col,vec3(1.,.97,.9),shade*.7) : col*(1.+shade*1.1);
         }
         if(starsOn>.5){
           vec2 g=gl_FragCoord.xy/res.y*14.; vec2 i=floor(g), f=fract(g)-.5;
@@ -308,6 +311,13 @@ function createSwirl2(gl, opts = {}) {
           star=max(star, smoothstep(.035,.02,length(q)));
           float dark=1.-smoothstep(.12,.22,dot(col,vec3(.3,.59,.11)));
           col=mix(col,starC,step(.86,rr)*star*dark);
+        }
+        if(peek>.5){   // the screen's frame, and the map outside it a little dimmed
+          vec2 e=abs(vUv-.5)*PZ*2., px=fwidth(vUv)*PZ*2.;
+          bool in_=all(lessThan(e,vec2(1.)));
+          if(!in_) col*=.72;
+          float fr=min(abs(e.x-1.)/px.x, abs(e.y-1.)/px.y);
+          if(max(e.x,e.y)<1.+3.*max(px.x,px.y)) col=mix(col,vec3(1.),smoothstep(2.5,1.,fr));
         }
         o=vec4(col,1.);
       }`,
@@ -377,7 +387,7 @@ function createSwirl2(gl, opts = {}) {
     gl.bindVertexArray(vao); gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
   const clear = f => { gl.bindFramebuffer(gl.FRAMEBUFFER, f.fb); gl.viewport(0, 0, f.w, f.h); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT); };
-  let zoomA = 1, zoomB = [0, 0];
+  let zoomA = 1, zoomB = [0, 0], peeking = false;
   let time = 0, seed = 1 + Math.floor(Math.random() * 1e5), resets = 0;
   // a fresh start: new noise, and (after the first) a new random swirl layout for the bands
   const rndSwirl = (sgn) => [(Math.random() * 2 - 1) * aspect() * 0.8, (Math.random() * 2 - 1) * 0.75, sgn * (2.5 + Math.random() * 3.5), 0.35 + Math.random() * 0.45];
@@ -402,7 +412,7 @@ function createSwirl2(gl, opts = {}) {
     gl.uniform1f(u.inkOn, 0); gl.uniform1f(u.starsOn, stars && !o.wash ? 1 : 0); gl.uniform1f(u.wash, o.wash ? 1 : 0);
     gl.uniform1f(u.time, t); gl.uniform1f(u.freq, o.freq); gl.uniform1f(u.fill, Math.max(0, SWIRL2_FILLS.indexOf(o.fill)));
     const cellPx = Math.max(1, (o.cell || 1) * (o.height / Math.max(1, o.cssHeight || o.height)));   // in device pixels
-    gl.uniform1f(u.seed, seed); gl.uniform1f(u.cells, o.height / 2 / cellPx); gl.uniform1f(u.blocky, cellPx > 1.5 || o.fill === 'squares' || o.fill === 'colour noise' ? 1 : 0);
+    gl.uniform1f(u.seed, seed); gl.uniform1f(u.peek, peeking ? 1 : 0); gl.uniform1f(u.cells, o.height / 2 / cellPx); gl.uniform1f(u.blocky, cellPx > 1.5 || o.fill === 'squares' || o.fill === 'colour noise' ? 1 : 0);
     gl.uniform1f(u.grain, o.grain === false ? 0 : 1); gl.uniform1f(u.fadeMin, o.fadeMin); gl.uniform1f(u.fadeMax, o.fadeMax); gl.uniform2f(u.dir, o.dir[0], o.dir[1]); gl.uniform2f(u.res, o.width, o.height);
     gl.uniform3fv(u.pal, palArr(pl)); gl.uniform1f(u.npal, pl.pal.length);
     const sq = new Float32Array(12); sq.set(pl.seq.slice(0, 12)); gl.uniform1fv(u.seq, sq);
@@ -624,6 +634,6 @@ function createSwirl2(gl, opts = {}) {
   }
   function resize(w, h) { o.width = w; o.height = h; alloc(); }
   alloc();
-  return { step, render, splat, zoom, reset, resize, set, opts: o, get depth() { return depth; } };
+  return { step, render, splat, zoom, reset, resize, set, opts: o, get depth() { return depth; }, get peek() { return peeking; }, set peek(v) { peeking = !!v; } };
 }
 if (typeof window !== 'undefined') { window.createSwirl2 = createSwirl2; window.SWIRL2_PALETTES = SWIRL2_PALETTES; window.SWIRL2_PRESETS = SWIRL2_PRESETS; window.SWIRL2_FILLS = SWIRL2_FILLS; }

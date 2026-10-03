@@ -55,7 +55,9 @@ for this renderer:
 - **carry**: how hard the lattice drags the bands underneath · **jitter**: irregular lattice · **facets**: each triangle
   moves its piece rigidly with its own shade (Cubism)
 - **crisp ink**: pulls smeared ink back toward the palette so it keeps hard edges · **wash**: draw bands as watercolour
-- **dive**: hold `z` (in) / `x` (out) or scroll over a spot, or spread two fingers on a phone: the picture, the pattern it is drawn from and the motion all grow outward from that point, so you travel into the fluid and can keep stirring at the new scale (ink off: fresh detail all the way in). Reset returns to the full view
+- **dive**: hold `z` (in) / `x` (out) or scroll over a spot, or spread two fingers on a phone: the motion grows outward from that point (a whirlpool stays a whirlpool, just bigger) while the hidden map it reads from keeps its size, so the squares stay the same size and new stirring works as before. With fluids on and ink, the paint itself is enlarged. Reset returns to the full view
+- **map**: hold `m` (or the map button) to see the hidden map the picture is drawn from, unstirred and zoomed out 4×, your screen framed in white
+- **colours**: the swatches under the palettes are its colours; click one to change it (your palette goes into the share link as `colors=`)
 - **grain** (with wash): pigment granulation and paper grain; off keeps the colours solid while the soft pooled edges stay
 - **outline**: a thin black line (one pixel) around every colour region of the finished picture, the colours inside left clean (pairs well with wash off)
 - **bands**: band density · **colour fade**: one slider with two knobs, the shortest and longest time (seconds) a square or band takes to fade into a randomly chosen palette colour; each takes its own time in between. Left knob at 0 = off
