@@ -5,7 +5,7 @@ Stir a posterized swirl fluid in your browser. **Live: https://angusforbes.githu
 ![swirlfluid](screenshot.jpg)
 
 Flat poster-coloured swirl bands painted onto a real fluid simulation: stirring marbles them like paper, and when
-left alone the picture slowly heals back to its original pattern. Each colour band changes colour on its own clock.
+left alone the picture slowly heals back to its original pattern. Each square or band slowly fades into new colours on its own clock (colour fade).
 
 Two engines share the page: **swirl** (the poster fluid, with Ice Cracks, Cubism, Silk, ...) and **fluid automata**
 (an 8-bit energy automaton smearing a background, see below). Pick a preset from either row; `e` swaps engines.
@@ -55,7 +55,7 @@ for this renderer:
 - **carry**: how hard the lattice drags the bands underneath · **jitter**: irregular lattice · **facets**: each triangle
   moves its piece rigidly with its own shade (Cubism)
 - **crisp ink**: pulls smeared ink back toward the palette so it keeps hard edges · **wash**: draw bands as watercolour
-- **bands**: band density · **colour drift**: how fast colours change (squares fade smoothly into their next colour) · **changing**: the share of squares that change colour at all
+- **bands**: band density · **colour fade**: seconds for a square (or band) to fade from its colour into a randomly chosen palette colour, 0 = off · **fade variation**: how much each square's time differs (±100%: anywhere from 0 to twice the fade time)
 - **fluids** off: motion stays where you put it (a displacement) instead of flowing on
 - **ink**: colours smear and blend instead of staying crisp poster bands
 
