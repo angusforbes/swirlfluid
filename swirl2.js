@@ -61,6 +61,7 @@ const SWIRL2_PRESETS = {
   // Angus's third and fourth phone finds (2026-10-03), both on colour noise at 11 rows
   "Bird's Nest": { fluids: false, fluidity: 0.999, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'ink', wash: true, facets: false, crisp: 0.27, palette: 'pop', freq: 4.9, cycle: 0.07, fill: 'colour noise', rows: 11 },
   'Sails':       { fluids: false, fluidity: 0.999, viscosity: 0.2, momentum: 0.1,  angularity: 0.576, energy: 2.5, grid: 0, curl: 1.5, heal: 0.5, jitter: 0, memory: 0.5,   carry: 1.5, paint: 'ink', wash: true, facets: false, crisp: 0.3,  palette: 'sea', freq: 3.2, cycle: 0.07, fill: 'colour noise', rows: 11 },
+  'Mosaic':      { fluids: false, fluidity: 0.999, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1.3, grid: 0, curl: 15,  heal: 0,   jitter: 0, memory: 0.99,  carry: 0,   paint: 'bands', wash: true, facets: false, crisp: 0, palette: 'jelly', freq: 3.2, cycle: 0, fill: 'squares', rows: 8 },
 };
 
 function createSwirl2(gl, opts = {}) {
