@@ -44,7 +44,7 @@ The knobs take ideas from [Fluid Automata](https://github.com/CreativeCodingLab/
 (Forbes, Höllerer, Legrady, *Generative fluid profiles for interactive media arts projects*, CAe 2013), reworked
 for this renderer:
 
-- **fluidity**: how long motion lasts · **thickness**: velocity spreads into its neighbours (tar)
+- **fluidity**: how long motion lasts (1.000: forever, so with fluids off the picture stays exactly as you leave it) · **thickness**: velocity spreads into its neighbours (tar)
 - **branching** / **branch angle**: part of the motion peels off sideways at an angle
 - **energy**: how far paint is carried · **curl**: how hard small eddies are kept spinning
 - **heal**: how fast the picture relaxes back
@@ -55,7 +55,7 @@ for this renderer:
 - **carry**: how hard the lattice drags the bands underneath · **jitter**: irregular lattice · **facets**: each triangle
   moves its piece rigidly with its own shade (Cubism)
 - **crisp ink**: pulls smeared ink back toward the palette so it keeps hard edges · **wash**: draw bands as watercolour
-- **bands**: band density · **colour drift**: how fast bands change colour
+- **bands**: band density · **colour drift**: how fast colours change (squares fade smoothly into their next colour) · **changing**: the share of squares that change colour at all
 - **fluids** off: motion stays where you put it (a displacement) instead of flowing on
 - **ink**: colours smear and blend instead of staying crisp poster bands
 

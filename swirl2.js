@@ -73,7 +73,7 @@ function createSwirl2(gl, opts = {}) {
     width: gl.drawingBufferWidth, height: gl.drawingBufferHeight,
     simRes: 160, coordRes: 900, palette: 'ocean', freq: 3.0, dir: [0.4, 2.2],
     swirls: [[-0.55, 0.12, 5.5, 0.75], [0.7, -0.3, -4.5, 0.6], [0.15, 0.75, 2.5, 0.4]],
-    cycle: 0.07, ambient: 1, saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, wash: false, facets: false, jitter: 0,
+    cycle: 0.07, change: 1, ambient: 1, saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, wash: false, facets: false, jitter: 0,
   }, SWIRL2_PRESETS.Poster, opts);
   if (!gl.getExtension('EXT_color_buffer_float') && !gl.getExtension('EXT_color_buffer_half_float'))
     throw new Error('swirl: this GPU cannot render to float textures');
@@ -187,7 +187,7 @@ function createSwirl2(gl, opts = {}) {
       void main(){ vec3 c=mix(texture(uFresh,vUv).rgb, texture(uSrc,uv2()).rgb, blend);
         c=mix(vec3(dot(c,vec3(.2125,.7154,.0721))),c,sat); c*=bright; c=mix(vec3(.5),c,contrast);
         o=vec4(clamp(crisp(c),0.,1.),1.); }`,
-    display: INIT + `uniform sampler2D uP, uInk; uniform float time, freq, cycle, seqLen, inkOn, starsOn, wash, fill, cells, seed, blocky; uniform vec2 dir, res;
+    display: INIT + `uniform sampler2D uP, uInk; uniform float time, freq, cycle, change, seqLen, inkOn, starsOn, wash, fill, cells, seed, blocky; uniform vec2 dir, res;
       uniform vec3 pal[8]; uniform float seq[12], npal; uniform vec3 outline, starC;
       vec3 colAt(float k){ int i=int(mod(k,seqLen)); return pal[int(seq[i])]; }
       void main(){
@@ -231,7 +231,11 @@ function createSwirl2(gl, opts = {}) {
           float fr=fract(b), w=fwidth(b);
           if(fill>3.5){ vec2 c=p*cells; col=vec3(rnd(c,seed+2.),rnd(c,seed+3.),rnd(c,seed+4.)); }
           else if(fill>2.5){   // squares: one palette colour per square (any of the palette's colours), no outlines
-            float kk=floor(rnd(p*cells,seed+7.)*npal); col=pal[int(mod(kk+sh,npal))]; }
+            // colour drift: each square runs its own clock; "changing" is the share of squares that change at all,
+            // and a changing square holds its colour, then fades smoothly into the next one
+            vec2 c=p*cells; float kk=floor(rnd(c,seed+7.)*npal), r=rnd(c,seed+11.);
+            float q=time*cycle*(.6+.8*r)+r*9., qs=r<change ? floor(q) : 0., qf=r<change ? smoothstep(.5,1.,fract(q)) : 0.;
+            col=mix(pal[int(mod(kk+qs,npal))], pal[int(mod(kk+qs+1.,npal))], qf); }
           else if(fill>.5&&fill<1.5){   // field: soft gradients between the palette levels, a little paper grain
             vec3 nxt=mix(colAt(k+1.+sh), colAt(k+2.+sh), smoothstep(.97,1.,fract(ph)));
             col=mix(col,nxt,smoothstep(.15,.85,fr))*(.95+.08*vnoise(p*40.));
@@ -346,7 +350,7 @@ function createSwirl2(gl, opts = {}) {
     gl.uniform1f(u.time, t); gl.uniform1f(u.freq, o.freq); gl.uniform1f(u.fill, Math.max(0, SWIRL2_FILLS.indexOf(o.fill)));
     const cellPx = Math.max(1, (o.cell || 1) * (o.height / Math.max(1, o.cssHeight || o.height)));   // in device pixels
     gl.uniform1f(u.seed, seed); gl.uniform1f(u.cells, o.height / 2 / cellPx); gl.uniform1f(u.blocky, cellPx > 1.5 || o.fill === 'squares' || o.fill === 'colour noise' ? 1 : 0);
-    gl.uniform1f(u.cycle, o.cycle); gl.uniform2f(u.dir, o.dir[0], o.dir[1]); gl.uniform2f(u.res, o.width, o.height);
+    gl.uniform1f(u.cycle, o.cycle); gl.uniform1f(u.change, o.change ?? 1); gl.uniform2f(u.dir, o.dir[0], o.dir[1]); gl.uniform2f(u.res, o.width, o.height);
     gl.uniform3fv(u.pal, palArr(pl)); gl.uniform1f(u.npal, pl.pal.length);
     const sq = new Float32Array(12); sq.set(pl.seq.slice(0, 12)); gl.uniform1fv(u.seq, sq);
     gl.uniform1f(u.seqLen, pl.seq.length); gl.uniform3fv(u.outline, hex(pl.outline)); gl.uniform3fv(u.starC, hex(pl.star || '#f7f1e1'));
