@@ -226,10 +226,16 @@ function createSwirl2(gl, opts = {}) {
           // every band runs its own colour clock, so parts of the fluid change colour at different times
           float hk=hash(vec2(k*.731,3.17));
           float ph=time*cycle*(.6+.8*hk)+hk*9.;
-          float sh=floor(ph);
-          col=mix(colAt(k+sh), colAt(k+sh+1.), smoothstep(.97,1.,fract(ph)));
+          // a changing band (share "change") holds its colour for half its clock, then fades smoothly into the next
+          float sh=hk<change ? floor(ph) : 0., fade=hk<change ? smoothstep(.5,1.,fract(ph)) : 0.;
+          col=mix(colAt(k+sh), colAt(k+sh+1.), fade);
           float fr=fract(b), w=fwidth(b);
-          if(fill>3.5){ vec2 c=p*cells; col=vec3(rnd(c,seed+2.),rnd(c,seed+3.),rnd(c,seed+4.)); }
+          if(fill>3.5){   // colour noise: each square drifts (on its own clock) from one random colour to the next
+            vec2 c=p*cells; float r=rnd(c,seed+11.), q=time*cycle*(.6+.8*r)+r*9.;
+            float qs=r<change ? floor(q) : 0., qf=r<change ? smoothstep(.5,1.,fract(q)) : 0.;
+            vec3 a=vec3(rnd(c,seed+2.+qs*3.),rnd(c,seed+3.+qs*3.),rnd(c,seed+4.+qs*3.)),
+                 b=vec3(rnd(c,seed+5.+qs*3.),rnd(c,seed+6.+qs*3.),rnd(c,seed+7.+qs*3.));
+            col=mix(a,b,qf); }
           else if(fill>2.5){   // squares: one palette colour per square (any of the palette's colours), no outlines
             // colour drift: each square runs its own clock; "changing" is the share of squares that change at all,
             // and a changing square holds its colour, then fades smoothly into the next one
@@ -237,12 +243,12 @@ function createSwirl2(gl, opts = {}) {
             float q=time*cycle*(.6+.8*r)+r*9., qs=r<change ? floor(q) : 0., qf=r<change ? smoothstep(.5,1.,fract(q)) : 0.;
             col=mix(pal[int(mod(kk+qs,npal))], pal[int(mod(kk+qs+1.,npal))], qf); }
           else if(fill>.5&&fill<1.5){   // field: soft gradients between the palette levels, a little paper grain
-            vec3 nxt=mix(colAt(k+1.+sh), colAt(k+2.+sh), smoothstep(.97,1.,fract(ph)));
+            vec3 nxt=mix(colAt(k+1.+sh), colAt(k+2.+sh), fade);
             col=mix(col,nxt,smoothstep(.15,.85,fr))*(.95+.08*vnoise(p*40.));
           } else if(wash>.5){
             // watercolour: no ink outline; the next colour bleeds in softly, pigment pools darker along each edge,
             // granulates inside the band, and paper grain shows through
-            vec3 nxt=mix(colAt(k+1.+sh), colAt(k+2.+sh), smoothstep(.97,1.,fract(ph)));
+            vec3 nxt=mix(colAt(k+1.+sh), colAt(k+2.+sh), fade);
             float wide=smoothstep(.35,.08,w);   // edge effects only where bands are wide enough to hold them
             col=mix(col, nxt, smoothstep(1.-max(.06,w*3.),1.,fr)*.85*wide);
             float px=min(fr,1.-fr)/max(w,1e-4);
