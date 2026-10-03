@@ -56,16 +56,16 @@ const SWIRL2_PRESETS = {
   // Angus's picture (2026-10-02): big 8-row squares melted into soft, crisp-edged watercolour jelly
   'Jelly':       { fluids: true,  fluidity: 0.985, viscosity: 2,   momentum: 0.4,  angularity: 1.18,  energy: 0.7, grid: 0, curl: 2, heal: 0.02, paint: 'ink', wash: true, crisp: 0.1, palette: 'jelly', freq: 3.2, fill: 'squares', rows: 8 },
   // Angus's phone find (2026-10-03): fluids off, so stirring winds the squares into concentric tunnel rings
-  'Wormhole':    { fluids: false, fluidity: 0.999, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4, heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'ink', wash: true, facets: false, crisp: 0, palette: 'pop', freq: 4.9, fade: 15, fill: 'squares', rows: 4 },
+  'Wormhole':    { fluids: false, fluidity: 0.999, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4, heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'ink', wash: true, facets: false, crisp: 0, palette: 'pop', freq: 4.9, fadeMin: 8, fadeMax: 22, fill: 'squares', rows: 4 },
   // Angus's second phone find (2026-10-03): Wormhole with little carry and crisp ink: big marbled continents ringed by contour lines
-  'Topography':  { fluids: false, fluidity: 0.999, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4, heal: 0.1, jitter: 0, memory: 0.985, carry: 0.2, paint: 'ink', wash: true, facets: false, crisp: 0.3, palette: 'pop', freq: 4.9, fade: 15, fill: 'squares', rows: 28 },
+  'Topography':  { fluids: false, fluidity: 0.999, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4, heal: 0.1, jitter: 0, memory: 0.985, carry: 0.2, paint: 'ink', wash: true, facets: false, crisp: 0.3, palette: 'pop', freq: 4.9, fadeMin: 8, fadeMax: 22, fill: 'squares', rows: 28 },
   // Angus's third and fourth phone finds (2026-10-03), both on colour noise at 11 rows
-  "Bird's Nest": { fluids: false, fluidity: 0.999, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'ink', wash: true, facets: false, crisp: 0.27, palette: 'pop', freq: 4.9, fade: 15, fill: 'colour noise', rows: 11 },
-  'Sails':       { fluids: false, fluidity: 0.999, viscosity: 0.2, momentum: 0.1,  angularity: 0.576, energy: 2.5, grid: 0, curl: 1.5, heal: 0.5, jitter: 0, memory: 0.5,   carry: 1.5, paint: 'ink', wash: true, facets: false, crisp: 0.3,  palette: 'sea', freq: 3.2, fade: 15, fill: 'colour noise', rows: 11 },
-  'Mosaic':      { fluids: false, fluidity: 0.999, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1.3, grid: 0, curl: 15,  heal: 0,   jitter: 0, memory: 0.99,  carry: 0,   paint: 'bands', wash: true, facets: false, crisp: 0, palette: 'jelly', freq: 3.2, fade: 0, fill: 'squares', rows: 8 },
+  "Bird's Nest": { fluids: false, fluidity: 0.999, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'ink', wash: true, facets: false, crisp: 0.27, palette: 'pop', freq: 4.9, fadeMin: 8, fadeMax: 22, fill: 'colour noise', rows: 11 },
+  'Sails':       { fluids: false, fluidity: 0.999, viscosity: 0.2, momentum: 0.1,  angularity: 0.576, energy: 2.5, grid: 0, curl: 1.5, heal: 0.5, jitter: 0, memory: 0.5,   carry: 1.5, paint: 'ink', wash: true, facets: false, crisp: 0.3,  palette: 'sea', freq: 3.2, fadeMin: 8, fadeMax: 22, fill: 'colour noise', rows: 11 },
+  'Mosaic':      { fluids: false, fluidity: 0.999, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1.3, grid: 0, curl: 15,  heal: 0,   jitter: 0, memory: 0.99,  carry: 0,   paint: 'bands', wash: true, facets: false, crisp: 0, palette: 'jelly', freq: 3.2, fadeMin: 0, fadeMax: 0, fill: 'squares', rows: 8 },
   // Mosaic that stays put: the picture is the squares displaced by the motion, so keep the motion exactly
   // as you leave it (fluidity 1: no fading, and no idle eddies) and the picture stays
-  'Sanka 2':     { fluids: false, fluidity: 1,     viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1.3, grid: 0, curl: 15,  heal: 0,   jitter: 0, memory: 0.99,  carry: 0,   paint: 'bands', wash: true, facets: false, crisp: 0, palette: 'jelly', freq: 3.2, fade: 0, fill: 'squares', rows: 8 },
+  'Sanka 2':     { fluids: false, fluidity: 1,     viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1.3, grid: 0, curl: 15,  heal: 0,   jitter: 0, memory: 0.99,  carry: 0,   paint: 'bands', wash: true, facets: false, crisp: 0, palette: 'jelly', freq: 3.2, fadeMin: 0, fadeMax: 0, fill: 'squares', rows: 8 },
 };
 
 function createSwirl2(gl, opts = {}) {
@@ -73,7 +73,7 @@ function createSwirl2(gl, opts = {}) {
     width: gl.drawingBufferWidth, height: gl.drawingBufferHeight,
     simRes: 160, coordRes: 900, palette: 'ocean', freq: 3.0, dir: [0.4, 2.2],
     swirls: [[-0.55, 0.12, 5.5, 0.75], [0.7, -0.3, -4.5, 0.6], [0.15, 0.75, 2.5, 0.4]],
-    fade: 15, vary: 0.5, ambient: 1, saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, wash: false, facets: false, jitter: 0,
+    fadeMin: 8, fadeMax: 22, ambient: 1, saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, wash: false, facets: false, jitter: 0,
   }, SWIRL2_PRESETS.Poster, opts);
   if (!gl.getExtension('EXT_color_buffer_float') && !gl.getExtension('EXT_color_buffer_half_float'))
     throw new Error('swirl: this GPU cannot render to float textures');
@@ -109,8 +109,8 @@ function createSwirl2(gl, opts = {}) {
   const SNAP = `
   uniform vec3 pal[8]; uniform float snap, npal;
   // crisp: pull each pixel part of the way to the nearest palette colour, so smears keep hard edges instead of blurring
-  // f: the colour the picture is drifting towards (colour drift fades between palette colours); it counts as a
-  // palette colour, so in-between colours of a fade are kept instead of snapping (which made the drift blink)
+  // f: the colour the picture is drifting towards (colour fade fades between palette colours); it counts as a
+  // palette colour, so in-between colours of a fade are kept instead of snapping (which made the fade blink)
   vec3 crisp(vec3 c, vec3 f){ vec3 b=f; float bd=dot(c-f,c-f); for(int i=0;i<8;i++){ if(float(i)>=npal) break; vec3 d=c-pal[i]; float dd=dot(d,d); if(dd<bd){ bd=dd; b=pal[i]; } } return mix(c,b,snap); }
 `;
   const FS = {
@@ -190,14 +190,14 @@ function createSwirl2(gl, opts = {}) {
       void main(){ vec3 fr=texture(uFresh,vUv).rgb, c=mix(fr, texture(uSrc,uv2()).rgb, blend);
         c=mix(vec3(dot(c,vec3(.2125,.7154,.0721))),c,sat); c*=bright; c=mix(vec3(.5),c,contrast);
         o=vec4(clamp(crisp(c,fr),0.,1.),1.); }`,
-    display: INIT + `uniform sampler2D uP, uInk; uniform float time, freq, fadeT, vary, seqLen, inkOn, starsOn, wash, fill, cells, seed, blocky; uniform vec2 dir, res;
+    display: INIT + `uniform sampler2D uP, uInk; uniform float time, freq, fadeMin, fadeMax, seqLen, inkOn, starsOn, wash, fill, cells, seed, blocky; uniform vec2 dir, res;
       uniform vec3 pal[8]; uniform float seq[12], npal; uniform vec3 outline, starC;
       vec3 colAt(float k){ int i=int(mod(k,seqLen)); return pal[int(seq[i])]; }
-      // colour drift: every square (or band) fades from its colour into a randomly chosen palette colour over
-      // fadeT seconds (0 = off), its own time spread by vary (1: anywhere from 0 to 2 x fadeT). Returns
-      // (colour step, fade 0..1); step 0 is the starting colour
-      vec2 clock(float r){ if(fadeT<=0.) return vec2(0.);
-        float q=time/max(.5, fadeT*(1.+vary*(2.*r-1.))); return vec2(floor(q), smoothstep(0.,1.,fract(q))); }
+      // colour fade: every square (or band) fades from its colour into a randomly chosen palette colour, each
+      // taking its own time between fadeMin and fadeMax seconds (fadeMin 0 = off). Returns (colour step, fade 0..1);
+      // step 0 is the starting colour
+      vec2 clock(float r){ if(fadeMin<=0.) return vec2(0.);
+        float q=time/max(.5, mix(fadeMin, max(fadeMin, fadeMax), r)); return vec2(floor(q), smoothstep(0.,1.,fract(q))); }
       // the palette colour of step n of a square: random, but never the same as the step before
       float raw(vec2 c, float n, float first){ return n<.5 ? first : floor(rnd(c,seed+20.+n)*npal); }
       float pick(vec2 c, float n, float first){ if(n<.5) return first;
@@ -363,7 +363,7 @@ function createSwirl2(gl, opts = {}) {
     gl.uniform1f(u.time, t); gl.uniform1f(u.freq, o.freq); gl.uniform1f(u.fill, Math.max(0, SWIRL2_FILLS.indexOf(o.fill)));
     const cellPx = Math.max(1, (o.cell || 1) * (o.height / Math.max(1, o.cssHeight || o.height)));   // in device pixels
     gl.uniform1f(u.seed, seed); gl.uniform1f(u.cells, o.height / 2 / cellPx); gl.uniform1f(u.blocky, cellPx > 1.5 || o.fill === 'squares' || o.fill === 'colour noise' ? 1 : 0);
-    gl.uniform1f(u.fadeT, o.fade); gl.uniform1f(u.vary, o.vary); gl.uniform2f(u.dir, o.dir[0], o.dir[1]); gl.uniform2f(u.res, o.width, o.height);
+    gl.uniform1f(u.fadeMin, o.fadeMin); gl.uniform1f(u.fadeMax, o.fadeMax); gl.uniform2f(u.dir, o.dir[0], o.dir[1]); gl.uniform2f(u.res, o.width, o.height);
     gl.uniform3fv(u.pal, palArr(pl)); gl.uniform1f(u.npal, pl.pal.length);
     const sq = new Float32Array(12); sq.set(pl.seq.slice(0, 12)); gl.uniform1fv(u.seq, sq);
     gl.uniform1f(u.seqLen, pl.seq.length); gl.uniform3fv(u.outline, hex(pl.outline)); gl.uniform3fv(u.starC, hex(pl.star || '#f7f1e1'));
