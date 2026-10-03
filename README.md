@@ -55,7 +55,6 @@ for this renderer:
 - **carry**: how hard the lattice drags the bands underneath · **jitter**: irregular lattice · **facets**: each triangle
   moves its piece rigidly with its own shade (Cubism)
 - **crisp ink**: pulls smeared ink back toward the palette so it keeps hard edges · **wash**: draw bands as watercolour
-- **hold** (on by default): with fluids off, the picture freezes exactly as it is a moment after you stop stirring, and the next stir carries on from it instead of springing back to the starting pattern
 - **bands**: band density · **colour drift**: how fast bands change colour
 - **fluids** off: motion stays where you put it (a displacement) instead of flowing on
 - **ink**: colours smear and blend instead of staying crisp poster bands

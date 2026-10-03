@@ -14,8 +14,6 @@
 //   heal        how fast the picture relaxes back to the original pattern (the automaton's "blend")
 //   facets      lattice: each triangle moves its piece of the picture rigidly (hard-edged planes) · jitter: irregular lattice
 //   wash        bands drawn as watercolour (soft bleeding edges, pooled pigment, paper grain) instead of poster
-//   hold        fluids off: when you stop stirring the picture freezes exactly as it is, and the next stir
-//               pushes that picture on (instead of springing back to the original pattern)
 //   paint       'bands': poster bands drawn from stirred coordinates (crisp forever)
 //               'ink': a colour image is smeared with feedback (brightness, contrast, saturation per frame)
 // Classic script: defines createSwirl2(gl, opts), SWIRL2_PALETTES, SWIRL2_PRESETS.
@@ -72,7 +70,7 @@ function createSwirl2(gl, opts = {}) {
     width: gl.drawingBufferWidth, height: gl.drawingBufferHeight,
     simRes: 160, coordRes: 900, palette: 'ocean', freq: 3.0, dir: [0.4, 2.2],
     swirls: [[-0.55, 0.12, 5.5, 0.75], [0.7, -0.3, -4.5, 0.6], [0.15, 0.75, 2.5, 0.4]],
-    cycle: 0.07, ambient: 1, hold: true, saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, wash: false, facets: false, jitter: 0,
+    cycle: 0.07, ambient: 1, saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, wash: false, facets: false, jitter: 0,
   }, SWIRL2_PRESETS.Poster, opts);
   if (!gl.getExtension('EXT_color_buffer_float') && !gl.getExtension('EXT_color_buffer_half_float'))
     throw new Error('swirl: this GPU cannot render to float textures');
@@ -114,11 +112,10 @@ function createSwirl2(gl, opts = {}) {
     init: INIT + `void main(){ o=vec4(initP(vUv),0.,1.); }`,
     advect: `uniform sampler2D uVel, uSrc; uniform vec2 simTexel; uniform float dt;
       void main(){ vec2 c=vUv-dt*texture(uVel,vUv).xy*simTexel; o=texture(uSrc,c); }`,
-    advectP: INIT + VELAT + `uniform sampler2D uSrc, uBase; uniform vec2 simTexel, texel; uniform float dt, relax, flow, disp, based;
+    advectP: INIT + VELAT + `uniform sampler2D uSrc; uniform vec2 simTexel; uniform float dt, relax, flow, disp;
       void main(){
         // fluids off: the motion field is a displacement of the original picture (stays put, no smearing)
-        if(flow<.5){ vec2 q=vUv-velAt(vUv)*simTexel*disp;
-          o=based>.5 ? vec4(texelFetch(uBase, ivec2(clamp(q,0.,1.)/texel), 0).xy,0.,1.) : vec4(initP(q),0.,1.); return; }
+        if(flow<.5){ o=vec4(initP(vUv-velAt(vUv)*simTexel*disp),0.,1.); return; }
         vec2 c=vUv-dt*velAt(vUv)*simTexel;
         o=vec4(mix(texture(uSrc,c).xy, initP(vUv), relax),0.,1.); }`,
     inkFwd: VELAT + `uniform sampler2D uSrc; uniform vec2 simTexel; uniform float dt;
@@ -297,8 +294,7 @@ function createSwirl2(gl, opts = {}) {
     const sh_ = o.simRes, sw_ = Math.round(sh_ * aspect());
     const ch = Math.min(o.coordRes, o.height), cw = Math.round(ch * aspect());
     S = { vel: dbl(sw_, sh_), press: dbl(sw_, sh_), div: fbo(sw_, sh_), curl: fbo(sw_, sh_), v0: fbo(sw_, sh_),
-          P: dbl(cw, ch), P0: fbo(cw, ch), ink: dbl(cw, ch), fresh: fbo(cw, ch), tmp: fbo(cw, ch), baseP: fbo(cw, ch), baseInk: fbo(cw, ch),
-          cw, ch, sw: sw_, sh: sh_ };
+          P: dbl(cw, ch), P0: fbo(cw, ch), ink: dbl(cw, ch), fresh: fbo(cw, ch), tmp: fbo(cw, ch), sw: sw_, sh: sh_ };
     reset();
   }
   const palArr = pl => { const a = new Float32Array(24); pl.pal.slice(0, 8).forEach((c, i) => a.set(hex(c), i * 3)); return a; };
@@ -335,7 +331,6 @@ function createSwirl2(gl, opts = {}) {
     gl.disable(gl.BLEND); gl.disable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE); gl.disable(gl.SCISSOR_TEST);
     [S.vel.read, S.vel.write, S.press.read, S.press.write].forEach(clear);
     if (L) { L.ms.fill(0); L.os.fill(0); }
-    based = frozen = false; stirred = false; idle = 0;
     use('init', S.P.write); blit(S.P.write); S.P.swap();
     use('init', S.P0); blit(S.P0);
     renderBands(S.P0, S.ink.read, time, false); blit(S.ink.read);
@@ -461,8 +456,7 @@ function createSwirl2(gl, opts = {}) {
   }
 
   // x,y in 0..1 (y up). force in uv/sec; spin is per-call strength; radius in uv^2
-  function splat(x, y, fx, fy, spin = 0, radius = 0.0025, ambient = false) {
-    if (!ambient) { stirred = true; idle = 0; frozen = false; }
+  function splat(x, y, fx, fy, spin = 0, radius = 0.0025) {
     if (o.grid >= 2) return latticeSplat(x, y, fx, fy, spin, radius);
     const u = use('splat', S.vel.write);
     gl.uniform1i(u.uTarget, tex(0, S.vel.read)); gl.uniform2f(u.point, x, y);
@@ -470,20 +464,7 @@ function createSwirl2(gl, opts = {}) {
     blit(S.vel.write); S.vel.swap();
   }
   let ambT = 0;
-  // hold (fluids off): a quarter second after the last stir, keep the picture as it is: copy it as the new base the
-  // motion displaces, stop all motion, and stop stepping until the next stir
-  let based = false, frozen = false, stirred = false, idle = 0;
-  const holds = () => o.hold && !o.fluids && o.grid < 2;
-  function freeze() {
-    gl.disable(gl.BLEND); gl.disable(gl.DEPTH_TEST);
-    let u = use('scale', S.baseP); gl.uniform1i(u.uSrc, tex(0, S.P.read)); gl.uniform1f(u.k, 1); blit(S.baseP);
-    u = use('scale', S.baseInk); gl.uniform1i(u.uSrc, tex(0, S.ink.read)); gl.uniform1f(u.k, 1); blit(S.baseInk);
-    [S.vel.read, S.vel.write].forEach(clear);
-    based = frozen = true;
-  }
   function step(dt) {
-    if (holds() && stirred && !frozen && ++idle > 15) freeze();
-    if (frozen) return;
     dt = Math.min(dt, 1 / 30); time += dt;
     if (o.grid >= 2) { gl.disable(gl.BLEND); gl.disable(gl.DEPTH_TEST); latticeStep(dt); return; }
     const f60 = dt * 60;
@@ -491,7 +472,7 @@ function createSwirl2(gl, opts = {}) {
     ambT += dt;
     if (o.ambient > 0) for (let i = 0; i < 3; i++) {   // three slow drifting eddies keep it alive when idle
       const t = ambT * (0.05 + i * 0.017) + i * 2.1;
-      splat(0.5 + 0.35 * Math.cos(t * 1.3 + i), 0.5 + 0.32 * Math.sin(t * 0.9 + i * 2), 0, 0, (i % 2 ? -1 : 1) * 0.4 * o.ambient * dt, 0.02, true);
+      splat(0.5 + 0.35 * Math.cos(t * 1.3 + i), 0.5 + 0.32 * Math.sin(t * 0.9 + i * 2), 0, 0, (i % 2 ? -1 : 1) * 0.4 * o.ambient * dt, 0.02);
     }
     let u;
     if (o.fluids) {
@@ -529,23 +510,19 @@ function createSwirl2(gl, opts = {}) {
 
     const relax = 1 - Math.exp(-dt * o.heal);
     if (o.paint === 'ink') {
-      const useBase = based && !o.fluids;
-      if (!useBase) { renderBands(S.P0, S.fresh, time, false); blit(S.fresh); }
+      renderBands(S.P0, S.fresh, time, false); blit(S.fresh);
       u = use('inkFwd', S.tmp); gl.uniform1i(u.uVel, tex(0, S.vel.read)); gl.uniform1i(u.uSrc, tex(1, S.ink.read)); gl.uniform1f(u.dt, dt * o.energy); blit(S.tmp);
-      u = use('advectInk', S.ink.write); gl.uniform1i(u.uFwd, tex(3, S.tmp)); gl.uniform1i(u.uVel, tex(0, S.vel.read)); gl.uniform1i(u.uSrc, tex(1, S.ink.read)); gl.uniform1i(u.uFresh, tex(2, useBase ? S.baseInk : S.fresh));
+      u = use('advectInk', S.ink.write); gl.uniform1i(u.uFwd, tex(3, S.tmp)); gl.uniform1i(u.uVel, tex(0, S.vel.read)); gl.uniform1i(u.uSrc, tex(1, S.ink.read)); gl.uniform1i(u.uFresh, tex(2, S.fresh));
       gl.uniform1f(u.dt, dt * o.energy); gl.uniform1f(u.relax, relax); gl.uniform1f(u.flow, o.fluids ? 1 : 0); gl.uniform1f(u.disp, o.energy * 0.06); gl.uniform1f(u.mac, o.smooth ? 0 : 1);
       gl.uniform1f(u.sat, Math.pow(o.saturation, f60)); gl.uniform1f(u.bright, Math.pow(o.brightness, f60)); gl.uniform1f(u.contrast, Math.pow(o.contrast, f60));
       blit(S.ink.write); S.ink.swap();
     } else {
       u = use('advectP', S.P.write); gl.uniform1i(u.uVel, tex(0, S.vel.read)); gl.uniform1i(u.uSrc, tex(1, S.P.read));
-      gl.uniform1i(u.uBase, tex(2, S.baseP)); gl.uniform2f(u.texel, 1 / S.cw, 1 / S.ch); gl.uniform1f(u.based, based && !o.fluids ? 1 : 0);
       gl.uniform1f(u.dt, dt * o.energy); gl.uniform1f(u.relax, relax); gl.uniform1f(u.flow, o.fluids ? 1 : 0); gl.uniform1f(u.disp, o.energy * 0.06);
       blit(S.P.write); S.P.swap();
     }
   }
-  let heldT = 0;
   function render(t = time, target = null) {
-    if (frozen) t = heldT; else heldT = t;
     const u = renderBands(S.P.read, target, t, true);
     gl.uniform1f(u.inkOn, o.paint === 'ink' ? 1 : 0); gl.uniform1i(u.uInk, tex(1, S.ink.read));
     blit(target);
@@ -554,9 +531,7 @@ function createSwirl2(gl, opts = {}) {
   function set(params) {
     const wasInk = o.paint === 'ink', fillWas = o.fill;
     Object.assign(o, params);
-    if (o.fill !== fillWas) { reset(); return; }
-    if (based && o.paint === 'ink' && ['palette', 'freq', 'cell', 'saturation', 'brightness', 'contrast'].some(k => k in params)) based = frozen = false;   // held ink has the old colours
-    if (!holds()) frozen = false;   // the starting picture differs (noise fills start unswirled)
+    if (o.fill !== fillWas) { reset(); return; }   // the starting picture differs (noise fills start unswirled)
     if (o.paint === 'ink' && !wasInk) { renderBands(S.P.read, S.ink.read, time, false); blit(S.ink.read); }
   }
   function resize(w, h) { o.width = w; o.height = h; alloc(); }
