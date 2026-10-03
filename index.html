@@ -122,7 +122,7 @@ const KNOBS = [
     { to: v => Math.round(1000 * (1 - Math.log(Math.max(1, v)) / Math.log(maxCell()))), from: t => Math.max(1, Math.round(maxCell() ** (1 - t / 1000))) }],
   ['cycle', 'colour drift', 0, 0.3, 0.01, v => v.toFixed(2)],
 ];
-const maxCell = () => Math.max(2, innerHeight / 8);   // the coarsest background: 8 rows of cells
+const maxCell = () => Math.max(2, innerHeight / 4);   // the coarsest background: 4 rows of cells
 const FLUID_KNOBS = [
   ['grid', 'grid', 4, 160, 1, v => v + ' rows'],
   ['forward', 'forward', 0, 1, 0.01, v => Math.round(v * 100) + '%'],
