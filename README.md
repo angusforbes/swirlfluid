@@ -55,6 +55,7 @@ for this renderer:
 - **carry**: how hard the lattice drags the bands underneath · **jitter**: irregular lattice · **facets**: each triangle
   moves its piece rigidly with its own shade (Cubism)
 - **crisp ink**: pulls smeared ink back toward the palette so it keeps hard edges · **wash**: draw bands as watercolour
+- **outline**: a dark line around every colour region of the finished picture, the colours inside left clean (pairs well with wash off)
 - **bands**: band density · **colour fade**: one slider with two knobs, the shortest and longest time (seconds) a square or band takes to fade into a randomly chosen palette colour; each takes its own time in between. Left knob at 0 = off
 - **fluids** off: motion stays where you put it (a displacement) instead of flowing on
 - **ink**: colours smear and blend instead of staying crisp poster bands
