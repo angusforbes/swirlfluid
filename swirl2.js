@@ -56,6 +56,8 @@ const SWIRL2_PRESETS = {
   'Jelly':       { fluids: true,  fluidity: 0.985, viscosity: 2,   momentum: 0.4,  angularity: 1.18,  energy: 0.7, grid: 0, curl: 2, heal: 0.02, paint: 'ink', wash: true, crisp: 0.1, palette: 'jelly', freq: 3.2, fill: 'squares', rows: 8 },
   // Angus's phone find (2026-10-03): fluids off, so stirring winds the squares into concentric tunnel rings
   'Wormhole':    { fluids: false, fluidity: 0.999, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4, heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'ink', wash: true, facets: false, crisp: 0, palette: 'pop', freq: 4.9, cycle: 0.07, fill: 'squares', rows: 28 },
+  // Angus's second phone find (2026-10-03): Wormhole with little carry and crisp ink: big marbled continents ringed by contour lines
+  'Topography':  { fluids: false, fluidity: 0.999, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4, heal: 0.1, jitter: 0, memory: 0.985, carry: 0.2, paint: 'ink', wash: true, facets: false, crisp: 0.3, palette: 'pop', freq: 4.9, cycle: 0.07, fill: 'squares', rows: 28 },
 };
 
 function createSwirl2(gl, opts = {}) {
