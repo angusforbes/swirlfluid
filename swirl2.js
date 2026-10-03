@@ -14,6 +14,7 @@
 //   heal        how fast the picture relaxes back to the original pattern (the automaton's "blend")
 //   facets      lattice: each triangle moves its piece of the picture rigidly (hard-edged planes) · jitter: irregular lattice
 //   wash        bands drawn as watercolour (soft bleeding edges, pooled pigment, paper grain) instead of poster
+//   grain       wash only: pigment granulation and paper grain (off: solid colours, the soft pooled edges stay)
 //   outline     a thin black line (one pixel) around every colour region of the finished picture; the colours inside stay clean
 //   paint       'bands': poster bands drawn from stirred coordinates (crisp forever)
 //               'ink': a colour image is smeared with feedback (brightness, contrast, saturation per frame)
@@ -198,7 +199,7 @@ function createSwirl2(gl, opts = {}) {
       void main(){ vec3 fr=texture(uFresh,vUv).rgb, c=mix(fr, texture(uSrc,uv2()).rgb, blend);
         c=mix(vec3(dot(c,vec3(.2125,.7154,.0721))),c,sat); c*=bright; c=mix(vec3(.5),c,contrast);
         o=vec4(clamp(crisp(c,fr),0.,1.),1.); }`,
-    display: INIT + `uniform sampler2D uP, uInk; uniform float time, freq, fadeMin, fadeMax, seqLen, inkOn, starsOn, wash, fill, cells, seed, blocky; uniform vec2 dir, res;
+    display: INIT + `uniform sampler2D uP, uInk; uniform float time, freq, fadeMin, fadeMax, grain, seqLen, inkOn, starsOn, wash, fill, cells, seed, blocky; uniform vec2 dir, res;
       uniform vec3 pal[8]; uniform float seq[12], npal; uniform vec3 outline, starC;
       vec3 colAt(float k){ int i=int(mod(k,seqLen)); return pal[int(seq[i])]; }
       // colour fade: every square (or band) fades from its colour into a randomly chosen palette colour, each
@@ -224,9 +225,9 @@ function createSwirl2(gl, opts = {}) {
             float edge=length(r-l)+length(u-d);
             col=wet*(1.-.55*smoothstep(.04,.5,edge));
             float lum=dot(col,vec3(.3,.59,.11));
-            col*=.9+.16*vnoise(gl_FragCoord.xy*.35)*(1.-lum*.5);
+            col*=mix(1., .9+.16*vnoise(gl_FragCoord.xy*.35)*(1.-lum*.5), grain);
             col=mix(col,vec3(.96,.94,.88),.06);
-            col*=.95+.06*hash(floor(gl_FragCoord.xy*.6));
+            col*=mix(1., .95+.06*hash(floor(gl_FragCoord.xy*.6)), grain);
           }
         }
         else {
@@ -259,7 +260,7 @@ function createSwirl2(gl, opts = {}) {
             col=mix(pal[int(a)], pal[int(b)], ck.y); }
           else if(fill>.5&&fill<1.5){   // field: soft gradients between the palette levels, a little paper grain
             vec3 nxt=mix(colAt(k+1.+sh), colAt(k+2.+sh), fade);
-            col=mix(col,nxt,smoothstep(.15,.85,fr))*(.95+.08*vnoise(p*40.));
+            col=mix(col,nxt,smoothstep(.15,.85,fr))*mix(1., .95+.08*vnoise(p*40.), grain);
           } else if(wash>.5){
             // watercolour: no ink outline; the next colour bleeds in softly, pigment pools darker along each edge,
             // granulates inside the band, and paper grain shows through
@@ -268,8 +269,8 @@ function createSwirl2(gl, opts = {}) {
             col=mix(col, nxt, smoothstep(1.-max(.06,w*3.),1.,fr)*.85*wide);
             float px=min(fr,1.-fr)/max(w,1e-4);
             col*=1.-.32*exp(-px/2.5)*wide;
-            col*=.9+.14*vnoise(p*9.+k);
-            col*=.96+.05*hash(floor(gl_FragCoord.xy*.7));
+            col*=mix(1., .9+.14*vnoise(p*9.+k), grain);
+            col*=mix(1., .96+.05*hash(floor(gl_FragCoord.xy*.7)), grain);
           } else if(blocky<.5) col=mix(col,outline,smoothstep(w*1.4,0.,min(fr,1.-fr)-.015));
           float shade=texture(uP,vUv).z; col=shade>0. ? mix(col,vec3(1.,.97,.9),shade*.7) : col*(1.+shade*1.1);
         }
@@ -371,7 +372,7 @@ function createSwirl2(gl, opts = {}) {
     gl.uniform1f(u.time, t); gl.uniform1f(u.freq, o.freq); gl.uniform1f(u.fill, Math.max(0, SWIRL2_FILLS.indexOf(o.fill)));
     const cellPx = Math.max(1, (o.cell || 1) * (o.height / Math.max(1, o.cssHeight || o.height)));   // in device pixels
     gl.uniform1f(u.seed, seed); gl.uniform1f(u.cells, o.height / 2 / cellPx); gl.uniform1f(u.blocky, cellPx > 1.5 || o.fill === 'squares' || o.fill === 'colour noise' ? 1 : 0);
-    gl.uniform1f(u.fadeMin, o.fadeMin); gl.uniform1f(u.fadeMax, o.fadeMax); gl.uniform2f(u.dir, o.dir[0], o.dir[1]); gl.uniform2f(u.res, o.width, o.height);
+    gl.uniform1f(u.grain, o.grain === false ? 0 : 1); gl.uniform1f(u.fadeMin, o.fadeMin); gl.uniform1f(u.fadeMax, o.fadeMax); gl.uniform2f(u.dir, o.dir[0], o.dir[1]); gl.uniform2f(u.res, o.width, o.height);
     gl.uniform3fv(u.pal, palArr(pl)); gl.uniform1f(u.npal, pl.pal.length);
     const sq = new Float32Array(12); sq.set(pl.seq.slice(0, 12)); gl.uniform1fv(u.seq, sq);
     gl.uniform1f(u.seqLen, pl.seq.length); gl.uniform3fv(u.outline, hex(pl.outline)); gl.uniform3fv(u.starC, hex(pl.star || '#f7f1e1'));
