@@ -469,14 +469,15 @@ function createSwirl2(gl, opts = {}) {
   }
 
   // x,y in 0..1 (y up). force in uv/sec; spin is per-call strength; radius in uv^2
-  function splat(x, y, fx, fy, spin = 0, radius = 0.0025) {
+  function splat(x, y, fx, fy, spin = 0, radius = 0.0025, ambient = false) {
+    if (!ambient) idleT = 0;
     if (o.grid >= 2) return latticeSplat(x, y, fx, fy, spin, radius);
     const u = use('splat', S.vel.write);
     gl.uniform1i(u.uTarget, tex(0, S.vel.read)); gl.uniform2f(u.point, x, y);
     gl.uniform2f(u.force, fx * S.sw, fy * S.sh); gl.uniform1f(u.spin, spin * S.sh); gl.uniform1f(u.radius, radius);
     blit(S.vel.write); S.vel.swap();
   }
-  let ambT = 0;
+  let ambT = 0, idleT = 0;
   function step(dt) {
     dt = Math.min(dt, 1 / 30); time += dt;
     if (o.grid >= 2) { gl.disable(gl.BLEND); gl.disable(gl.DEPTH_TEST); latticeStep(dt); return; }
@@ -485,7 +486,7 @@ function createSwirl2(gl, opts = {}) {
     ambT += dt;
     if (o.ambient > 0 && o.fluidity < 1) for (let i = 0; i < 3; i++) {   // three slow drifting eddies keep it alive when idle (not at fluidity 1: then it stays as you leave it)
       const t = ambT * (0.05 + i * 0.017) + i * 2.1;
-      splat(0.5 + 0.35 * Math.cos(t * 1.3 + i), 0.5 + 0.32 * Math.sin(t * 0.9 + i * 2), 0, 0, (i % 2 ? -1 : 1) * 0.4 * o.ambient * dt, 0.02);
+      splat(0.5 + 0.35 * Math.cos(t * 1.3 + i), 0.5 + 0.32 * Math.sin(t * 0.9 + i * 2), 0, 0, (i % 2 ? -1 : 1) * 0.4 * o.ambient * dt, 0.02, true);
     }
     let u;
     if (o.fluids) {
@@ -495,14 +496,18 @@ function createSwirl2(gl, opts = {}) {
         gl.uniform1f(u.curl, o.curl); gl.uniform1f(u.dt, dt); blit(S.vel.write); S.vel.swap();
       }
     }
-    if (o.viscosity > 0) {
+    // fluidity 1 with fluids off: the motion stays exactly as you leave it, so thickness and branching shape your
+    // stroke while you stir and stop a moment after you let go (otherwise they keep reshaping it and it drifts back)
+    idleT += dt;
+    const settled = o.fluidity >= 1 && !o.fluids && idleT > 0.25;
+    if (o.viscosity > 0 && !settled) {
       u = use('scale', S.v0); gl.uniform1i(u.uSrc, tex(0, S.vel.read)); gl.uniform1f(u.k, 1); blit(S.v0);
       for (let i = 0; i < 12; i++) {
         u = use('visc', S.vel.write); gl.uniform1i(u.uVel, tex(0, S.vel.read)); gl.uniform1i(u.uV0, tex(1, S.v0));
         gl.uniform1f(u.alpha, o.viscosity * f60); blit(S.vel.write); S.vel.swap();
       }
     }
-    if (o.momentum > 0) {
+    if (o.momentum > 0 && !settled) {
       u = use('branch', S.vel.write); gl.uniform1i(u.uVel, tex(0, S.vel.read));
       gl.uniform1f(u.mom, Math.min(1, o.momentum * f60)); gl.uniform1f(u.ang, o.angularity); gl.uniform1f(u.reach, 1.5);
       blit(S.vel.write); S.vel.swap();
