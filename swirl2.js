@@ -14,8 +14,6 @@
 //   heal        how fast the picture relaxes back to the original pattern (the automaton's "blend")
 //   facets      lattice: each triangle moves its piece of the picture rigidly (hard-edged planes) · jitter: irregular lattice
 //   wash        bands drawn as watercolour (soft bleeding edges, pooled pigment, paper grain) instead of poster
-//   stay        fluids off + ink only (preset option, no control): the ink is carried by the motion and kept,
-//               instead of being the original picture displaced (which springs back); heal then pulls it back, heal 0 never
 //   paint       'bands': poster bands drawn from stirred coordinates (crisp forever)
 //               'ink': a colour image is smeared with feedback (brightness, contrast, saturation per frame)
 // Classic script: defines createSwirl2(gl, opts), SWIRL2_PALETTES, SWIRL2_PRESETS.
@@ -65,8 +63,6 @@ const SWIRL2_PRESETS = {
   "Bird's Nest": { fluids: false, fluidity: 0.999, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'ink', wash: true, facets: false, crisp: 0.27, palette: 'pop', freq: 4.9, cycle: 0.07, fill: 'colour noise', rows: 11 },
   'Sails':       { fluids: false, fluidity: 0.999, viscosity: 0.2, momentum: 0.1,  angularity: 0.576, energy: 2.5, grid: 0, curl: 1.5, heal: 0.5, jitter: 0, memory: 0.5,   carry: 1.5, paint: 'ink', wash: true, facets: false, crisp: 0.3,  palette: 'sea', freq: 3.2, cycle: 0.07, fill: 'colour noise', rows: 11 },
   'Mosaic':      { fluids: false, fluidity: 0.999, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1.3, grid: 0, curl: 15,  heal: 0,   jitter: 0, memory: 0.99,  carry: 0,   paint: 'bands', wash: true, facets: false, crisp: 0, palette: 'jelly', freq: 3.2, cycle: 0, fill: 'squares', rows: 8 },
-  // Sails in light pastel, and it stays: the ink is carried and kept (stay), heal 0, no idle eddies, motion settles
-  'Sanka':       { fluids: false, stay: true, ambient: 0, fluidity: 0.97, viscosity: 0.2, momentum: 0.1, angularity: 0.576, energy: 2.5, grid: 0, curl: 1.5, heal: 0, jitter: 0, memory: 0.5, carry: 1.5, paint: 'ink', wash: true, facets: false, crisp: 0.3, palette: 'light pastel', freq: 3.2, cycle: 0.07, fill: 'colour noise', rows: 11 },
 };
 
 function createSwirl2(gl, opts = {}) {
@@ -517,7 +513,7 @@ function createSwirl2(gl, opts = {}) {
       renderBands(S.P0, S.fresh, time, false); blit(S.fresh);
       u = use('inkFwd', S.tmp); gl.uniform1i(u.uVel, tex(0, S.vel.read)); gl.uniform1i(u.uSrc, tex(1, S.ink.read)); gl.uniform1f(u.dt, dt * o.energy); blit(S.tmp);
       u = use('advectInk', S.ink.write); gl.uniform1i(u.uFwd, tex(3, S.tmp)); gl.uniform1i(u.uVel, tex(0, S.vel.read)); gl.uniform1i(u.uSrc, tex(1, S.ink.read)); gl.uniform1i(u.uFresh, tex(2, S.fresh));
-      gl.uniform1f(u.dt, dt * o.energy); gl.uniform1f(u.relax, relax); gl.uniform1f(u.flow, o.fluids || o.stay ? 1 : 0); gl.uniform1f(u.disp, o.energy * 0.06); gl.uniform1f(u.mac, o.smooth ? 0 : 1);
+      gl.uniform1f(u.dt, dt * o.energy); gl.uniform1f(u.relax, relax); gl.uniform1f(u.flow, o.fluids ? 1 : 0); gl.uniform1f(u.disp, o.energy * 0.06); gl.uniform1f(u.mac, o.smooth ? 0 : 1);
       gl.uniform1f(u.sat, Math.pow(o.saturation, f60)); gl.uniform1f(u.bright, Math.pow(o.brightness, f60)); gl.uniform1f(u.contrast, Math.pow(o.contrast, f60));
       blit(S.ink.write); S.ink.swap();
     } else {
