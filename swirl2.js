@@ -124,6 +124,11 @@ function createSwirl2(gl, opts = {}) {
       void main(){ vec2 y=zc+(vUv-zc)/zs;
         if(any(lessThan(y,vec2(0.)))||any(greaterThan(y,vec2(1.)))) o = fb>.5 ? texture(uFb,vUv) : vec4(0.,0.,0.,1.);
         else o=texture(uSrc,y)*mul; }`,
+    // dive for the stirred coordinates: keep the map, grow how far each point was carried (by zs, from zc)
+    zoomP: INIT + `uniform sampler2D uSrc, uFb; uniform vec2 zc; uniform float zs, fb;
+      void main(){ vec2 y=zc+(vUv-zc)/zs; vec4 s=texture(uSrc,clamp(y,0.,1.));
+        bool out_=any(lessThan(y,vec2(0.)))||any(greaterThan(y,vec2(1.)));
+        o=vec4(out_ ? initP(vUv) : initP(vUv)+(s.xy-initP(y))*zs, out_ ? 0. : s.z, 1.); }`,
     advect: `uniform sampler2D uVel, uSrc; uniform vec2 simTexel; uniform float dt;
       void main(){ vec2 c=vUv-dt*texture(uVel,vUv).xy*simTexel; o=texture(uSrc,c); }`,
     advectP: INIT + VELAT + `uniform sampler2D uSrc; uniform vec2 simTexel; uniform float dt, relax, flow, disp;
@@ -383,7 +388,7 @@ function createSwirl2(gl, opts = {}) {
       const a = Math.random() * Math.PI * 2, m = 1.8 + Math.random() * 0.9; o.dir = [Math.cos(a) * m, Math.sin(a) * m];
     }
     gl.disable(gl.BLEND); gl.disable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE); gl.disable(gl.SCISSOR_TEST);
-    zoomA = 1; zoomB = [0, 0];
+    zoomA = 1; zoomB = [0, 0]; depth = 1;
     [S.vel.read, S.vel.write, S.press.read, S.press.write].forEach(clear);
     if (L) { L.ms.fill(0); L.os.fill(0); }
     use('init', S.P.write); blit(S.P.write); S.P.swap();
@@ -519,21 +524,23 @@ function createSwirl2(gl, opts = {}) {
     gl.uniform2f(u.force, fx * S.sw, fy * S.sh); gl.uniform1f(u.spin, spin * S.sh); gl.uniform1f(u.radius, radius);
     blit(S.vel.write); S.vel.swap();
   }
-  // dive into the fluid at (x, y) (0..1, y up) by factor s (>1 in, <1 out): the picture, the coordinates it is drawn
-  // from and the motion all grow outward from that point, keeping their direction, so stirring carries on at the
-  // new scale. With ink off fresh detail appears as you go in (the pattern is drawn from coordinates)
-  const ZMIN = f32 ? 1e-4 : 0.03;   // how deep: past this the coordinates run out of precision
+  // dive into the fluid at (x, y) (0..1, y up) by factor s (>1 in, <1 out). The hidden map of squares stays as it
+  // is (squares keep their size, new stirring is normal); only the motion grows outward from that point, keeping
+  // its direction: a whirlpool stays a whirlpool, just bigger, still made of normal-size squares. Ink with fluids
+  // on is paint, so there the paint itself is enlarged
+  let depth = 1;
   function zoom(x, y, s) {
     if (o.grid >= 2 || !(s > 0)) return;
-    s = Math.min(s, zoomA / ZMIN); s = Math.max(s, zoomA / 1); if (Math.abs(s - 1) < 1e-6) return;   // no further out than the start
+    s = Math.min(s, 2000 / depth); s = Math.max(s, 1 / depth); if (Math.abs(s - 1) < 1e-6) return;   // between the start and 2000x
+    depth *= s;
     gl.disable(gl.BLEND); gl.disable(gl.DEPTH_TEST);
-    zoomB = [zoomB[0] + zoomA * x * (1 - 1 / s), zoomB[1] + zoomA * y * (1 - 1 / s)]; zoomA /= s;
-    use('init', S.P0); blit(S.P0);   // the starting picture, now of the zoomed region
-    const z = (src, dst, fb, mul) => { const u = use('zoomTex', dst); gl.uniform1i(u.uSrc, tex(0, src)); gl.uniform1i(u.uFb, tex(1, fb || src));
-      gl.uniform2f(u.zc, x, y); gl.uniform1f(u.zs, s); gl.uniform1f(u.fb, fb ? 1 : 0); gl.uniform4fv(u.mul, mul); blit(dst); };
-    z(S.P.read, S.P.write, S.P0, [1, 1, 1, 1]); S.P.swap();
-    z(S.vel.read, S.vel.write, null, [s, s, 1, 1]); S.vel.swap();
-    if (o.paint === 'ink') { renderBands(S.P0, S.fresh, time, false); blit(S.fresh); z(S.ink.read, S.ink.write, S.fresh, [1, 1, 1, 1]); S.ink.swap(); }
+    const z = (prog, src, dst, fb, mul) => { const u = use(prog, dst); gl.uniform1i(u.uSrc, tex(0, src)); gl.uniform1i(u.uFb, tex(1, fb || src));
+      gl.uniform2f(u.zc, x, y); gl.uniform1f(u.zs, s); gl.uniform1f(u.fb, fb ? 1 : 0); if (u.mul) gl.uniform4fv(u.mul, mul); blit(dst); };
+    z('zoomTex', S.vel.read, S.vel.write, null, [s, s, 1, 1]); S.vel.swap();
+    if (o.fluids) {
+      z('zoomP', S.P.read, S.P.write); S.P.swap();
+      if (o.paint === 'ink') { z('zoomTex', S.ink.read, S.ink.write, S.fresh, [1, 1, 1, 1]); S.ink.swap(); }
+    }
   }
   let ambT = 0, idleT = 0;
   function step(dt) {
@@ -617,6 +624,6 @@ function createSwirl2(gl, opts = {}) {
   }
   function resize(w, h) { o.width = w; o.height = h; alloc(); }
   alloc();
-  return { step, render, splat, zoom, reset, resize, set, opts: o, get depth() { return 1 / zoomA; } };
+  return { step, render, splat, zoom, reset, resize, set, opts: o, get depth() { return depth; } };
 }
 if (typeof window !== 'undefined') { window.createSwirl2 = createSwirl2; window.SWIRL2_PALETTES = SWIRL2_PALETTES; window.SWIRL2_PRESETS = SWIRL2_PRESETS; window.SWIRL2_FILLS = SWIRL2_FILLS; }
