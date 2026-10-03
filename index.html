@@ -102,7 +102,7 @@ const PRESETS = Object.keys(SWIRL2_PRESETS), PALS = Object.keys(SWIRL2_PALETTES)
 const PROFILES = Object.keys(AUTOMATA_PROFILES), BGS = Object.keys(AUTOMATA_BGS);
 const coarse = matchMedia('(pointer: coarse)').matches;
 const FILLS = SWIRL2_FILLS;
-const BASE = { fill: 'bands', cell: 1, freq: 3, palette: 'ocean', saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, wash: false, facets: false, jitter: 0 };
+const BASE = { fill: 'squares', cell: Math.max(4, Math.round(innerHeight / 24)), freq: 3, palette: 'ocean', saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, wash: false, facets: false, jitter: 0 };
 // the knobs: [key, label, min, max, step, format]
 const KNOBS = [
   ['fluidity', 'fluidity', 0.9, 0.999, 0.001, v => v.toFixed(3)],
@@ -204,7 +204,7 @@ $('swirlLabel').onclick = () => applyPreset(preset); $('autoLabel').onclick = ()
 const dots = $('dots');
 for (const n of PALS) {
   const d = document.createElement('div'); d.className = 'dot'; d.dataset.n = n; d.title = n;
-  const p = SWIRL2_PALETTES[n].pal; d.style.background = `conic-gradient(${p[0]} 0 40%, ${p[2]} 0 60%, ${p[3]} 0 80%, ${p[4]} 0)`;
+  const p = SWIRL2_PALETTES[n].pal; d.style.background = `conic-gradient(${p.map((c, i) => `${c} ${i * 100 / p.length}% ${(i + 1) * 100 / p.length}%`).join(', ')})`;
   d.onclick = () => { swirl.set({ palette: n }); sync(); }; dots.appendChild(d);
 }
 const inputs = { swirl: {}, automata: {} };
@@ -284,7 +284,7 @@ function shareURL() {
   if (engine === 'swirl') {
     const d = presetOpts(preset); p.set('preset', preset); diff(KNOBS, d);
     if (o.palette !== d.palette) p.set('palette', o.palette);
-    if (o.fill !== 'bands') p.set('fill', o.fill);
+    if (o.fill !== BASE.fill) p.set('fill', o.fill);
     if (o.paint !== d.paint) p.set('paint', o.paint);
     flag('fluids', 'fluids', d); flag('facets', 'facets', d); flag('wash', 'wash', d);
   } else {

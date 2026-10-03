@@ -20,15 +20,25 @@
 
 // what the fluid stirs: poster bands, or a noise field coloured by the palette
 const SWIRL2_FILLS = ['bands', 'field', 'blobs', 'squares', 'colour noise'];
+// palettes: up to 8 colours; seq = the order of colours across the bands (up to 12 steps); squares use every colour
 const SWIRL2_PALETTES = {
-  ocean:  { pal: ['#0d1b2a', '#1b4965', '#5fa8d3', '#f4d35e', '#ee964b'], seq: [0, 1, 0, 2, 1, 0, 3, 4], outline: '#08121c' },
-  dusk:   { pal: ['#1d1a3a', '#4b3a78', '#c86b8a', '#f2b880', '#7a5aa6'], seq: [0, 1, 0, 2, 1, 0, 3, 4], outline: '#12102a' },
-  navygold: { pal: ['#102a43', '#f0b429', '#e9e4d8', '#2f4f73', '#d9822b'], seq: [0, 3, 0, 1, 0, 2, 3, 4], outline: '#0a1c2e' },
-  wine:   { pal: ['#1a0b1a', '#4a1c34', '#e07a5f', '#f4e3c1', '#8c2f4a'], seq: [0, 1, 0, 4, 0, 2, 1, 3], outline: '#100610' },
-  sea:    { pal: ['#051719', '#0f3d3e', '#5fb3a1', '#f2c46d', '#1f6f6b'], seq: [0, 1, 0, 4, 0, 2, 1, 3], outline: '#020c0d' },
-  ice:    { pal: ['#0a1622', '#dfeaf2', '#7fa7c4', '#294a66', '#b9d3e6'], seq: [0, 3, 0, 2, 3, 0, 4, 1], outline: '#050c14' },
-  cubist: { pal: ['#2b2620', '#8a6f4d', '#d2bf94', '#5d6b6a', '#a3542f'], seq: [0, 1, 3, 2, 1, 4, 3, 2], outline: '#1a1612' },
-  tar:    { pal: ['#0b0907', '#2a211b', '#6b4e3a', '#c08a52', '#3d2f25'], seq: [0, 1, 0, 4, 1, 0, 2, 3], outline: '#050403' },
+  ocean:  { pal: ['#0d1b2a', '#1b4965', '#5fa8d3', '#f4d35e', '#ee964b', '#cae9ff', '#62b6cb', '#f95738'], seq: [0, 1, 0, 2, 1, 0, 3, 4, 0, 6, 5, 7], outline: '#08121c' },
+  dusk:   { pal: ['#1d1a3a', '#4b3a78', '#c86b8a', '#f2b880', '#7a5aa6', '#ff8fab', '#ffd6a5', '#2f6690'], seq: [0, 1, 0, 2, 1, 0, 3, 4, 5, 0, 6, 7], outline: '#12102a' },
+  navygold: { pal: ['#102a43', '#f0b429', '#e9e4d8', '#2f4f73', '#d9822b', '#829ab1', '#f7d070', '#9b2915'], seq: [0, 3, 0, 1, 0, 2, 3, 4, 5, 0, 6, 7], outline: '#0a1c2e' },
+  wine:   { pal: ['#1a0b1a', '#4a1c34', '#e07a5f', '#f4e3c1', '#8c2f4a', '#f2a65a', '#c9ada7', '#6d597a'], seq: [0, 1, 0, 4, 0, 2, 1, 3, 5, 0, 7, 6], outline: '#100610' },
+  sea:    { pal: ['#051719', '#0f3d3e', '#5fb3a1', '#f2c46d', '#1f6f6b', '#a8dadc', '#e76f51', '#2a9d8f'], seq: [0, 1, 0, 4, 0, 2, 1, 3, 7, 0, 5, 6], outline: '#020c0d' },
+  ice:    { pal: ['#0a1622', '#dfeaf2', '#7fa7c4', '#294a66', '#b9d3e6', '#4a7fa8', '#f0f6fa', '#a3c4dc'], seq: [0, 3, 0, 2, 3, 0, 4, 1, 5, 0, 7, 6], outline: '#050c14' },
+  cubist: { pal: ['#2b2620', '#8a6f4d', '#d2bf94', '#5d6b6a', '#a3542f', '#c9a227', '#3e5c76', '#e8dcc2'], seq: [0, 1, 3, 2, 1, 4, 3, 2, 5, 6, 7, 4], outline: '#1a1612' },
+  tar:    { pal: ['#0b0907', '#2a211b', '#6b4e3a', '#c08a52', '#3d2f25', '#8c5a3c', '#e0b07a', '#4f3a2c'], seq: [0, 1, 0, 4, 1, 0, 2, 3, 7, 5, 0, 6], outline: '#050403' },
+  // bright
+  pop:    { pal: ['#14111f', '#ff006e', '#fb5607', '#ffbe0b', '#3a86ff', '#8338ec', '#06d6a0', '#f8f7ff'], seq: [0, 1, 2, 3, 0, 4, 5, 0, 6, 7, 3, 1], outline: '#0a0812' },
+  candy:  { pal: ['#011627', '#ff4365', '#00d9c0', '#fffb46', '#7b2cbf', '#ff9f1c', '#2ec4ff', '#fdfffc'], seq: [0, 1, 2, 3, 4, 5, 0, 6, 7, 1, 3, 2], outline: '#000b14' },
+  tropic: { pal: ['#0b3954', '#00a6a6', '#efca08', '#f49f0a', '#d81159', '#8f2d56', '#7ae582', '#ffe8d6'], seq: [0, 1, 2, 3, 4, 0, 5, 6, 7, 1, 2, 4], outline: '#05202f' },
+  neon:   { pal: ['#0b0b16', '#39ff14', '#ff073a', '#00f0ff', '#fffc00', '#bc13fe', '#ff6ec7', '#1f1f3a'], seq: [0, 1, 7, 2, 0, 3, 7, 4, 0, 5, 6, 7], outline: '#000000' },
+  // pastel
+  pastel: { pal: ['#ffc8dd', '#bde0fe', '#cdb4db', '#ffafcc', '#a2d2ff', '#fdffb6', '#caffbf', '#9bf6ff'], seq: [0, 1, 2, 3, 4, 5, 6, 7, 2, 5, 0, 4], outline: '#8d7a99' },
+  sorbet: { pal: ['#f7ede2', '#f6bd60', '#f5cac3', '#84a59d', '#f28482', '#b8e0d2', '#eac4d5', '#95b8d1'], seq: [0, 1, 2, 3, 0, 4, 5, 6, 0, 7, 2, 1], outline: '#6b705c' },
+  mint:   { pal: ['#e0fbfc', '#b5ead7', '#c7ceea', '#ffdac1', '#e2f0cb', '#9db4c0', '#ffb7b2', '#5c8d89'], seq: [0, 1, 2, 3, 0, 4, 5, 6, 0, 7, 1, 3], outline: '#3d5a58' },
 };
 
 const SWIRL2_PRESETS = {
@@ -82,9 +92,9 @@ function createSwirl2(gl, opts = {}) {
   uniform sampler2D uVel;
   vec2 velAt(vec2 uv){ return texture(uVel,uv).xy; }`;
   const SNAP = `
-  uniform vec3 pal[5]; uniform float snap;
+  uniform vec3 pal[8]; uniform float snap, npal;
   // crisp: pull each pixel part of the way to the nearest palette colour, so smears keep hard edges instead of blurring
-  vec3 crisp(vec3 c){ vec3 b=pal[0]; float bd=9.; for(int i=0;i<5;i++){ vec3 d=c-pal[i]; float dd=dot(d,d); if(dd<bd){ bd=dd; b=pal[i]; } } return mix(c,b,snap); }
+  vec3 crisp(vec3 c){ vec3 b=pal[0]; float bd=9.; for(int i=0;i<8;i++){ if(float(i)>=npal) break; vec3 d=c-pal[i]; float dd=dot(d,d); if(dd<bd){ bd=dd; b=pal[i]; } } return mix(c,b,snap); }
 `;
   const FS = {
     init: INIT + `void main(){ o=vec4(initP(vUv),0.,1.); }`,
@@ -162,7 +172,7 @@ function createSwirl2(gl, opts = {}) {
         c=mix(vec3(dot(c,vec3(.2125,.7154,.0721))),c,sat); c*=bright; c=mix(vec3(.5),c,contrast);
         o=vec4(clamp(crisp(c),0.,1.),1.); }`,
     display: INIT + `uniform sampler2D uP, uInk; uniform float time, freq, cycle, seqLen, inkOn, starsOn, wash, fill, cells, seed, blocky; uniform vec2 dir, res;
-      uniform vec3 pal[5]; uniform float seq[8]; uniform vec3 outline, starC;
+      uniform vec3 pal[8]; uniform float seq[12], npal; uniform vec3 outline, starC;
       vec3 colAt(float k){ int i=int(mod(k,seqLen)); return pal[int(seq[i])]; }
       void main(){
         vec3 col;
@@ -204,7 +214,8 @@ function createSwirl2(gl, opts = {}) {
           col=mix(colAt(k+sh), colAt(k+sh+1.), smoothstep(.97,1.,fract(ph)));
           float fr=fract(b), w=fwidth(b);
           if(fill>3.5){ vec2 c=p*cells; col=vec3(rnd(c,seed+2.),rnd(c,seed+3.),rnd(c,seed+4.)); }
-          else if(fill>2.5){}   // squares: one palette colour per square, no outlines
+          else if(fill>2.5){   // squares: one palette colour per square (any of the palette's colours), no outlines
+            float kk=floor(rnd(p*cells,seed+7.)*npal); col=pal[int(mod(kk+sh,npal))]; }
           else if(fill>.5&&fill<1.5){   // field: soft gradients between the palette levels, a little paper grain
             vec3 nxt=mix(colAt(k+1.+sh), colAt(k+2.+sh), smoothstep(.97,1.,fract(ph)));
             col=mix(col,nxt,smoothstep(.15,.85,fr))*(.95+.08*vnoise(p*40.));
@@ -273,6 +284,7 @@ function createSwirl2(gl, opts = {}) {
           P: dbl(cw, ch), P0: fbo(cw, ch), ink: dbl(cw, ch), fresh: fbo(cw, ch), tmp: fbo(cw, ch), sw: sw_, sh: sh_ };
     reset();
   }
+  const palArr = pl => { const a = new Float32Array(24); pl.pal.slice(0, 8).forEach((c, i) => a.set(hex(c), i * 3)); return a; };
   const hex = h => { const n = parseInt(h.slice(1), 16); return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255]; };
   const tex = (unit, f) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, f.t); return unit; };
   function use(name, target, texelOf) {
@@ -285,7 +297,7 @@ function createSwirl2(gl, opts = {}) {
     if (pr.u.simTexel) gl.uniform2f(pr.u.simTexel, 1 / S.sw, 1 / S.sh);
     if (pr.u.facet) gl.uniform1f(pr.u.facet, o.facets ? 1 : 0);
     if (pr.u.snap && name !== 'display') { const pl = SWIRL2_PALETTES[o.palette] || o.palette;
-      gl.uniform3fv(pr.u.pal, new Float32Array(pl.pal.flatMap(hex))); gl.uniform1f(pr.u.snap, o.crisp); }
+      gl.uniform3fv(pr.u.pal, palArr(pl)); gl.uniform1f(pr.u.snap, o.crisp); gl.uniform1f(pr.u.npal, pl.pal.length); }
     return pr.u;
   }
   function blit(target) {
@@ -319,7 +331,8 @@ function createSwirl2(gl, opts = {}) {
     const cellPx = Math.max(1, (o.cell || 1) * (o.height / Math.max(1, o.cssHeight || o.height)));   // in device pixels
     gl.uniform1f(u.seed, seed); gl.uniform1f(u.cells, o.height / 2 / cellPx); gl.uniform1f(u.blocky, cellPx > 1.5 || o.fill === 'squares' || o.fill === 'colour noise' ? 1 : 0);
     gl.uniform1f(u.cycle, o.cycle); gl.uniform2f(u.dir, o.dir[0], o.dir[1]); gl.uniform2f(u.res, o.width, o.height);
-    gl.uniform3fv(u.pal, new Float32Array(pl.pal.flatMap(hex))); gl.uniform1fv(u.seq, new Float32Array(pl.seq));
+    gl.uniform3fv(u.pal, palArr(pl)); gl.uniform1f(u.npal, pl.pal.length);
+    const sq = new Float32Array(12); sq.set(pl.seq.slice(0, 12)); gl.uniform1fv(u.seq, sq);
     gl.uniform1f(u.seqLen, pl.seq.length); gl.uniform3fv(u.outline, hex(pl.outline)); gl.uniform3fv(u.starC, hex(pl.star || '#f7f1e1'));
     return u;
   }
