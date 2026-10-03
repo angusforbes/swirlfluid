@@ -33,7 +33,7 @@ Nine presets: Poster, Tar, Ice Cracks, Cubism, Silk, Kaleidoscope, Jupiter, Wate
 
 The page opens on **squares** at a low-to-medium resolution (about 24 rows). Palettes have 8 colours each: the
 original eight (ocean, dusk, navygold, wine, sea, ice, cubist, tar), four bright ones (pop, candy, tropic, neon) and
-three pastels (pastel, sorbet, mint).
+four pastels (pastel, sorbet, mint, light pastel).
 
 **fill** sets what the swirl engine stirs: **bands** (poster bands), **field** (smooth noise through the palette),
 **blobs** (posterized noise with ink outlines), **squares** (a grid of squares, each a random palette colour) or

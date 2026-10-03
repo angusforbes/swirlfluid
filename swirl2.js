@@ -40,6 +40,7 @@ const SWIRL2_PALETTES = {
   pastel: { pal: ['#ffc8dd', '#bde0fe', '#cdb4db', '#ffafcc', '#a2d2ff', '#fdffb6', '#caffbf', '#9bf6ff'], seq: [0, 1, 2, 3, 4, 5, 6, 7, 2, 5, 0, 4], outline: '#8d7a99' },
   sorbet: { pal: ['#f7ede2', '#f6bd60', '#f5cac3', '#84a59d', '#f28482', '#b8e0d2', '#eac4d5', '#95b8d1'], seq: [0, 1, 2, 3, 0, 4, 5, 6, 0, 7, 2, 1], outline: '#6b705c' },
   mint:   { pal: ['#e0fbfc', '#b5ead7', '#c7ceea', '#ffdac1', '#e2f0cb', '#9db4c0', '#ffb7b2', '#5c8d89'], seq: [0, 1, 2, 3, 0, 4, 5, 6, 0, 7, 1, 3], outline: '#3d5a58' },
+  'light pastel': { pal: ['#f8c8dc', '#c3e8f7', '#fde2c0', '#d9c8f5', '#c8f2dc', '#fff4b8', '#f9d0c4', '#bfd8f8'], seq: [0, 1, 2, 3, 4, 5, 6, 7, 3, 0, 4, 2], outline: '#9a8fae' },
 };
 
 const SWIRL2_PRESETS = {
