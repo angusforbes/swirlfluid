@@ -54,7 +54,7 @@ In the tune panel a setting that has no effect with the current toggles is dimme
 - **instant**: thickness shapes each push the moment you make it (one broad soft push) instead of spreading the motion every frame, so nothing far away creeps while you move and nothing stops abruptly when you stop (Mosaic 2)
 - **image** (fill): your picture becomes the hidden map (fitted to cover the screen, mirrored beyond its edges so stirring never runs out). Click image, or drop a picture on the page; click it again for another. Presets keep your picture and change only the motion; resolution leaves it whole (pixelate cuts it into tiles)
 - **burst**: a mouse press held still pushes outward in every direction, the ring growing as you hold (off = nothing; the phone's long-press still spins). Fluid Automata has its own burst slider
-- **mixed sizes** (squares, colour noise): squares of different sizes, big ones split at random into smaller ones (three levels); map / resolution scales them all
+- **mixed squares** (fill, next to squares): squares in mixed sizes, big ones (4x the map size) split at random into smaller ones down to half (67% split chance, three levels); map / resolution scales them all
 - **image pixelate** (image fill): cuts your picture itself into blocks of its average colour, which the stirring then moves (off = the picture as it is, 2 rows = the chunkiest); pixelate instead tiles the whole screen
 - **g** random stir: a few random drags and twists played over about a second, as if you'd stirred it (press again for more)
 - **n** random vectors: replaces all the motion at once with a random field of whirlpools and pushes (a little energy)

@@ -112,8 +112,8 @@
   <div class="rowlabel" id="autoLabel">fluid automata</div><div class="presets" id="profiles"></div>
 </div>
 <div id="err"></div>
-<script src="swirl2.js?v=29"></script>
-<script src="automata.js?v=29"></script>
+<script src="swirl2.js?v=30"></script>
+<script src="automata.js?v=30"></script>
 <script>
 // Two engines on one canvas: "swirl" (swirl2.js: a velocity fluid that paints poster bands, ink, facets...) and
 // "fluid automata" (automata.js: an 8-bit energy automaton that smears a background image). Only one runs at a time.
@@ -135,7 +135,7 @@ const baseOfA = n => BUILTIN_A.includes(n) ? n : (AUTOMATA_PROFILES[n]?.base || 
 const PROFILES = Object.keys(AUTOMATA_PROFILES), BGS = Object.keys(AUTOMATA_BGS);
 const coarse = matchMedia('(pointer: coarse)').matches;
 const FILLS = SWIRL2_FILLS;
-const BASE = { fill: 'squares', cell: Math.max(4, Math.round(innerHeight / 24)), freq: 3, palette: 'ocean', saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, wash: false, facets: false, jitter: 0, ambient: 1, fadeMin: 8, fadeMax: 22, outline: false, grain: true, tile: 1, mapCell: 1, spline: false, reach: 1, instant: false, reveal: 0, burst: 0.01, imgTile: 1, sizeMix: 0 };
+const BASE = { fill: 'squares', cell: Math.max(4, Math.round(innerHeight / 24)), freq: 3, palette: 'ocean', saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, wash: false, facets: false, jitter: 0, ambient: 1, fadeMin: 8, fadeMax: 22, outline: false, grain: true, tile: 1, mapCell: 1, spline: false, reach: 1, instant: false, reveal: 0, burst: 0.01, imgTile: 1 };
 // the knobs: [key, label, min, max, step, format]
 const KNOBS = [
   // fluidity: finer toward the top: the left half covers 0.9 to 0.99, then each further stretch adds a 9 (0.999,
@@ -163,7 +163,7 @@ const KNOBS = [
     { to: v => Math.round(1000 * (1 - Math.log(Math.max(1, v)) / Math.log(maxCell()))), from: t => Math.max(1, Math.round(maxCell() ** (1 - t / 1000))) }],
   ['mapCell', 'map', 0, 1000, 1, v => v <= 1 ? 'same' : Math.max(1, Math.round(innerHeight / v)) + ' rows',
     { to: v => Math.round(1000 * (1 - Math.log(Math.max(1, v)) / Math.log(maxCell()))), from: t => Math.max(1, Math.round(maxCell() ** (1 - t / 1000))) }],
-  ['sizeMix', 'mixed sizes', 0, 1, 0.01, v => v <= 0 ? 'off' : Math.round(v * 100) + '%'],
+  // ['sizeMix', 'mixed sizes', 0, 1, 0.01, v => v <= 0 ? 'off' : Math.round(v * 100) + '%'],   // now the 'mixed squares' fill (67%)
   ['tile', 'pixelate', 0, 1000, 1, v => v <= 1 ? 'off' : Math.max(1, Math.round(innerHeight / v)) + ' rows',
     { to: v => Math.round(1000 * (1 - Math.log(Math.max(1, v)) / Math.log(maxTile()))), from: t => Math.max(1, Math.round(maxTile() ** (1 - t / 1000))) }],
   ['imgTile', 'image pixelate', 0, 1000, 1, v => v <= 1 ? 'off' : Math.max(1, Math.round(innerHeight / v)) + ' rows',   // the picture itself in blocks (image fill)
@@ -262,7 +262,7 @@ buttons($('bgs'), BGS, n => setBg(n));
 buttons($('fills'), FILLS, n => {
   if (n === 'image') { if (!swirl.hasImage || swirl.opts.fill === 'image') $('file').click(); else { swirl.set({ fill: 'image' }); sync(); } return; }   // pick a picture (again: a new one)
   if (n === swirl.opts.fill) swirl.reset();   // the same fill again: a new random one
-  else swirl.set(Object.assign({ fill: n }, (n === 'squares' || n === 'colour noise') && swirl.opts.cell <= 1 ? { cell: 6 } : {}));
+  else swirl.set(Object.assign({ fill: n }, (n === 'squares' || n === 'mixed squares' || n === 'colour noise') && swirl.opts.cell <= 1 ? { cell: 6 } : {}));
   sync(); });
 $('swirlLabel').onclick = () => applyPreset(preset); $('autoLabel').onclick = () => applyProfile(profile);
 const dots = $('dots');
@@ -295,7 +295,7 @@ const TIPS = {
   cell: 'the main grid: the squares you see at rest (bands etc.: pixelates them)',
   mapCell: "the hidden squares that stirring reveals (hold l to see them); 'same' = the main grid",
   imgTile: 'image pixelate: cuts your picture itself into blocks of its average colour, which the stirring then moves (off = the picture as it is)',
-  sizeMix: 'mixed sizes: the squares come in different sizes, big ones (4x the size) split into smaller ones at random, down to half the size; more = more small squares; the map / resolution slider still makes them all bigger or smaller',
+  // sizeMix: 'mixed sizes: the squares come in different sizes, big ones (4x the size) split into smaller ones at random, down to half the size; more = more small squares; the map / resolution slider still makes them all bigger or smaller',
   tile: 'cuts the screen into tiles of one colour each (off = every pixel)',
 };
 const IDLE = {   // why a setting does nothing right now ('' = it is working)
@@ -308,10 +308,9 @@ const IDLE = {   // why a setting does nothing right now ('' = it is working)
   memory: o => o.grid >= 2 ? '' : 'no effect with the lattice off',
   carry: o => o.grid < 2 ? 'no effect with the lattice off' : o.paint !== 'ink' ? 'no effect with ink off' : '',
   crisp: o => o.paint === 'ink' ? '' : 'no effect with ink off',
-  freq: o => (o.fill === 'squares' || o.fill === 'colour noise' || o.fill === 'image') && o.paint !== 'ink' ? 'no effect on squares, colour noise and image' : '',
+  freq: o => (o.fill === 'squares' || o.fill === 'mixed squares' || o.fill === 'colour noise' || o.fill === 'image') && o.paint !== 'ink' ? 'no effect on squares, colour noise and image' : '',
   imgTile: o => o.fill === 'image' ? '' : 'only with the image fill',
-  sizeMix: o => o.fill === 'squares' || o.fill === 'colour noise' ? '' : 'only for squares and colour noise',
-  mapCell: o => o.fill === 'squares' || o.fill === 'colour noise' ? '' : 'only for squares and colour noise',
+  mapCell: o => o.fill === 'squares' || o.fill === 'mixed squares' || o.fill === 'colour noise' ? '' : 'only for squares and colour noise',
 };
 const IDLE_BTNS = { /* facetBtn: o => o.grid >= 2 ? '' : 'no effect with the lattice off', (lattice, hidden for now) */ instantBtn: o => o.viscosity > 0 ? '' : 'no effect while thickness is 0', grainBtn: o => o.wash ? '' : 'no effect with wash off',
   revealBtn: o => o.fluids && o.paint === 'ink' ? 'no effect with fluids and ink both on' : '', splineBtn: o => !o.fluids && o.grid < 2 ? '' : 'only with fluids off (and the lattice off)' };
