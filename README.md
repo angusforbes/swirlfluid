@@ -60,7 +60,7 @@ In the tune panel a setting that has no effect with the current toggles is dimme
 - **n** random vectors: replaces all the motion at once with a random field of whirlpools and pushes (a little energy)
 - **m** more energy: every vector 1.5x as strong, directions unchanged (after **n**, pumps up the same pattern)
 - **Esc** hides all the panels and buttons (just the picture); Esc again brings them back
-- **outside**: as is / dimmed / grey / washed: draws what the stirring pulled in from beyond the screen differently from what was on screen and moved. The moved part is the main motion, the same with ink on or off (ink off finds new squares beyond the edge, ink on can only stretch the edge colour)
+- **outside**: as is / dimmed / grey / washed / black / white (solid): draws what the stirring pulled in from beyond the screen differently from what was on screen and moved. The moved part is the main motion, the same with ink on or off (ink off finds new squares beyond the edge, ink on can only stretch the edge colour)
 - **smooth** (fluids off): follow the motion with smooth curves (cubic B-spline) instead of straight lines between its grid points, so high energy doesn't give sawtooth edges; off by default (jag1 / jag2 compare it)
 - **heal** (fluids on; with the lattice: ink): how fast the picture relaxes back · **memory**, **jitter** (lattice only), **carry** (lattice + ink)
 - **lattice**: off = a smooth fluid; N = Fluid Automata's own lattice (used by Ice Cracks and Cubism): N×N cells,

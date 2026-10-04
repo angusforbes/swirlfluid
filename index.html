@@ -112,8 +112,8 @@
   <div class="rowlabel" id="autoLabel">fluid automata</div><div class="presets" id="profiles"></div>
 </div>
 <div id="err"></div>
-<script src="swirl2.js?v=28"></script>
-<script src="automata.js?v=28"></script>
+<script src="swirl2.js?v=29"></script>
+<script src="automata.js?v=29"></script>
 <script>
 // Two engines on one canvas: "swirl" (swirl2.js: a velocity fluid that paints poster bands, ink, facets...) and
 // "fluid automata" (automata.js: an 8-bit energy automaton that smears a background image). Only one runs at a time.
@@ -221,7 +221,7 @@ function urlOverrides(knobs) {
     if (q.has('outline')) o.outline = q.get('outline') !== '0';
     if (q.has('smooth')) o.spline = q.get('smooth') !== '0';
     if (q.has('instant')) o.instant = q.get('instant') !== '0';
-    if (q.has('outside') && +q.get('outside') >= 0 && +q.get('outside') <= 3) o.reveal = +q.get('outside');
+    if (q.has('outside') && +q.get('outside') >= 0 && +q.get('outside') <= 5) o.reveal = +q.get('outside');
     if (['ink', 'bands'].includes(q.get('paint'))) o.paint = q.get('paint');
   } else {
     if (AUTOMATA_BGS[q.get('bg')] && AUTOMATA_BGS[q.get('bg')].mode !== 4) o.bg = q.get('bg');
@@ -350,7 +350,7 @@ sliders(KNOBS, $('sliders'), 'swirl');
 sliders(FLUID_KNOBS, $('fluidSliders'), 'automata'); sliders(IMAGE_KNOBS, $('imageSliders'), 'automata');
 const toggle = (id, key, eng) => $(id).onclick = () => { const e = eng(); e.set({ [key]: !e.opts[key] }); sync(); };
 toggle('fluidsBtn', 'fluids', getSwirl); /* toggle('facetBtn', 'facets', getSwirl); (lattice, hidden for now) */ toggle('instantBtn', 'instant', getSwirl);
-const REVEAL = ['as is', 'dimmed', 'grey', 'washed'];
+const REVEAL = ['as is', 'dimmed', 'grey', 'washed', 'black', 'white'];
 $('revealBtn').onclick = () => { const e = getSwirl(); e.set({ reveal: ((e.opts.reveal || 0) + 1) % REVEAL.length }); sync(); }; toggle('washBtn', 'wash', getSwirl); toggle('outlineBtn', 'outline', getSwirl); toggle('grainBtn', 'grain', getSwirl); toggle('splineBtn', 'spline', getSwirl);
 $('inkBtn').onclick = () => { swirl.set({ paint: swirl.opts.paint === 'ink' ? 'bands' : 'ink' }); sync(); };
 toggle('aFluidsBtn', 'fluids', getAuto); toggle('torusBtn', 'torus', getAuto); toggle('vecBtn', 'vectors', getAuto); toggle('autoLightBtn', 'auto', getAuto);

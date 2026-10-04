@@ -102,9 +102,9 @@ function createSwirl2(gl, opts = {}) {
   float vnoise(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.-2.*f);
     return mix(mix(hash(i),hash(i+vec2(1,0)),f.x), mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x), f.y); }
   // outside: colours the stirring pulled in from beyond the screen (revealed) drawn differently from colours that
-  // were on screen and moved (the main motion, the same with ink on or off). mode 1 dimmed, 2 grey, 3 washed
+  // were on screen and moved (the main motion, the same with ink on or off). mode 1 dimmed, 2 grey, 3 washed, 4 solid black, 5 solid white
   vec3 outsideStyle(vec3 c, float a, float mode){ if(mode<.5||a<=0.) return c;
-    vec3 s = mode<1.5 ? c*.38 : mode<2.5 ? vec3(dot(c,vec3(.3,.59,.11)))*.85+.06
+    vec3 s = mode>4.5 ? vec3(1.) : mode>3.5 ? vec3(0.) : mode<1.5 ? c*.38 : mode<2.5 ? vec3(dot(c,vec3(.3,.59,.11)))*.85+.06
       : mix(c, vec3(.96,.94,.9), .5)*(.86+.22*vnoise(gl_FragCoord.xy*.33))*(.95+.08*hash(floor(gl_FragCoord.xy*.7)));
     return mix(c, s, a); }
   // integer hash for the noise fills: random everywhere (no repeating tiles)
