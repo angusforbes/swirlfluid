@@ -48,9 +48,9 @@ const SWIRL2_PALETTES = {
 const SWIRL2_PRESETS = {
   'Poster':      { fluids: true,  fluidity: 0.982, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4, heal: 0.1,  paint: 'bands' },
   'Tar':         { fluids: true,  fluidity: 0.99,  viscosity: 2.5, momentum: 0.4,  angularity: 0.785, energy: 0.3, grid: 0, curl: 0, heal: 0.02, paint: 'bands', palette: 'tar', freq: 2.6 },
-  'Ice Cracks':  { fluids: false, fluidity: 1.0,   viscosity: 0,   momentum: 0,    angularity: 0,     energy: 0.25, grid: 14, curl: 0, heal: 0.05, memory: 0.92, carry: 0.6, paint: 'ink', crisp: 0.12, palette: 'ice', freq: 3.4 },
-  'Cubism':      { fluids: true,  fluidity: 0.94,  viscosity: 0,   momentum: 0.3,  angularity: 0.785, energy: 0.6, grid: 8, curl: 0, heal: 0.04, memory: 0.99, carry: 0.35, facets: true, jitter: 0.32, paint: 'bands', palette: 'cubist', freq: 2.6 },
-  'Silk':        { fluids: true,  fluidity: 0.99,  viscosity: 0,   momentum: 0,    angularity: 0,     energy: 0.5, grid: 13, curl: 0, heal: 0.1, memory: 0.785, carry: 0, paint: 'ink', crisp: 0.1, palette: 'navygold' },
+  // (lattice, hidden for now) 'Ice Cracks':  { fluids: false, fluidity: 1.0,   viscosity: 0,   momentum: 0,    angularity: 0,     energy: 0.25, grid: 14, curl: 0, heal: 0.05, memory: 0.92, carry: 0.6, paint: 'ink', crisp: 0.12, palette: 'ice', freq: 3.4 },
+  // (lattice, hidden for now) 'Cubism':      { fluids: true,  fluidity: 0.94,  viscosity: 0,   momentum: 0.3,  angularity: 0.785, energy: 0.6, grid: 8, curl: 0, heal: 0.04, memory: 0.99, carry: 0.35, facets: true, jitter: 0.32, paint: 'bands', palette: 'cubist', freq: 2.6 },
+  // (lattice, hidden for now) 'Silk':        { fluids: true,  fluidity: 0.99,  viscosity: 0,   momentum: 0,    angularity: 0,     energy: 0.5, grid: 13, curl: 0, heal: 0.1, memory: 0.785, carry: 0, paint: 'ink', crisp: 0.1, palette: 'navygold' },
   'Kaleidoscope':{ fluids: true,  fluidity: 0.99,  viscosity: 0,   momentum: 0.45, angularity: 0.785, energy: 1,   grid: 0, curl: 0, heal: 0.08, paint: 'bands', palette: 'dusk' },
   "Jupiter":     { fluids: true,  fluidity: 0.95,  viscosity: 0.2, momentum: 0.3, angularity: 1.571, energy: 1.2, grid: 0, curl: 10, heal: 0.06, paint: 'bands', palette: 'wine', freq: 4.2 },
   'Watercolour': { fluids: true,  fluidity: 0.985, viscosity: 0.9, momentum: 0.26, angularity: 1.18,  energy: 0.8, grid: 0, curl: 1.5, heal: 0.04, paint: 'ink', wash: true, palette: 'sea', freq: 3.2 },
@@ -72,9 +72,9 @@ const SWIRL2_PRESETS = {
   'Cosmic':      { fluids: false, fluidity: 0.995, viscosity: 3,   momentum: 1,    angularity: 0,     energy: 2.5, grid: 0, curl: 0,   heal: 0,   jitter: 0, memory: 0.99,  carry: 0,   paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'candy', freq: 2.4, fadeMin: 0, fadeMax: 0, fill: 'squares', rows: 10 },
   // Angus's phone find: Wormhole's motion, thicker, in plain pop squares (5 rows), ink and wash off, colours fading
   'Al Held':     { fluids: false, fluidity: 0.999, viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'pop', freq: 4.9, fadeMin: 8, fadeMax: 22, fill: 'squares', rows: 5 },
-  // Al Held that stays where you put it, like Mosaic (Angus): fluidity 1, so no fading, no idle eddies, and thickness
-  // shapes your strokes while you move and stops a moment after; colours still fade
-  'Mosaic 2':    { fluids: false, fluidity: 1,     viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'pop', freq: 4.9, fadeMin: 8, fadeMax: 22, fill: 'squares', rows: 5 },
+  // Al Held that stays where you put it, like Mosaic (Angus): fluidity 1 (no fading, no idle eddies) and instant
+  // thickness (each push is broad and soft the moment you make it; nothing creeps or stops abruptly); colours still fade
+  'Mosaic 2':    { fluids: false, fluidity: 1,     viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'pop', freq: 4.9, fadeMin: 8, fadeMax: 22, fill: 'squares', rows: 5, instant: true },
   // a pair to compare (Angus): high energy, fluids off. jag1 follows the motion with straight lines between its grid
   // points (sawtooth edges where it bends hard); jag2 is the same with smooth on (cubic B-spline)
   'jag1':        { fluids: false, fluidity: 0.9999, viscosity: 0, momentum: 0, angularity: 0, energy: 2.5, grid: 0, curl: 0, heal: 0, jitter: 0, memory: 0.99, carry: 0, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'sorbet', freq: 2.4, fadeMin: 0, fadeMax: 0, fill: 'squares', rows: 3, spline: false },
@@ -552,8 +552,13 @@ function createSwirl2(gl, opts = {}) {
   }
 
   // x,y in 0..1 (y up). force in uv/sec; spin is per-call strength; radius in uv^2
+  const INSTANT = (typeof window !== 'undefined' && window.INSTANT_K) || 0.008;   // instant thickness: added splat radius per unit of thickness
   function splat(x, y, fx, fy, spin = 0, radius = 0.0025, ambient = false) {
     if (!ambient) { idleT = 0; radius *= (o.reach || 1) ** 2; }   // reach: how far your presses spread (radius is in uv^2)
+    // instant: thickness acts on each push as you make it (spread once into a broad soft blob of the same total
+    // motion) instead of spreading the motion every frame, so nothing creeps while you move and nothing is cut off
+    // when you stop
+    if (!ambient && o.instant && o.viscosity > 0) { const r1 = radius + o.viscosity * INSTANT, k = radius / r1; fx *= k; fy *= k; spin *= k; radius = r1; }
     if (o.grid >= 2) return latticeSplat(x, y, fx, fy, spin, radius);
     const u = use('splat', S.vel.write);
     gl.uniform1i(u.uTarget, tex(0, S.vel.read)); gl.uniform2f(u.point, x, y);
@@ -601,7 +606,7 @@ function createSwirl2(gl, opts = {}) {
     // stroke while you stir and stop a moment after you let go (otherwise they keep reshaping it and it drifts back)
     idleT += dt;
     const settled = o.fluidity >= 1 && !o.fluids && idleT > 0.25;
-    if (o.viscosity > 0 && !settled) {
+    if (o.viscosity > 0 && !settled && !o.instant) {
       u = use('scale', S.v0); gl.uniform1i(u.uSrc, tex(0, S.vel.read)); gl.uniform1f(u.k, 1); blit(S.v0);
       for (let i = 0; i < 12; i++) {
         u = use('visc', S.vel.write); gl.uniform1i(u.uVel, tex(0, S.vel.read)); gl.uniform1i(u.uV0, tex(1, S.v0));
