@@ -165,7 +165,7 @@ const KNOBS = [
   ['tile', 'pixelate', 0, 1000, 1, v => v <= 1 ? 'off' : Math.max(1, Math.round(innerHeight / v)) + ' rows',
     { to: v => Math.round(1000 * (1 - Math.log(Math.max(1, v)) / Math.log(maxTile()))), from: t => Math.max(1, Math.round(maxTile() ** (1 - t / 1000))) }],
   ['imgTile', 'image pixelate', 0, 1000, 1, v => v <= 1 ? 'off' : Math.max(1, Math.round(innerHeight / v)) + ' rows',   // the picture itself in blocks (image fill)
-    { to: v => Math.round(1000 * (1 - Math.log(Math.max(1, v)) / Math.log(maxTile()))), from: t => Math.max(1, Math.round(maxTile() ** (1 - t / 1000))) }],
+    { to: v => Math.round(1000 * (1 - Math.log(Math.max(1, v)) / Math.log(maxCell()))), from: t => Math.max(1, Math.round(maxCell() ** (1 - t / 1000))) }],
   // one slider, two knobs: each square takes between fadeMin and fadeMax seconds to fade into a new colour (0 = off)
   ['fadeMin', 'colour fade', 0, 60, 1, null, { dual: 'fadeMax', fmt: (a, b) => a ? (a === b ? a : a + '–' + b) + ' s' : 'off' }],
   ['fadeMax', '', 0, 60, 1, null, { hidden: true }],
