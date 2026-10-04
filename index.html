@@ -112,8 +112,8 @@
   <div class="rowlabel" id="autoLabel">fluid automata</div><div class="presets" id="profiles"></div>
 </div>
 <div id="err"></div>
-<script src="swirl2.js?v=31"></script>
-<script src="automata.js?v=31"></script>
+<script src="swirl2.js?v=33"></script>
+<script src="automata.js?v=33"></script>
 <script>
 // Two engines on one canvas: "swirl" (swirl2.js: a velocity fluid that paints poster bands, ink, facets...) and
 // "fluid automata" (automata.js: an 8-bit energy automaton that smears a background image). Only one runs at a time.
@@ -317,7 +317,7 @@ const IDLE = {   // why a setting does nothing right now ('' = it is working)
   mapCell: o => o.fill === 'squares' || o.fill === 'mixed squares' || o.fill === 'colour noise' ? '' : 'only for squares and colour noise',
 };
 const IDLE_BTNS = { /* facetBtn: o => o.grid >= 2 ? '' : 'no effect with the lattice off', (lattice, hidden for now) */ instantBtn: o => o.viscosity > 0 ? '' : 'no effect while thickness is 0', grainBtn: o => o.wash ? '' : 'no effect with wash off',
-  insideBtn: o => o.paint === 'ink' ? 'no effect with ink on' : '',
+  insideBtn: o => o.fluids && o.paint === 'ink' ? 'no effect with fluids and ink both on' : '',
   revealBtn: o => o.fluids && o.paint === 'ink' ? 'no effect with fluids and ink both on' : '', splineBtn: o => !o.fluids && o.grid < 2 ? '' : 'only with fluids off (and the lattice off)' };
 function idleKnobs(o) {
   for (const [k, x] of Object.entries(inputs.swirl)) { if (!x.l) continue; const why = IDLE[k]?.(o) || '';

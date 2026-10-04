@@ -173,8 +173,9 @@ function createSwirl2(gl, opts = {}) {
     advectInk: INIT + VELAT + SNAP + `uniform sampler2D uSrc, uFresh, uFwd; uniform vec2 simTexel, texel; uniform float dt, relax, sat, bright, contrast, flow, disp, mac, reveal;` + BSPL + `
       void main(){ vec2 d=dt*velAt(vUv)*simTexel, c=vUv-d;
         vec3 col;
-        vec3 fr=vec3(9.);
-        if(flow<.5){ vec2 lu=vUv-velS(vUv)*simTexel*disp, e=max(-lu, lu-1.); fr=outsideStyle(texture(uFresh,lu).rgb, clamp(max(e.x,e.y)*300.,0.,1.), reveal); col=mix(texture(uSrc,vUv).rgb, fr, .2); }
+        vec3 fr=vec3(9.); float ins=1.;   // ins (the ink's alpha): how much of this pixel was on screen (inside), carried like the colour
+        if(flow<.5){ vec2 lu=vUv-velS(vUv)*simTexel*disp, e=max(-lu, lu-1.); float ao=clamp(max(e.x,e.y)*300.,0.,1.);
+          fr=outsideStyle(texture(uFresh,lu).rgb, ao, reveal); vec4 s0=texture(uSrc,vUv); col=mix(s0.rgb, fr, .2); ins=mix(s0.a, 1.-ao, .2); }
         else {
           vec3 fwd=texture(uFwd,vUv).rgb, back=texture(uFwd,vUv+d).rgb;
           vec3 m=fwd+.5*(texture(uSrc,vUv).rgb-back);
@@ -187,7 +188,7 @@ function createSwirl2(gl, opts = {}) {
         }
         float l=dot(col,vec3(.2125,.7154,.0721));
         col=mix(vec3(l),col,sat); col*=bright; col=mix(vec3(.5),col,contrast);
-        o=vec4(clamp(crisp(col,fr),0.,1.),1.); }`,
+        o=vec4(clamp(crisp(col,fr),0.,1.),ins); }`,
     splat: `uniform sampler2D uTarget; uniform vec2 point, force; uniform float radius, aspect, spin;
       void main(){ vec2 d=vUv-point; d.x*=aspect; float r2=dot(d,d); float g=exp(-r2/radius);
         vec2 tan_=vec2(-d.y,d.x)*radius/(r2+radius)*exp(-r2/(radius*5.));
@@ -286,6 +287,7 @@ function createSwirl2(gl, opts = {}) {
             col=mix(col,vec3(.96,.94,.88),.06);
             col*=mix(1., .95+.06*hash(floor(gl_FragCoord.xy*.6)), grain);
           }
+          if(inside>.5) col=outsideStyle(col, texture(uInk,TU()).a, inside);   // inside with ink: what the ink says was on screen (its alpha)
         }
         else {
           vec2 p=PU();
