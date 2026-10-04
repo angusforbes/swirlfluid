@@ -23,6 +23,7 @@
   .presets { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
   .presets button.mine { border-style: dashed; }
   label.idle, button.idle { opacity: .38; }
+  button.idle.on { opacity: .6; outline: 1px dashed #e9e4d8; outline-offset: 1px; }   /* on, but doing nothing here */
   #toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); background: #0b0f1aee; color: #e9e4d8; font: 13px system-ui;
     padding: 8px 14px; border-radius: 10px; z-index: 50; display: none; max-width: 90vw; }
   .rowlabel { margin-top: 8px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; opacity: .55; }
@@ -93,6 +94,7 @@
       <button id="aFluidsBtn" title="on: energy flows from cell to cell. off: it stays where you put it">fluids</button>
       <button id="torusBtn" title="on: the edges wrap around. off: energy bounces off the walls">wrap</button>
       <button id="vecBtn" title="draw the energy vectors (v)">vectors</button>
+      <button id="autoLightBtn" title="auto light: keeps brightness and contrast on the edge where the structures show (the picture stays mid-grey and lively instead of running off to black or white); blend stays yours">auto light</button>
     </div>
     <input type="file" id="file" accept="image/*" hidden>
   </div>
@@ -332,7 +334,7 @@ toggle('fluidsBtn', 'fluids', getSwirl); /* toggle('facetBtn', 'facets', getSwir
 const REVEAL = ['as is', 'dimmed', 'grey', 'washed'];
 $('revealBtn').onclick = () => { const e = getSwirl(); e.set({ reveal: ((e.opts.reveal || 0) + 1) % REVEAL.length }); sync(); }; toggle('washBtn', 'wash', getSwirl); toggle('outlineBtn', 'outline', getSwirl); toggle('grainBtn', 'grain', getSwirl); toggle('splineBtn', 'spline', getSwirl);
 $('inkBtn').onclick = () => { swirl.set({ paint: swirl.opts.paint === 'ink' ? 'bands' : 'ink' }); sync(); };
-toggle('aFluidsBtn', 'fluids', getAuto); toggle('torusBtn', 'torus', getAuto); toggle('vecBtn', 'vectors', getAuto);
+toggle('aFluidsBtn', 'fluids', getAuto); toggle('torusBtn', 'torus', getAuto); toggle('vecBtn', 'vectors', getAuto); toggle('autoLightBtn', 'auto', getAuto);
 
 function sync() {
   const isA = engine === 'automata', o = cur().opts;
@@ -346,7 +348,7 @@ function sync() {
   for (const [k, x] of Object.entries(inputs[engine])) { if (x.sync) { x.sync(o); continue; } x.inp.value = x.map ? x.map.to(o[k]) : o[k]; x.out.textContent = x.fmt(+o[k]); }
   if (isA) {
     [...$('bgs').children].forEach(b => b.classList.toggle('on', b.textContent === o.bg));
-    $('aFluidsBtn').classList.toggle('on', !!o.fluids); $('torusBtn').classList.toggle('on', !!o.torus); $('vecBtn').classList.toggle('on', !!o.vectors);
+    $('aFluidsBtn').classList.toggle('on', !!o.fluids); $('torusBtn').classList.toggle('on', !!o.torus); $('vecBtn').classList.toggle('on', !!o.vectors); $('autoLightBtn').classList.toggle('on', !!o.auto);
   } else {
     [...dots.children].forEach(d => d.classList.toggle('on', d.dataset.n === o.palette));
     [...$('fills').children].forEach(b => b.classList.toggle('on', b.textContent === o.fill));
@@ -578,9 +580,12 @@ addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout((
   const [w, h] = size(); canvas.width = w; canvas.height = h; swirl?.set({ cssHeight: innerHeight }); swirl?.resize(w, h); auto?.resize(w, h); }, 200); });
 
 let prev = performance.now(), t0 = prev;
+let liveN = 0;
 function frame(now) {
   const dt = Math.min((now - prev) / 1000, 1 / 30); prev = now;
-  if (!document.hidden) { spinInput(dt, now); const x = cur(); x.step(dt); x.render((now - t0) / 1000); }
+  if (!document.hidden) { spinInput(dt, now); const x = cur(); x.step(dt); x.render((now - t0) / 1000);
+    if (engine === 'automata' && x.opts.auto && ++liveN % 10 === 0) for (const k of ['bright', 'contrast']) {   // auto light moves these
+      const e = inputs.automata[k]; if (e) { e.inp.value = x.opts[k]; e.out.textContent = e.fmt(+x.opts[k]); } } }
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

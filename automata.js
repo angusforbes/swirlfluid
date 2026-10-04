@@ -253,7 +253,29 @@ function createAutomata(gl, opts = {}) {
     gl.disable(gl.BLEND); gl.disable(gl.DEPTH_TEST);
     if (Math.round(o.grid) !== Math.round(o._grid)) allocGrid();
     acc = Math.min(acc + dt * 60, 2);
-    while (acc >= 1) { acc -= 1; stepFluid(); stepImage(); }
+    while (acc >= 1) { acc -= 1; stepFluid(); stepImage(); if (o.auto && ++autoN % 8 === 0) autoLight(); }
+  }
+  // auto light: the image feeds back through blend, brightness and contrast every frame, so the per-frame gain
+  // k = blend * brightness * contrast decides everything: at 1 or above every pixel runs off to black or white; well
+  // below it the picture fades to a flat copy of the background. The structure lives just under 1. Every 8 frames
+  // this reads a tiny copy of the picture and steers brightness and contrast (blend stays yours): the mean towards
+  // mid-grey (by moving the balance point), the spread towards a lively target (by moving k, never above 0.997)
+  let autoN = 0, small = null, autoK = null, autoDc = 0;
+  const px = new Uint8Array(48 * 32 * 4);
+  function autoLight() {
+    if (!small) small = target(48, 32, gl.LINEAR);
+    const u = use('show'); gl.uniform1i(u.uImg, tex(0, img.r)); gl.uniform1i(u.uS, tex(1, S.r));
+    gl.uniform2f(u.Nf, cols, rows); gl.uniform2f(u.res, 48, 32); gl.uniform1f(u.vectors, 0); draw(small);
+    gl.readPixels(0, 0, 48, 32, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    let s1 = 0, s2 = 0; const n = 48 * 32;
+    for (let i = 0; i < n; i++) { const l = (0.2125 * px[i * 4] + 0.7154 * px[i * 4 + 1] + 0.0721 * px[i * 4 + 2]) / 255; s1 += l; s2 += l * l; }
+    const mean = s1 / n, std = Math.sqrt(Math.max(0, s2 / n - mean * mean)), b = Math.max(0.3, o.blend);
+    if (autoK === null) { autoK = Math.min(0.997, b * o.bright * o.contrast); autoDc = o.contrast - (1 + (autoK / b - 1) / 1.8); }
+    autoDc += 0.04 * (mean - 0.5);                                   // too bright: more contrast around 0.9 darkens
+    autoK += std < 0.17 ? 0.0015 : std > 0.24 ? -0.003 : 0;           // flat: closer to the edge; harsh: back off
+    autoK = Math.min(0.997, Math.max(0.85, autoK)); autoDc = Math.min(0.25, Math.max(-0.25, autoDc));
+    const m = autoK / b, C = Math.min(1.3, Math.max(0.8, 1 + (m - 1) / 1.8 + autoDc));
+    o.contrast = C; o.bright = Math.min(1.25, Math.max(0.8, m / C)); o.autoStats = { mean, std, k: b * o.bright * o.contrast };
   }
   function render(t, target = null) {
     const u = use('show'); gl.uniform1i(u.uImg, tex(0, img.r)); gl.uniform1i(u.uS, tex(1, S.r));
@@ -286,6 +308,7 @@ function createAutomata(gl, opts = {}) {
   function reset() { clearT(S.r); clearT(S.w); seed = Math.floor(Math.random() * 1e6); makeBackground(); restart(); }
   function set(params) {
     const bgWas = o.bg; Object.assign(o, params);
+    if ('auto' in params || 'blend' in params || ('bright' in params || 'contrast' in params) && !params._auto) autoK = null;   // re-seed from the current values
     if (o.bg !== bgWas) { makeBackground(); }
   }
   function setSource(src) {   // an <img> or <video> to use as the background (bg 'image…' / 'camera')
