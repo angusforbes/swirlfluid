@@ -19,7 +19,7 @@ Two engines share the page: **swirl** (the poster fluid, with Ice Cracks, Cubism
 | presets | `1`–`9` or the buttons | buttons |
 | swap engine | `e` or click a row's label | tap the other row's label |
 | background / vectors (automata) | `b` / `v`, or drop an image | buttons in **tune** |
-| palette | `p` or the dots in **tune** | dots in **tune** |
+| palette | `c` or the dots in **tune** | dots in **tune** |
 | fill (what gets stirred) | `f` or the **fill** buttons in **tune** | **fill** buttons in **tune** |
 | tune panel | `t` | **tune** button |
 | reset / save PNG / hide help | `space` / `s` / `h` | buttons in **tune**; tap to bring the help back |
@@ -59,6 +59,7 @@ In the tune panel a setting that has no effect with the current toggles is dimme
 - **g** random stir: a few random drags and twists played over about a second, as if you'd stirred it (press again for more)
 - **n** random vectors: replaces all the motion at once with a random field of whirlpools and pushes (a little energy)
 - **m** more energy: every vector 1.5x as strong, directions unchanged (after **n**, pumps up the same pattern)
+- **p** pin: the sliders from fluidity to bands keep your values when you switch swirl presets; **p** again unpins (presets bring their own). Palette moved to **c**
 - **Esc** hides all the panels and buttons (just the picture); Esc again brings them back
 - **inside**: the same six styles for what was on screen and moved (not with ink on)
 - **outside**: as is / dimmed / grey / washed / black / white (solid): draws what the stirring pulled in from beyond the screen differently from what was on screen and moved. The moved part is the main motion, the same with ink on or off (ink off finds new squares beyond the edge, ink on can only stretch the edge colour)
