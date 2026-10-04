@@ -366,7 +366,8 @@ function createSwirl2(gl, opts = {}) {
   function alloc() {
     const sh_ = o.simRes, sw_ = Math.round(sh_ * aspect());
     const ch = Math.min(o.coordRes, o.height), cw = Math.round(ch * aspect());
-    S = { vel: dbl(sw_, sh_), press: dbl(sw_, sh_), div: fbo(sw_, sh_), curl: fbo(sw_, sh_), v0: fbo(sw_, sh_),
+    S = { vel: dbl(sw_, sh_, true),   // full float: fluidity can be 0.99999, which half float would round to 1
+      press: dbl(sw_, sh_), div: fbo(sw_, sh_), curl: fbo(sw_, sh_), v0: fbo(sw_, sh_),
           P: dbl(cw, ch, true), P0: fbo(cw, ch, true), ink: dbl(cw, ch), fresh: fbo(cw, ch), tmp: fbo(cw, ch), out: fbo(o.width, o.height), sw: sw_, sh: sh_ };
     reset();
   }

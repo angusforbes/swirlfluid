@@ -44,7 +44,7 @@ The knobs take ideas from [Fluid Automata](https://github.com/CreativeCodingLab/
 (Forbes, Höllerer, Legrady, *Generative fluid profiles for interactive media arts projects*, CAe 2013), reworked
 for this renderer:
 
-- **fluidity**: how long motion lasts (1.000: forever, the idle eddies stop, and thickness and branching stop shaping the motion a moment after you let go, so with fluids off the picture stays exactly as you leave it) · **thickness**: velocity spreads into its neighbours (tar)
+- **fluidity**: how long motion lasts, finer toward the top (the left half covers 0.9–0.99, then 0.999, 0.9999, 0.99999 at the right; 1.000: forever, the idle eddies stop, and thickness and branching stop shaping the motion a moment after you let go, so with fluids off the picture stays exactly as you leave it) · **thickness**: velocity spreads into its neighbours (tar)
 - **branching** / **branch angle**: part of the motion peels off sideways at an angle
 - **energy**: how far paint is carried · **curl**: how hard small eddies are kept spinning
 - **heal**: how fast the picture relaxes back
