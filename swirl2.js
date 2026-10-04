@@ -211,7 +211,7 @@ function createSwirl2(gl, opts = {}) {
       void main(){ vec3 fr=texture(uFresh,vUv).rgb, c=mix(fr, texture(uSrc,uv2()).rgb, blend);
         c=mix(vec3(dot(c,vec3(.2125,.7154,.0721))),c,sat); c*=bright; c=mix(vec3(.5),c,contrast);
         o=vec4(clamp(crisp(c,fr),0.,1.),1.); }`,
-    display: INIT + `uniform sampler2D uP, uInk; uniform float peek, time, freq, fadeMin, fadeMax, grain, seqLen, inkOn, starsOn, wash, fill, cells, seed, blocky; uniform vec2 dir, res;
+    display: INIT + `uniform sampler2D uP, uInk; uniform float tilePx, peek, time, freq, fadeMin, fadeMax, grain, seqLen, inkOn, starsOn, wash, fill, cells, seed, blocky; uniform vec2 dir, res;
       uniform vec3 pal[8]; uniform float seq[12], npal; uniform vec3 outline, starC;
       vec3 colAt(float k){ int i=int(mod(k,seqLen)); return pal[int(seq[i])]; }
       // colour fade: every square (or band) fades from its colour into a randomly chosen palette colour, each
@@ -234,11 +234,13 @@ function createSwirl2(gl, opts = {}) {
         return mix(pal[int(pick(c,ck.x,kk))], pal[int(pick(c,ck.x+1.,kk))], ck.y); }
       // peek: show the hidden map unstirred, zoomed out PZ times around the screen centre, the screen framed in white
       const float PZ=4.;
-      vec2 PU(){ return peek>.5 ? initP(vec2(.5))+(initP(vUv)-initP(vec2(.5)))*PZ : texture(uP,vUv).xy; }
+      // tiles: the screen in square tiles of tilePx device pixels, each one colour, looked up at the tile's centre
+      vec2 TU(){ return tilePx>1.5&&peek<.5 ? (floor(gl_FragCoord.xy/tilePx)+.5)*tilePx/res : vUv; }
+      vec2 PU(){ return peek>.5 ? initP(vec2(.5))+(initP(vUv)-initP(vec2(.5)))*PZ : texture(uP,TU()).xy; }
       void main(){
         vec3 col;
         if(inkOn>.5&&peek<.5){
-          col=texture(uInk,vUv).rgb;
+          col=texture(uInk,TU()).rgb;
           if(wash>.5){
             // watercolour on the ink: a slightly wet (blurred) wash, pigment pooling darker where colours meet,
             // granulation in the pigment, and paper grain showing through
@@ -406,7 +408,7 @@ function createSwirl2(gl, opts = {}) {
     gl.uniform1f(u.inkOn, 0); gl.uniform1f(u.starsOn, stars && !o.wash ? 1 : 0); gl.uniform1f(u.wash, o.wash ? 1 : 0);
     gl.uniform1f(u.time, t); gl.uniform1f(u.freq, o.freq); gl.uniform1f(u.fill, Math.max(0, SWIRL2_FILLS.indexOf(o.fill)));
     const cellPx = Math.max(1, (o.cell || 1) * (o.height / Math.max(1, o.cssHeight || o.height)));   // in device pixels
-    gl.uniform1f(u.seed, seed); gl.uniform1f(u.peek, peeking ? 1 : 0); gl.uniform1f(u.cells, o.height / 2 / cellPx); gl.uniform1f(u.blocky, cellPx > 1.5 || o.fill === 'squares' || o.fill === 'colour noise' ? 1 : 0);
+    gl.uniform1f(u.seed, seed); gl.uniform1f(u.peek, peeking ? 1 : 0); gl.uniform1f(u.tilePx, Math.max(1, (o.tile || 1) * (o.height / Math.max(1, o.cssHeight || o.height)))); gl.uniform1f(u.cells, o.height / 2 / cellPx); gl.uniform1f(u.blocky, cellPx > 1.5 || o.fill === 'squares' || o.fill === 'colour noise' ? 1 : 0);
     gl.uniform1f(u.grain, o.grain === false ? 0 : 1); gl.uniform1f(u.fadeMin, o.fadeMin); gl.uniform1f(u.fadeMax, o.fadeMax); gl.uniform2f(u.dir, o.dir[0], o.dir[1]); gl.uniform2f(u.res, o.width, o.height);
     gl.uniform3fv(u.pal, palArr(pl)); gl.uniform1f(u.npal, pl.pal.length);
     const sq = new Float32Array(12); sq.set(pl.seq.slice(0, 12)); gl.uniform1fv(u.seq, sq);

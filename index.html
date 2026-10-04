@@ -53,11 +53,6 @@
   .dots { display: flex; gap: 7px; flex-wrap: wrap; margin: 4px 0; }
   .dot { width: 22px; height: 22px; border-radius: 50%; border: 2px solid #0008; cursor: pointer; }
   .dot.on { border-color: #e9e4d8; }
-  .swatches { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; margin: 2px 0 6px; }
-  .swatches input { width: 24px; height: 24px; padding: 0; border: 1px solid #0008; border-radius: 4px; background: none; cursor: pointer; }
-  .swatches input::-webkit-color-swatch-wrapper { padding: 0; } .swatches input::-webkit-color-swatch { border: none; border-radius: 3px; }
-  .swatches input::-moz-color-swatch { border: none; border-radius: 3px; }
-  .swatches button { margin-left: auto; }
   .touch { display: none; }
   @media (pointer: coarse) { .touch { display: inline; } .mouse { display: none; } .panel { font-size: 15px; }
     .dot { width: 30px; height: 30px; } button { padding: 6px 12px; }
@@ -73,8 +68,8 @@
 <div id="tune" class="panel">
   <div id="swirlTune">
     <h4>palette</h4><div class="dots" id="dots"></div>
-    <div class="swatches" id="swatches" title="the colours of the squares and bands: click one to change it"></div>
-    <h4>fill</h4><div class="row bgs" id="fills"></div>
+
+    <h4>fill</h4><div class="row bgs" id="fills"><button id="mapBtn" title="hold (or hold m) to see the hidden map, unstirred, with your screen framed">map</button></div>
     <div id="sliders"></div>
     <div class="row">
       <button id="fluidsBtn" title="on: motion carries itself along, like a liquid. off: it stays where you put it">fluids</button>
@@ -117,13 +112,10 @@ const gl = canvas.getContext('webgl2', { antialias: false, preserveDrawingBuffer
 const $ = id => document.getElementById(id);
 const help = $('help'), tune = $('tune'), tuneBtn = $('tuneBtn');
 const PRESETS = Object.keys(SWIRL2_PRESETS), PALS = Object.keys(SWIRL2_PALETTES);
-// your own colours: editing a swatch copies the current palette into 'custom' and changes it there (?colors=hex-hex-...)
-const customFrom = (base, cols) => { const b = SWIRL2_PALETTES[base] || SWIRL2_PALETTES.ocean;
-  SWIRL2_PALETTES.custom = { pal: cols ? cols.slice(0, 8) : b.pal.slice(), seq: b.seq.slice(), outline: b.outline, from: base }; };
 const PROFILES = Object.keys(AUTOMATA_PROFILES), BGS = Object.keys(AUTOMATA_BGS);
 const coarse = matchMedia('(pointer: coarse)').matches;
 const FILLS = SWIRL2_FILLS;
-const BASE = { fill: 'squares', cell: Math.max(4, Math.round(innerHeight / 24)), freq: 3, palette: 'ocean', saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, wash: false, facets: false, jitter: 0, ambient: 1, fadeMin: 8, fadeMax: 22, outline: false, grain: true };
+const BASE = { fill: 'squares', cell: Math.max(4, Math.round(innerHeight / 24)), freq: 3, palette: 'ocean', saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, wash: false, facets: false, jitter: 0, ambient: 1, fadeMin: 8, fadeMax: 22, outline: false, grain: true, tile: 1 };
 // the knobs: [key, label, min, max, step, format]
 const KNOBS = [
   ['fluidity', 'fluidity', 0.9, 1, 0.001, v => v.toFixed(3)],
@@ -139,7 +131,11 @@ const KNOBS = [
   ['carry', 'carry', 0, 1.5, 0.05, v => v.toFixed(2)],
   ['crisp', 'crisp ink', 0, 0.3, 0.005, v => v.toFixed(3)],
   ['freq', 'bands', 1, 6, 0.1, v => v.toFixed(1)],
-  ['cell', 'resolution', 0, 1000, 1, v => v <= 1 ? 'full' : Math.max(1, Math.round(innerHeight / v)) + ' rows',
+  // squares: the hidden map's squares (see them with m); tiles: the screen's own grid, each tile one colour looked up
+  // in the stirred map at its centre (off = every pixel)
+  ['cell', 'squares', 0, 1000, 1, v => v <= 1 ? 'full' : Math.max(1, Math.round(innerHeight / v)) + ' rows',
+    { to: v => Math.round(1000 * (1 - Math.log(Math.max(1, v)) / Math.log(maxCell()))), from: t => Math.max(1, Math.round(maxCell() ** (1 - t / 1000))) }],
+  ['tile', 'tiles', 0, 1000, 1, v => v <= 1 ? 'off' : Math.max(1, Math.round(innerHeight / v)) + ' rows',
     { to: v => Math.round(1000 * (1 - Math.log(Math.max(1, v)) / Math.log(maxCell()))), from: t => Math.max(1, Math.round(maxCell() ** (1 - t / 1000))) }],
   // one slider, two knobs: each square takes between fadeMin and fadeMax seconds to fade into a new colour (0 = off)
   ['fadeMin', 'colour fade', 0, 60, 1, null, { dual: 'fadeMax', fmt: (a, b) => a ? (a === b ? a : a + '–' + b) + ' s' : 'off' }],
@@ -179,9 +175,6 @@ function urlOverrides(knobs) {
   if (q.has('fluids')) o.fluids = q.get('fluids') !== '0';
   if (engine === 'swirl') {
     if (PALS.includes(q.get('palette'))) o.palette = q.get('palette');
-    const qc = (q.get('colors') || '').split('-').filter(c => /^[0-9a-f]{6}$/i.test(c)).map(c => '#' + c);
-    if (qc.length >= 2) { customFrom(o.palette || SWIRL2_PRESETS[q.get('preset')]?.palette, qc);
-      SWIRL2_PALETTES.custom.seq = SWIRL2_PALETTES.custom.seq.map(i => i % qc.length); o.palette = 'custom'; }
     if (FILLS.includes(q.get('fill'))) o.fill = q.get('fill');
     if (q.has('facets')) o.facets = q.get('facets') !== '0';
     if (q.has('wash')) o.wash = q.get('wash') !== '0';
@@ -235,19 +228,9 @@ for (const n of PALS) {
   const p = SWIRL2_PALETTES[n].pal; d.style.background = `conic-gradient(${p.map((c, i) => `${c} ${i * 100 / p.length}% ${(i + 1) * 100 / p.length}%`).join(', ')})`;
   d.onclick = () => { swirl.set({ palette: n }); sync(); }; dots.appendChild(d);
 }
-const swatches = $('swatches');
-function drawSwatches(o) {
-  const pl = SWIRL2_PALETTES[o.palette]; if (!pl) return;
-  const key = o.palette + pl.pal.join(); if (swatches.dataset.key === key) return; swatches.dataset.key = key;
-  swatches.replaceChildren(...pl.pal.map((c, i) => { const x = document.createElement('input'); x.type = 'color'; x.value = c;
-    x.oninput = () => { const s = getSwirl(); if (s.opts.palette !== 'custom') { customFrom(s.opts.palette); s.set({ palette: 'custom' }); }
-      SWIRL2_PALETTES.custom.pal[i] = x.value; swatches.dataset.key = 'custom' + SWIRL2_PALETTES.custom.pal.join(); wake(); };
-    x.onchange = () => sync(); return x; }));
-  const m = document.createElement('button'); m.textContent = 'map'; m.title = 'hold (or hold m) to see the hidden map, unstirred, with your screen framed';
-  m.onpointerdown = e => { m.setPointerCapture(e.pointerId); getSwirl().peek = true; wake(); };
-  m.onpointerup = m.onpointercancel = () => { getSwirl().peek = false; };
-  swatches.appendChild(m);
-}
+const mapBtn = $('mapBtn'); $('fills').appendChild(mapBtn);   // hold to see the hidden map (after the fills: f cycles them by position)
+mapBtn.onpointerdown = e => { mapBtn.setPointerCapture(e.pointerId); getSwirl().peek = true; wake(); };
+mapBtn.onpointerup = mapBtn.onpointercancel = () => { getSwirl().peek = false; };
 const inputs = { swirl: {}, automata: {} };
 function sliders(knobs, el, which) {
   for (const [k, label, min, max, step, fmt, map] of knobs) {
@@ -295,8 +278,7 @@ function sync() {
     [...$('bgs').children].forEach(b => b.classList.toggle('on', b.textContent === o.bg));
     $('aFluidsBtn').classList.toggle('on', !!o.fluids); $('torusBtn').classList.toggle('on', !!o.torus); $('vecBtn').classList.toggle('on', !!o.vectors);
   } else {
-    [...dots.children].forEach(d => d.classList.toggle('on', d.dataset.n === (o.palette === 'custom' ? SWIRL2_PALETTES.custom.from : o.palette)));
-    drawSwatches(o);
+    [...dots.children].forEach(d => d.classList.toggle('on', d.dataset.n === o.palette));
     [...$('fills').children].forEach(b => b.classList.toggle('on', b.textContent === o.fill));
     $('fluidsBtn').classList.toggle('on', !!o.fluids); $('inkBtn').classList.toggle('on', o.paint === 'ink');
     $('washBtn').classList.toggle('on', !!o.wash); $('facetBtn').classList.toggle('on', !!o.facets); $('outlineBtn').classList.toggle('on', !!o.outline); $('grainBtn').classList.toggle('on', o.grain !== false);
@@ -340,8 +322,7 @@ function shareURL() {
   const flag = (k, name, d) => { if (!!o[k] !== !!d[k]) p.set(name, o[k] ? 1 : 0); };
   if (engine === 'swirl') {
     const d = presetOpts(preset); p.set('preset', preset); diff(KNOBS, d);
-    if (o.palette === 'custom') { const c = SWIRL2_PALETTES.custom; if (c.from !== d.palette) p.set('palette', c.from); p.set('colors', c.pal.map(x => x.slice(1)).join('-')); }
-    else if (o.palette !== d.palette) p.set('palette', o.palette);
+    if (o.palette !== d.palette) p.set('palette', o.palette);
     if (o.fill !== d.fill) p.set('fill', o.fill);
     if (o.paint !== d.paint) p.set('paint', o.paint);
     flag('fluids', 'fluids', d); flag('facets', 'facets', d); flag('wash', 'wash', d); flag('outline', 'outline', d); flag('grain', 'grain', d);
@@ -447,7 +428,7 @@ addEventListener('keydown', e => {
   if (e.key === '0' && list[9]) (A ? applyProfile : applyPreset)(list[9]);
   else if (e.key >= '1' && e.key <= '9' && list[+e.key - 1]) (A ? applyProfile : applyPreset)(list[+e.key - 1]);
   else if (e.key === 'e') A ? applyPreset(preset) : applyProfile(profile);
-  else if (e.key === 'p' && !A) { swirl.set({ palette: PALS[(PALS.indexOf(swirl.opts.palette === 'custom' ? SWIRL2_PALETTES.custom.from : swirl.opts.palette) + 1) % PALS.length] }); sync(); }
+  else if (e.key === 'p' && !A) { swirl.set({ palette: PALS[(PALS.indexOf(swirl.opts.palette) + 1) % PALS.length] }); sync(); }
   else if (e.key === 'f' && !A) $('fills').children[(FILLS.indexOf(swirl.opts.fill) + 1) % FILLS.length].click();
   else if (e.key === 'r' && !A) $('fills').querySelector('.on')?.click();
   else if (e.key === 'b' && A) { const n = BGS.filter(k => AUTOMATA_BGS[k].mode !== 4); setBg(n[(n.indexOf(auto.opts.bg) + 1) % n.length]); }
