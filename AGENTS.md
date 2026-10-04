@@ -22,6 +22,10 @@ Start with the newest: `tail -3 debug/captures.jsonl`, then read its `note.md`, 
 
 ## Rules learned here
 
+- **Bump the `?v=` on the `<script src>` tags in `index.html` whenever `swirl2.js` or `automata.js` changes.** GitHub
+  Pages caches scripts for 10 minutes and browsers keep them longer: Angus saw the new panel (HTML) running old engine
+  code, so a new feature (burst) seemed missing.
+
 - **Never change how an existing preset looks** when adding a feature: new behaviour goes behind a toggle or option
   that defaults off (smooth, instant, reach 1, pixelate off, map 'same'). Presets are Angus's finds.
 - **Test at phone pixel density** (Playwright `deviceScaleFactor: 2.5`): "1 CSS pixel" bugs only show there (the

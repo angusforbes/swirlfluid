@@ -300,12 +300,13 @@ function createAutomata(gl, opts = {}) {
   }
   // held still: keep adding energy in the last known direction
   const hold = (x, y) => splat(x, y, lastDir[0] * o.sens * 0.25, lastDir[1] * o.sens * 0.25);
-  // a press held still: energy shoots out in every direction (a ring of 8 pushes one cell out, each pointing away
-  // from the press); burst = how strong each one is, compared with sensitivity
-  function burst(x, y) {
-    const amt = o.sens * (o.burst ?? 0.25);
-    for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4, c = Math.cos(a), s = Math.sin(a);
-      splat(x + c / cols, y + s / rows, c * amt, s * amt, 0, 0.9); }
+  // a press held still: energy shoots out in every direction like drags away from the press: each frame a ring of
+  // pushes, each pointing away from the press, on a ring that moves outward the longer you hold (r cells, up to 6);
+  // burst = how strong each push is, compared with sensitivity
+  function burst(x, y, r = 1) {
+    const amt = o.sens * (o.burst ?? 0.25), n = Math.max(8, Math.round(8 * r));
+    for (let k = 0; k < n; k++) { const a = k * 2 * Math.PI / n, c = Math.cos(a), s = Math.sin(a);
+      splat(x + c * r / cols, y + s * r / rows, c * amt, s * amt, 0, 0.9); }
   }
   const spin = (x, y, s, r = 2.2) => splat(x, y, 0, 0, s * o.sens, r);
   function reset() { clearT(S.r); clearT(S.w); seed = Math.floor(Math.random() * 1e6); makeBackground(); restart(); }
