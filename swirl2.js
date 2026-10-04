@@ -465,7 +465,7 @@ function createSwirl2(gl, opts = {}) {
     const pl = SWIRL2_PALETTES[o.palette] || o.palette;
     const u = use('display', target || { w: o.width, h: o.height });
     gl.uniform1i(u.uP, tex(0, src)); gl.uniform1i(u.uInk, tex(1, S.div));   // placeholder: never sample the target
-    gl.uniform1f(u.inkOn, 0); gl.uniform1f(u.starsOn, stars && !o.wash && o.fill !== 'image' ? 1 : 0); gl.uniform1f(u.wash, o.wash ? 1 : 0);
+    gl.uniform1f(u.inkOn, 0); gl.uniform1f(u.starsOn, stars && o.stars && !o.wash && o.fill !== 'image' ? 1 : 0); gl.uniform1f(u.wash, o.wash ? 1 : 0);
     gl.uniform1i(u.uImgT, tex(5, { t: imgT })); gl.uniform1f(u.imgAspect, imgAspect); gl.uniform1f(u.imgCells, o.imgTile > 1 ? o.height / 2 / (o.imgTile * (o.height / Math.max(1, o.cssHeight || o.height))) : 0); gl.uniform1f(u.time, t); gl.uniform1f(u.freq, o.freq); gl.uniform1f(u.fill, FILL_NUM[o.fill] ?? 0);
     // tiles: tile 1 = off (not 1 CSS px: on a phone that is ~3 device px and pixelated everything)
     const cellPx = Math.max(1, (o.cell || 1) * (o.height / Math.max(1, o.cssHeight || o.height)));   // in device pixels
