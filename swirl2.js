@@ -64,10 +64,10 @@ const SWIRL2_PRESETS = {
   // Angus's third and fourth phone finds (2026-10-03), both on colour noise at 11 rows
   "Bird's Nest": { fluids: false, fluidity: 0.999, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'ink', wash: true, facets: false, crisp: 0.27, palette: 'pop', freq: 4.9, fadeMin: 8, fadeMax: 22, fill: 'colour noise', rows: 11 },
   'Sails':       { fluids: false, fluidity: 0.999, viscosity: 0.2, momentum: 0.1,  angularity: 0.576, energy: 2.5, grid: 0, curl: 1.5, heal: 0.5, jitter: 0, memory: 0.5,   carry: 1.5, paint: 'ink', wash: true, facets: false, crisp: 0.3,  palette: 'sea', freq: 3.2, fadeMin: 8, fadeMax: 22, fill: 'colour noise', rows: 11 },
-  'Mosaic':      { fluids: false, fluidity: 0.999, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1.3, grid: 0, curl: 15,  heal: 0,   jitter: 0, memory: 0.99,  carry: 0,   paint: 'bands', wash: true, facets: false, crisp: 0, palette: 'jelly', freq: 3.2, fadeMin: 0, fadeMax: 0, fill: 'squares', rows: 8 },
+  'Mosaic':      { fluids: false, fluidity: 0.999, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1.3, grid: 0, curl: 15,  heal: 0,   jitter: 0, memory: 0.99,  carry: 0,   paint: 'bands', wash: true, facets: false, crisp: 0, palette: 'jelly', freq: 3.2, fadeMin: 0, fadeMax: 0, fill: 'squares', rows: 8, grain: false },
   // Mosaic that stays put: the picture is the squares displaced by the motion, so keep the motion exactly
   // as you leave it (fluidity 1: no fading, and no idle eddies) and the picture stays
-  'Sanka 2':     { fluids: false, fluidity: 1,     viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1.3, grid: 0, curl: 15,  heal: 0,   jitter: 0, memory: 0.99,  carry: 0,   paint: 'bands', wash: true, facets: false, crisp: 0, palette: 'jelly', freq: 3.2, fadeMin: 0, fadeMax: 0, fill: 'squares', rows: 8 },
+  'Sanka 2':     { fluids: false, fluidity: 1,     viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1.3, grid: 0, curl: 15,  heal: 0,   jitter: 0, memory: 0.99,  carry: 0,   paint: 'bands', wash: true, facets: false, crisp: 0, palette: 'jelly', freq: 3.2, fadeMin: 0, fadeMax: 0, fill: 'squares', rows: 8, grain: false },
 };
 
 function createSwirl2(gl, opts = {}) {
@@ -276,13 +276,7 @@ function createSwirl2(gl, opts = {}) {
           if(fill>2.5){   // squares / colour noise: one colour per square, each drifting on its own clock
             vec2 raw=PU()*cells, cell=floor(raw);
             col=cellCol(cell);
-            if(wash>.5){   // watercolour: pigment pools darker where a square meets a different colour, grain inside
-              vec2 f=fract(raw), px=max(fwidth(raw),vec2(1e-4)); float d=9.;
-              if(length(cellCol(cell-vec2(1,0))-col)>.08) d=min(d,f.x/px.x);
-              if(length(cellCol(cell+vec2(1,0))-col)>.08) d=min(d,(1.-f.x)/px.x);
-              if(length(cellCol(cell-vec2(0,1))-col)>.08) d=min(d,f.y/px.y);
-              if(length(cellCol(cell+vec2(0,1))-col)>.08) d=min(d,(1.-f.y)/px.y);
-              col*=1.-.32*exp(-d/2.5);
+            if(wash>.5){   // watercolour on squares: grain only (no darker edges: only outline draws lines)
               col*=mix(1., .9+.14*vnoise(raw*1.7), grain);
               col*=mix(1., .96+.05*hash(floor(gl_FragCoord.xy*.7)), grain);
             } }
