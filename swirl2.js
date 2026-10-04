@@ -40,6 +40,10 @@ const SWIRL2_PALETTES = {
   tropic: { pal: ['#0b3954', '#00a6a6', '#efca08', '#f49f0a', '#d81159', '#8f2d56', '#7ae582', '#ffe8d6'], seq: [0, 1, 2, 3, 4, 0, 5, 6, 7, 1, 2, 4], outline: '#05202f' },
   neon:   { pal: ['#0b0b16', '#39ff14', '#ff073a', '#00f0ff', '#fffc00', '#bc13fe', '#ff6ec7', '#1f1f3a'], seq: [0, 1, 7, 2, 0, 3, 7, 4, 0, 5, 6, 7], outline: '#000000' },
   jelly:  { pal: ['#2b2a4f', '#7e5bb5', '#5c72c6', '#d8637a', '#efc38e', '#ead35b', '#bdd36f', '#557258'], seq: [0, 1, 3, 2, 4, 1, 5, 6, 7, 3, 2, 4], outline: '#1c1b33' },
+  // high contrast (Angus 2026-10-04): bands alternate dark and light so every edge is hard
+  contrast: { hard: true, pal: ['#000000', '#ffffff', '#ff1a1a', '#ffd400', '#0033ff', '#00c853', '#ff2bd6', '#00e5ff'], seq: [0, 2, 1, 4, 0, 3, 1, 5, 0, 6, 1, 7], outline: '#000000' },
+  'black & white': { hard: true, pal: ['#000000', '#ffffff', '#000000', '#ffffff', '#000000', '#ffffff', '#000000', '#ffffff'], seq: [0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3], outline: '#000000' },
+  'ink & paper': { hard: true, pal: ['#050505', '#fbfaf6', '#14110e', '#e9e4d8', '#0c1016', '#f2f5f8', '#22201e', '#dcd8cf'], seq: [0, 1, 2, 3, 4, 5, 6, 7, 2, 1, 0, 5], outline: '#000000' },
   // pastel
   pastel: { pal: ['#ffc8dd', '#bde0fe', '#cdb4db', '#ffafcc', '#a2d2ff', '#fdffb6', '#caffbf', '#9bf6ff'], seq: [0, 1, 2, 3, 4, 5, 6, 7, 2, 5, 0, 4], outline: '#8d7a99' },
   sorbet: { pal: ['#f7ede2', '#f6bd60', '#f5cac3', '#84a59d', '#f28482', '#b8e0d2', '#eac4d5', '#95b8d1'], seq: [0, 1, 2, 3, 0, 4, 5, 6, 0, 7, 2, 1], outline: '#6b705c' },
@@ -259,7 +263,7 @@ function createSwirl2(gl, opts = {}) {
         c=mix(vec3(dot(c,vec3(.2125,.7154,.0721))),c,sat); c*=bright; c=mix(vec3(.5),c,contrast);
         o=vec4(clamp(crisp(c,fr),0.,1.),1.); }`,
     display: INIT + `uniform sampler2D uP, uInk; uniform sampler2D uImgT; uniform float imgAspect, imgCells; uniform float sizeMix, inside; uniform sampler2D uTxt, uTxtA; uniform float txtMode; uniform vec3 txtCol; uniform vec4 LP[32], LA[32]; uniform vec2 LH[32]; uniform int nL; uniform float reveal, mapCells, tilePx, peek, time, freq, fadeMin, fadeMax, grain, seqLen, inkOn, starsOn, wash, fill, cells, seed, blocky; uniform vec2 dir, res;
-      uniform vec3 pal[8]; uniform float seq[12], npal; uniform vec3 outline, starC;
+      uniform vec3 pal[8]; uniform float seq[12], npal, hard; uniform vec3 outline, starC;
       vec3 colAt(float k){ int i=int(mod(k,seqLen)); return pal[int(seq[i])]; }
       // colour fade: every square (or band) fades from its colour into a randomly chosen palette colour, each
       // taking its own time between fadeMin and fadeMax seconds (fadeMin 0 = off). Returns (colour step, fade 0..1);
@@ -374,6 +378,7 @@ function createSwirl2(gl, opts = {}) {
             float a=clamp(max(e.x,e.y)*res.y/6.,0.,1.);
             col=outsideStyle(outsideStyle(col, a, reveal), 1.-a, inside); }
         }
+        if(hard>.5&&peek<.5){ vec3 b=pal[0]; float bd=9.; for(int i=0;i<8;i++){ if(float(i)>=npal) break; vec3 d=col-pal[i]; float dd=dot(d,d); if(dd<bd){ bd=dd; b=pal[i]; } } col=b; }   // high-contrast palettes: only their own colours, no in-betweens
         if(txtMode>.5&&txtMode<1.5&&peek<.5) col=mix(col, txtCol, texture(uTxt,vUv).r);   // text that stays still, on top
         if(txtMode>2.5&&peek<.5) for(int i=0;i<32;i++){ if(i>=nL) break;   // drift: each letter whole, where the fluid pushed it, turned by its swirl
           vec2 l=rot(-LP[i].z)*((vUv-LP[i].xy)*vec2(aspect,1.)), h=LH[i];
@@ -499,7 +504,7 @@ function createSwirl2(gl, opts = {}) {
     gl.uniform1f(u.sizeMix, o.fill === 'mixed squares' ? 0.67 : 0);   // (the mixed sizes slider, o.sizeMix, is commented out)
     gl.uniform1f(u.seed, seed); gl.uniform1f(u.peek, peeking ? 1 : 0); gl.uniform1f(u.reveal, o.reveal || 0); gl.uniform1f(u.inside, o.inside || 0); gl.uniform1f(u.mapCells, o.mapCell > 1 ? o.height / 2 / (o.mapCell * (o.height / Math.max(1, o.cssHeight || o.height))) : 0); gl.uniform1f(u.tilePx, o.tile > 1 ? o.tile * (o.height / Math.max(1, o.cssHeight || o.height)) : 0); gl.uniform1f(u.cells, o.height / 2 / cellPx); gl.uniform1f(u.blocky, o.fill !== 'image' && (cellPx > 1.5 || o.fill === 'squares' || o.fill === 'colour noise') ? 1 : 0);   // a picture is never cut into the preset's squares (pixelate does that)
     gl.uniform1f(u.grain, o.grain === false ? 0 : 1); gl.uniform1f(u.fadeMin, o.fadeMin); gl.uniform1f(u.fadeMax, o.fadeMax); gl.uniform2f(u.dir, o.dir[0], o.dir[1]); gl.uniform2f(u.res, o.width, o.height);
-    gl.uniform3fv(u.pal, palArr(pl)); gl.uniform1f(u.npal, pl.pal.length);
+    gl.uniform3fv(u.pal, palArr(pl)); gl.uniform1f(u.npal, pl.pal.length); gl.uniform1f(u.hard, pl.hard ? 1 : 0);
     const sq = new Float32Array(12); sq.set(pl.seq.slice(0, 12)); gl.uniform1fv(u.seq, sq);
     gl.uniform1f(u.seqLen, pl.seq.length); gl.uniform3fv(u.outline, hex(pl.outline)); gl.uniform3fv(u.starC, hex(pl.star || '#f7f1e1'));
     return u;
