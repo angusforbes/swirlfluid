@@ -109,8 +109,8 @@
   <div class="rowlabel" id="autoLabel">fluid automata</div><div class="presets" id="profiles"></div>
 </div>
 <div id="err"></div>
-<script src="swirl2.js?v=20"></script>
-<script src="automata.js?v=20"></script>
+<script src="swirl2.js?v=21"></script>
+<script src="automata.js?v=21"></script>
 <script>
 // Two engines on one canvas: "swirl" (swirl2.js: a velocity fluid that paints poster bands, ink, facets...) and
 // "fluid automata" (automata.js: an 8-bit energy automaton that smears a background image). Only one runs at a time.
@@ -132,7 +132,7 @@ const baseOfA = n => BUILTIN_A.includes(n) ? n : (AUTOMATA_PROFILES[n]?.base || 
 const PROFILES = Object.keys(AUTOMATA_PROFILES), BGS = Object.keys(AUTOMATA_BGS);
 const coarse = matchMedia('(pointer: coarse)').matches;
 const FILLS = SWIRL2_FILLS;
-const BASE = { fill: 'squares', cell: Math.max(4, Math.round(innerHeight / 24)), freq: 3, palette: 'ocean', saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, wash: false, facets: false, jitter: 0, ambient: 1, fadeMin: 8, fadeMax: 22, outline: false, grain: true, tile: 1, mapCell: 1, spline: false, reach: 1, instant: false, reveal: 0 };
+const BASE = { fill: 'squares', cell: Math.max(4, Math.round(innerHeight / 24)), freq: 3, palette: 'ocean', saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, wash: false, facets: false, jitter: 0, ambient: 1, fadeMin: 8, fadeMax: 22, outline: false, grain: true, tile: 1, mapCell: 1, spline: false, reach: 1, instant: false, reveal: 0, burst: 1 };
 // the knobs: [key, label, min, max, step, format]
 const KNOBS = [
   // fluidity: finer toward the top: the left half covers 0.9 to 0.99, then each further stretch adds a 9 (0.999,
@@ -145,6 +145,7 @@ const KNOBS = [
   ['angularity', 'branch angle', 0, Math.PI / 2, 0.01, v => Math.round(v * 180 / Math.PI) + '°'],
   ['energy', 'energy', 0, 2.5, 0.05, v => v.toFixed(2)],
   ['reach', 'reach', 0.5, 6, 0.05, v => v.toFixed(2) + '×'],   // how far a press spreads (1 = as it always was)
+  ['burst', 'burst', 0, 3, 0.05, v => v ? v.toFixed(2) : 'off'],   // a mouse press held still pushes outward in every direction
   ['curl', 'curl', 0, 15, 0.5, v => v.toFixed(1)],
   ['heal', 'heal', 0, 0.5, 0.01, v => v.toFixed(2)],
   // (lattice, hidden for now) ['grid', 'lattice', 0, 32, 1, v => v >= 2 ? v + '×' + v : 'off'],
@@ -274,6 +275,7 @@ const TIPS = {
   momentum: 'branching: part of the motion keeps peeling off sideways, so strokes fork and spread',
   angularity: 'branch angle: the angle those side branches peel off at',
   energy: 'fluids off: how far each pixel looks along the motion (more = more bands); fluids on: how fast the picture is carried',
+  burst: 'a mouse press held still pushes outward in every direction, further the longer you hold (off = nothing)',
   reach: 'how far a press spreads around your finger: big reach moves a wide area gently (distance without extra bands)',
   curl: 'keeps small eddies spinning, so the fluid stays curly and turbulent',
   heal: 'how fast the picture drifts back to its starting pattern',
@@ -543,6 +545,8 @@ function spinInput(dt, now) {
     const t = pts.values().next().value;
     if (A) { if (++t.still > 2) auto.burst(t.last[0], t.last[1], Math.min(6, 1 + (t.still - 3) / 8)); }   // held still: energy shoots out in every direction, further the longer you hold
     else if (t.touch && t.moved < 12 && now - t.t0 > 350) swirl.splat(t.p[0], t.p[1], 0, 0, -SPIN, 0.008);
+    else if (!t.touch && t.moved < 6 && now - t.t0 > 120 && swirl.opts.burst > 0) {   // mouse held still: burst outward, the ring growing as you hold
+      const r = Math.min(0.35, 0.02 + (now - t.t0 - 120) / 1000 * 0.2); swirl.burst(t.p[0], t.p[1], r); wake(); }
   } else if (pts.size >= 2) {
     const [a, b] = [...pts.values()];
     const mid = [(a.p[0] + b.p[0]) / 2, (a.p[1] + b.p[1]) / 2];

@@ -577,6 +577,13 @@ function createSwirl2(gl, opts = {}) {
     gl.uniform2f(u.force, fx * S.sw, fy * S.sh); gl.uniform1f(u.spin, spin * S.sh); gl.uniform1f(u.radius, radius);
     blit(S.vel.write); S.vel.swap();
   }
+  // burst: a press held still pushes outward in every direction, on a ring of radius r (in screen heights) around
+  // (x, y), each push pointing away from the press, like drags out from it; strength from o.burst
+  function burst(x, y, r) {
+    const a = o.width / o.height, n = Math.max(10, Math.round(r * 160)), f = 6 * (o.burst ?? 1);
+    for (let k = 0; k < n; k++) { const t = k * 2 * Math.PI / n, c = Math.cos(t), s = Math.sin(t);
+      splat(x + c * r / a, y + s * r, c * f / a, s * f, 0, 0.0025); }
+  }
   // dive into the fluid at (x, y) (0..1, y up) by factor s (>1 in, <1 out). The hidden map of squares stays as it
   // is (squares keep their size, new stirring is normal); only the motion grows outward from that point, keeping
   // its direction: a whirlpool stays a whirlpool, just bigger, still made of normal-size squares. Ink with fluids
@@ -688,6 +695,6 @@ function createSwirl2(gl, opts = {}) {
   }
   function resize(w, h) { o.width = w; o.height = h; alloc(); }
   alloc();
-  return { step, render, splat, zoom, reset, resize, set, opts: o, get depth() { return depth; }, setImage, get hasImage() { return hasImage; }, get peek() { return peeking; }, set peek(v) { peeking = !!v; } };
+  return { step, render, splat, burst, zoom, reset, resize, set, opts: o, get depth() { return depth; }, setImage, get hasImage() { return hasImage; }, get peek() { return peeking; }, set peek(v) { peeking = !!v; } };
 }
 if (typeof window !== 'undefined') { window.createSwirl2 = createSwirl2; window.SWIRL2_PALETTES = SWIRL2_PALETTES; window.SWIRL2_PRESETS = SWIRL2_PRESETS; window.SWIRL2_FILLS = SWIRL2_FILLS; }
