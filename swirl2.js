@@ -695,7 +695,10 @@ function createSwirl2(gl, opts = {}) {
   function set(params) {
     const wasInk = o.paint === 'ink', fillWas = o.fill;
     Object.assign(o, params);
-    if (o.fill !== fillWas) { reset(); return; }   // the starting picture differs (noise fills start unswirled)
+    // a new fill keeps your motion and the stirred coordinates (the pattern you made, now in the new fill / picture);
+    // only the ink is redrawn from them. Clicking the same fill again (re-roll) and presets still reset
+    if (o.fill !== fillWas) { gl.disable(gl.BLEND); renderBands(S.P0, S.fresh, time, false); blit(S.fresh);
+      if (o.paint === 'ink') { renderBands(S.P.read, S.ink.read, time, false); blit(S.ink.read); } return; }
     if (o.paint === 'ink' && !wasInk) { renderBands(S.P.read, S.ink.read, time, false); blit(S.ink.read); }
   }
   function resize(w, h) { o.width = w; o.height = h; alloc(); }
