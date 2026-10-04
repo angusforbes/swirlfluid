@@ -446,9 +446,10 @@ function createSwirl2(gl, opts = {}) {
   let time = 0, seed = 1 + Math.floor(Math.random() * 1e5), resets = 0;
   // a fresh start: new noise, and (after the first) a new random swirl layout for the bands
   const rndSwirl = (sgn) => [(Math.random() * 2 - 1) * aspect() * 0.8, (Math.random() * 2 - 1) * 0.75, sgn * (2.5 + Math.random() * 3.5), 0.35 + Math.random() * 0.45];
-  function reset() {
-    seed = 1 + Math.floor(Math.random() * 1e5);
-    if (resets++ && !o.fixedSwirls) {
+  // reset: new squares (new seed) and no motion; reset(true) (r): back to the unstirred grid, the same squares
+  function reset(same = false) {
+    if (!same) seed = 1 + Math.floor(Math.random() * 1e5);
+    if (!same && resets++ && !o.fixedSwirls) {
       const n = 2 + Math.floor(Math.random() * 3); o.swirls = Array.from({ length: n }, (_, i) => rndSwirl(i % 2 ? -1 : 1));
       const a = Math.random() * Math.PI * 2, m = 1.8 + Math.random() * 0.9; o.dir = [Math.cos(a) * m, Math.sin(a) * m];
     }

@@ -22,7 +22,7 @@ Two engines share the page: **swirl** (the poster fluid, with Ice Cracks, Cubism
 | palette | `c` or the dots in **tune** | dots in **tune** |
 | fill (what gets stirred) | `f` or the **fill** buttons in **tune** | **fill** buttons in **tune** |
 | tune panel | `t` | **tune** button |
-| reset / save PNG / hide help | `space` / `s` / `h` | buttons in **tune**; tap to bring the help back |
+| new start (new squares + the preset's starting move) / back to the grid (same squares, no stirring) / save PNG / hide help | `space` / `r` / `s` / `h` | buttons in **tune**; tap to bring the help back |
 
 **copy link** in the tune panel copies a URL with your settings, e.g. `?preset=Jupiter&palette=sea&curl=12`
 or `?engine=automata&profile=Milky%20Way&blend=0.9`.

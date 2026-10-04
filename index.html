@@ -106,14 +106,14 @@
 </div>
 <div id="help" class="panel">
   <span class="mouse">drag to stir · hold <kbd>shift</kbd>+<kbd>→</kbd> / <kbd>shift</kbd>+<kbd>←</kbd> to spin a whirlpool under the cursor · hold <kbd>z</kbd> / <kbd>x</kbd> or scroll to dive in / out<br>
-  <kbd>1</kbd>–<kbd>9</kbd> presets · <kbd>e</kbd> swap engine · <kbd>t</kbd> tune · <kbd>space</kbd> reset · <kbd>g</kbd> random stir · <kbd>n</kbd> random vectors · <kbd>m</kbd> more energy · <kbd>esc</kbd> hide all · hold <kbd>shift</kbd> to move the mouse without stirring · <kbd>s</kbd> save · <kbd>d</kbd> debug · <kbd>h</kbd> hide<span class="swirlOnly"> · <kbd>c</kbd> palette · <kbd>p</kbd> pin sliders · <kbd>f</kbd> fill · <kbd>r</kbd> re-roll · hold <kbd>l</kbd> map</span><span class="autoOnly"> · <kbd>b</kbd> background · <kbd>v</kbd> vectors · drop an image to smear it</span></span>
+  <kbd>1</kbd>–<kbd>9</kbd> presets · <kbd>e</kbd> swap engine · <kbd>t</kbd> tune · <kbd>space</kbd> new start · <kbd>g</kbd> random stir · <kbd>n</kbd> random vectors · <kbd>m</kbd> more energy · <kbd>esc</kbd> hide all · hold <kbd>shift</kbd> to move the mouse without stirring · <kbd>s</kbd> save · <kbd>d</kbd> debug · <kbd>h</kbd> hide<span class="swirlOnly"> · <kbd>c</kbd> palette · <kbd>p</kbd> pin sliders · <kbd>f</kbd> fill · <kbd>r</kbd> back to the grid · hold <kbd>l</kbd> map</span><span class="autoOnly"> · <kbd>b</kbd> background · <kbd>v</kbd> vectors · drop an image to smear it</span></span>
   <span class="touch">one finger stirs · press and hold to spin · twist two fingers to spin either way · spread two fingers to dive in · tap to bring this back</span>
   <div class="rowlabel" id="swirlLabel">swirl</div><div class="presets" id="presets"></div>
   <div class="rowlabel" id="autoLabel">fluid automata</div><div class="presets" id="profiles"></div>
 </div>
 <div id="err"></div>
-<script src="swirl2.js?v=34"></script>
-<script src="automata.js?v=34"></script>
+<script src="swirl2.js?v=35"></script>
+<script src="automata.js?v=35"></script>
 <script>
 // Two engines on one canvas: "swirl" (swirl2.js: a velocity fluid that paints poster bands, ink, facets...) and
 // "fluid automata" (automata.js: an 8-bit energy automaton that smears a background image). Only one runs at a time.
@@ -261,7 +261,7 @@ buttons($('presets'), PRESETS, n => applyPreset(n));
 buttons($('profiles'), PROFILES, n => applyProfile(n));
 buttons($('bgs'), BGS, n => setBg(n));
 // mixed squares, once chosen, stay: every preset with squares shows them mixed, until you choose plain squares
-var mixedPref = localStorage.getItem('swirl-mixed-squares') === '1';
+var mixedPref = localStorage.getItem('swirl-mixed-squares') !== '0';   // mixed squares by default
 buttons($('fills'), FILLS, n => {
   if (n === 'mixed squares' || n === 'squares') { mixedPref = n === 'mixed squares'; localStorage.setItem('swirl-mixed-squares', mixedPref ? '1' : '0'); }
   if (n === 'image') { if (!swirl.hasImage || swirl.opts.fill === 'image') $('file').click(); else { swirl.set({ fill: 'image' }); sync(); } return; }   // pick a picture (again: a new one)
@@ -647,11 +647,11 @@ addEventListener('keydown', e => {
   else if (e.key === 'p') togglePin();
   else if (e.key === 'c' && !A) { swirl.set({ palette: PALS[(PALS.indexOf(swirl.opts.palette) + 1) % PALS.length] }); sync(); }
   else if (e.key === 'f' && !A) $('fills').children[(FILLS.indexOf(swirl.opts.fill) + 1) % FILLS.length].click();
-  else if (e.key === 'r' && !A) $('fills').querySelector('.on')?.click();
+  else if (e.key === 'r' && !A) { swirl.reset(true); wake(); }   // back to the grid: no stirring, the same squares
   else if (e.key === 'b' && A) { const n = BGS.filter(k => AUTOMATA_BGS[k].mode !== 4); setBg(n[(n.indexOf(auto.opts.bg) + 1) % n.length]); }
   else if (e.key === 'v' && A) { auto.set({ vectors: !auto.opts.vectors }); sync(); }
   else if (e.key === 't') toggleTune();
-  else if (e.key === ' ') { cur().reset(); e.preventDefault(); }
+  else if (e.key === ' ') { cur().reset(); if (!A) kick(); wake(); e.preventDefault(); }   // new squares, and the preset's starting move
   else if (e.key === 'h') { help.classList.toggle('faded'); tuneBtn.classList.toggle('faded', help.classList.contains('faded')); }
   else if (e.key === 'g') randomStir();
   else if (e.key === 'n') { cur().randomize(); wake(); }
@@ -688,7 +688,7 @@ function frame(now) {
 // crash guard: a visit marks itself running and clears the mark when the page is closed normally. If the mark is
 // still there (the browser was killed or crashed while this page was open, within the last 15 minutes), the next
 // visit, e.g. a restored session, starts paused behind a button instead of starting the engine straight away
-if (engine === 'swirl') { getSwirl(); kick(); }   // the preset's starting move (Mosaic 2: n, then m 7 times)
+if (engine === 'swirl') { getSwirl(); if (mixedPref && swirl.opts.fill === 'squares' && !q.has('fill')) { swirl.set({ fill: 'mixed squares' }); swirl.reset(true); sync(); } kick(); }   // the preset's starting move (Mosaic 2: n, then m 7 times)
 const RUN_KEY = 'swirlfluid.running', ranAt = +localStorage.getItem(RUN_KEY) || 0;
 const markRunning = () => localStorage.setItem(RUN_KEY, String(Date.now()));
 addEventListener('pagehide', () => localStorage.removeItem(RUN_KEY));
