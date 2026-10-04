@@ -319,7 +319,7 @@ function createAutomata(gl, opts = {}) {
     if (source instanceof HTMLVideoElement && source !== src) source.srcObject?.getTracks().forEach(t => t.stop());
     source = src; if (!src) return;
     imgAspect = (src.videoWidth || src.width) / (src.videoHeight || src.height);
-    if (src instanceof HTMLImageElement) { gl.bindTexture(gl.TEXTURE_2D, imgTex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src); }
+    if (!(src instanceof HTMLVideoElement)) { gl.bindTexture(gl.TEXTURE_2D, imgTex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src); }
     makeBackground(); restart();
   }
   function resize(w, h) { o.width = w; o.height = h; alloc(); }

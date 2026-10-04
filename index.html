@@ -109,8 +109,8 @@
   <div class="rowlabel" id="autoLabel">fluid automata</div><div class="presets" id="profiles"></div>
 </div>
 <div id="err"></div>
-<script src="swirl2.js?v=21"></script>
-<script src="automata.js?v=21"></script>
+<script src="swirl2.js?v=22"></script>
+<script src="automata.js?v=22"></script>
 <script>
 // Two engines on one canvas: "swirl" (swirl2.js: a velocity fluid that paints poster bands, ink, facets...) and
 // "fluid automata" (automata.js: an 8-bit energy automaton that smears a background image). Only one runs at a time.
@@ -387,12 +387,21 @@ async function startCamera() {
     setEngine('automata'); auto.set({ bg: 'camera' }); auto.setSource(v); sync();
   } catch (e) { alert('Camera not available: ' + e.message); }
 }
-function loadImage(file) {
-  const im = new Image();
-  im.onload = () => {   // swirl: the picture becomes the hidden map (image fill); Fluid Automata: the background
-    if (engine === 'swirl') { swirl.setImage(im); swirl.set({ fill: 'image' }); sync(); return; }
-    setEngine('automata'); auto.set({ bg: 'image…' }); auto.setSource(im); sync(); };
-  im.src = URL.createObjectURL(file);
+// a picture (a phone photo is ~4000x3000) is shrunk to at most 2048 px (or the GPU's limit) on a 2D canvas before it
+// reaches WebGL: uploading it whole and building its mipmaps ran a phone out of GPU memory and crashed the page.
+// createImageBitmap applies the photo's rotation (EXIF); older browsers fall back to an <img>
+async function loadImage(file) {
+  try {
+    let src;
+    try { src = await createImageBitmap(file, { imageOrientation: 'from-image' }); }
+    catch { src = await new Promise((ok, no) => { const im = new Image(); im.onload = () => ok(im); im.onerror = no; im.src = URL.createObjectURL(file); }); }
+    const w0 = src.width || src.naturalWidth, h0 = src.height || src.naturalHeight;
+    const max = Math.min(2048, gl.getParameter(gl.MAX_TEXTURE_SIZE) || 2048), k = Math.min(1, max / Math.max(w0, h0));
+    const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w0 * k)); c.height = Math.max(1, Math.round(h0 * k));
+    c.getContext('2d').drawImage(src, 0, 0, c.width, c.height); src.close?.();
+    if (engine === 'swirl') { swirl.setImage(c); swirl.set({ fill: 'image' }); sync(); return; }   // swirl: the hidden map (image fill)
+    setEngine('automata'); auto.set({ bg: 'image…' }); auto.setSource(c); sync();                  // Fluid Automata: the background
+  } catch (e) { toast('could not load that picture: ' + (e.message || e)); }
 }
 $('file').onchange = e => e.target.files[0] && loadImage(e.target.files[0]);
 addEventListener('dragover', e => e.preventDefault());
