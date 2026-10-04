@@ -247,6 +247,7 @@ buttons($('presets'), PRESETS, n => applyPreset(n));
 buttons($('profiles'), PROFILES, n => applyProfile(n));
 buttons($('bgs'), BGS, n => setBg(n));
 buttons($('fills'), FILLS, n => {
+  if (n === 'image') { if (!swirl.hasImage || swirl.opts.fill === 'image') $('file').click(); else { swirl.set({ fill: 'image' }); sync(); } return; }   // pick a picture (again: a new one)
   if (n === swirl.opts.fill) swirl.reset();   // the same fill again: a new random one
   else swirl.set(Object.assign({ fill: n }, (n === 'squares' || n === 'colour noise') && swirl.opts.cell <= 1 ? { cell: 6 } : {}));
   sync(); });
@@ -291,7 +292,7 @@ const IDLE = {   // why a setting does nothing right now ('' = it is working)
   memory: o => o.grid >= 2 ? '' : 'no effect with the lattice off',
   carry: o => o.grid < 2 ? 'no effect with the lattice off' : o.paint !== 'ink' ? 'no effect with ink off' : '',
   crisp: o => o.paint === 'ink' ? '' : 'no effect with ink off',
-  freq: o => (o.fill === 'squares' || o.fill === 'colour noise') && o.paint !== 'ink' ? 'no effect on squares and colour noise' : '',
+  freq: o => (o.fill === 'squares' || o.fill === 'colour noise' || o.fill === 'image') && o.paint !== 'ink' ? 'no effect on squares, colour noise and image' : '',
   mapCell: o => o.fill === 'squares' || o.fill === 'colour noise' ? '' : 'only for squares and colour noise',
 };
 const IDLE_BTNS = { /* facetBtn: o => o.grid >= 2 ? '' : 'no effect with the lattice off', (lattice, hidden for now) */ instantBtn: o => o.viscosity > 0 ? '' : 'no effect while thickness is 0', grainBtn: o => o.wash ? '' : 'no effect with wash off',
@@ -360,7 +361,7 @@ function setEngine(e) {
   if (e === engine) return;
   engine = e; const x = cur(); x.reset(); sync();
 }
-function applyPreset(n) { preset = n; engine = 'swirl'; const { fill, cell } = getSwirl().opts, d = presetOpts(n); swirl.set(SWIRL2_PRESETS[n].fill ? d : Object.assign(d, { fill, cell })); swirl.reset(); sync(); }   // the fill stays as you chose it
+function applyPreset(n) { preset = n; engine = 'swirl'; const { fill, cell } = getSwirl().opts, d = presetOpts(n); swirl.set(fill === 'image' ? Object.assign(d, { fill }) : SWIRL2_PRESETS[n].fill ? d : Object.assign(d, { fill, cell })); swirl.reset(); sync(); }   // the fill stays as you chose it; your picture always stays   // the fill stays as you chose it
 function applyProfile(n) {
   const a = getAuto(), keepBg = a.opts.bg, user = AUTOMATA_BGS[keepBg]?.mode === 4;   // keep your camera / image
   profile = n; engine = 'automata';
@@ -381,7 +382,9 @@ async function startCamera() {
 }
 function loadImage(file) {
   const im = new Image();
-  im.onload = () => { setEngine('automata'); auto.set({ bg: 'image…' }); auto.setSource(im); sync(); };
+  im.onload = () => {   // swirl: the picture becomes the hidden map (image fill); Fluid Automata: the background
+    if (engine === 'swirl') { swirl.setImage(im); swirl.set({ fill: 'image' }); sync(); return; }
+    setEngine('automata'); auto.set({ bg: 'image…' }); auto.setSource(im); sync(); };
   im.src = URL.createObjectURL(file);
 }
 $('file').onchange = e => e.target.files[0] && loadImage(e.target.files[0]);
