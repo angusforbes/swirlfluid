@@ -582,6 +582,16 @@ function createSwirl2(gl, opts = {}) {
     gl.uniform2f(u.force, fx * S.sw, fy * S.sh); gl.uniform1f(u.spin, spin * S.sh); gl.uniform1f(u.radius, radius);
     blit(S.vel.write); S.vel.swap();
   }
+  // n: replace all the motion at once with a random field (a little energy): many whirlpools and pushes of every
+  // size and both turns, scattered over the screen; on the lattice presets every vertex gets a random direction
+  function randomize(energy = 1) {
+    const R = Math.random;
+    if (o.grid >= 2) { const { ms, os } = lattice(); for (let i = 0; i < os.length; i++) { os[i] = R() * TAU; ms[i] = 0.06 * energy * (0.5 + R()); } return; }
+    [S.vel.read, S.vel.write].forEach(clear); idleT = 0;
+    for (let k = 0; k < 60; k++) { const r = 0.0015 + R() ** 2 * 0.03, x = R(), y = R();
+      if (k % 3) splat(x, y, 0, 0, (R() < 0.5 ? -1 : 1) * energy * (6 + R() * 18), r, true);
+      else { const a = R() * TAU, f = energy * (0.3 + R() * 0.9); splat(x, y, Math.cos(a) * f, Math.sin(a) * f, 0, r, true); } }
+  }
   // burst: a press held still pushes outward in every direction, on a ring of radius r (in screen heights) around
   // (x, y), each push pointing away from the press, like drags out from it; strength from o.burst
   function burst(x, y, r) {
@@ -703,6 +713,6 @@ function createSwirl2(gl, opts = {}) {
   }
   function resize(w, h) { o.width = w; o.height = h; alloc(); }
   alloc();
-  return { step, render, splat, burst, zoom, reset, resize, set, opts: o, get depth() { return depth; }, setImage, get hasImage() { return hasImage; }, get peek() { return peeking; }, set peek(v) { peeking = !!v; } };
+  return { step, render, splat, randomize, burst, zoom, reset, resize, set, opts: o, get depth() { return depth; }, setImage, get hasImage() { return hasImage; }, get peek() { return peeking; }, set peek(v) { peeking = !!v; } };
 }
 if (typeof window !== 'undefined') { window.createSwirl2 = createSwirl2; window.SWIRL2_PALETTES = SWIRL2_PALETTES; window.SWIRL2_PRESETS = SWIRL2_PRESETS; window.SWIRL2_FILLS = SWIRL2_FILLS; }

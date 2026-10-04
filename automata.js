@@ -308,6 +308,12 @@ function createAutomata(gl, opts = {}) {
     for (let k = 0; k < n; k++) { const a = k * 2 * Math.PI / n, c = Math.cos(a), s = Math.sin(a);
       splat(x + c * r / cols, y + s * r / rows, c * amt, s * amt, 0, 0.9); }
   }
+  // n: every cell a random direction at a small magnitude, all at once
+  function randomize(energy = 1) {
+    const a = new Uint8Array(cols * rows * 4);
+    for (let i = 0; i < cols * rows; i++) { a[i * 4] = Math.random() * 256; a[i * 4 + 1] = Math.min(255, 255 * 0.15 * energy * (0.5 + Math.random())); a[i * 4 + 3] = 255; }
+    gl.bindTexture(gl.TEXTURE_2D, S.r.t); gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, cols, rows, gl.RGBA, gl.UNSIGNED_BYTE, a);
+  }
   const spin = (x, y, s, r = 2.2) => splat(x, y, 0, 0, s * o.sens, r);
   function reset() { clearT(S.r); clearT(S.w); seed = Math.floor(Math.random() * 1e6); makeBackground(); restart(); }
   function set(params) {
@@ -324,6 +330,6 @@ function createAutomata(gl, opts = {}) {
   }
   function resize(w, h) { o.width = w; o.height = h; alloc(); }
   alloc();
-  return { step, render, splat, push, hold, burst, spin, reset, resize, set, setSource, opts: o };
+  return { step, render, splat, randomize, push, hold, burst, spin, reset, resize, set, setSource, opts: o };
 }
 if (typeof window !== 'undefined') Object.assign(window, { createAutomata, AUTOMATA_PROFILES, AUTOMATA_BGS, AUTOMATA_PALETTES });

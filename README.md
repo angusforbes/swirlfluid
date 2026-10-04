@@ -56,6 +56,7 @@ In the tune panel a setting that has no effect with the current toggles is dimme
 - **burst**: a mouse press held still pushes outward in every direction, the ring growing as you hold (off = nothing; the phone's long-press still spins). Fluid Automata has its own burst slider
 - **image pixelate** (image fill): cuts your picture itself into blocks of its average colour, which the stirring then moves (off = the picture as it is, 2 rows = the chunkiest); pixelate instead tiles the whole screen
 - **g** random stir: a few random drags and twists played over about a second, as if you'd stirred it (press again for more)
+- **n** random vectors: replaces all the motion at once with a random field of whirlpools and pushes (a little energy)
 - **Esc** hides all the panels and buttons (just the picture); Esc again brings them back
 - **outside**: as is / dimmed / grey / washed: draws what the stirring pulled in from beyond the screen differently from what was on screen and moved. The moved part is the main motion, the same with ink on or off (ink off finds new squares beyond the edge, ink on can only stretch the edge colour)
 - **smooth** (fluids off): follow the motion with smooth curves (cubic B-spline) instead of straight lines between its grid points, so high energy doesn't give sawtooth edges; off by default (jag1 / jag2 compare it)
