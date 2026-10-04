@@ -106,7 +106,7 @@
 </div>
 <div id="help" class="panel">
   <span class="mouse">drag to stir · hold <kbd>shift</kbd>+<kbd>→</kbd> / <kbd>shift</kbd>+<kbd>←</kbd> to spin a whirlpool under the cursor · hold <kbd>z</kbd> / <kbd>x</kbd> or scroll to dive in / out<br>
-  <kbd>1</kbd>–<kbd>9</kbd> presets · <kbd>e</kbd> swap engine · <kbd>t</kbd> tune · <kbd>space</kbd> reset · <kbd>g</kbd> random stir · <kbd>n</kbd> random vectors · <kbd>m</kbd> more energy · <kbd>esc</kbd> hide all · <kbd>s</kbd> save · <kbd>d</kbd> debug · <kbd>h</kbd> hide<span class="swirlOnly"> · <kbd>c</kbd> palette · <kbd>p</kbd> pin sliders · <kbd>f</kbd> fill · <kbd>r</kbd> re-roll · hold <kbd>l</kbd> map</span><span class="autoOnly"> · <kbd>b</kbd> background · <kbd>v</kbd> vectors · drop an image to smear it</span></span>
+  <kbd>1</kbd>–<kbd>9</kbd> presets · <kbd>e</kbd> swap engine · <kbd>t</kbd> tune · <kbd>space</kbd> reset · <kbd>g</kbd> random stir · <kbd>n</kbd> random vectors · <kbd>m</kbd> more energy · <kbd>esc</kbd> hide all · hold <kbd>shift</kbd> to move the mouse without stirring · <kbd>s</kbd> save · <kbd>d</kbd> debug · <kbd>h</kbd> hide<span class="swirlOnly"> · <kbd>c</kbd> palette · <kbd>p</kbd> pin sliders · <kbd>f</kbd> fill · <kbd>r</kbd> re-roll · hold <kbd>l</kbd> map</span><span class="autoOnly"> · <kbd>b</kbd> background · <kbd>v</kbd> vectors · drop an image to smear it</span></span>
   <span class="touch">one finger stirs · press and hold to spin · twist two fingers to spin either way · spread two fingers to dive in · tap to bring this back</span>
   <div class="rowlabel" id="swirlLabel">swirl</div><div class="presets" id="presets"></div>
   <div class="rowlabel" id="autoLabel">fluid automata</div><div class="presets" id="profiles"></div>
@@ -534,6 +534,7 @@ const pts = new Map();
 let hover = null, lastHover = null, keySpin = 0, twist = null;
 canvas.addEventListener('contextmenu', e => e.preventDefault());
 canvas.addEventListener('pointerdown', e => {
+  if (e.shiftKey && e.pointerType === 'mouse') return;   // shift: hands off, the mouse doesn't touch the scene
   canvas.setPointerCapture(e.pointerId);
   const p = pos(e); pts.set(e.pointerId, { p, last: p, t0: performance.now(), moved: 0, still: 0, touch: e.pointerType !== 'mouse' });
   if (pts.size === 2) twist = null;
@@ -543,6 +544,7 @@ canvas.addEventListener('pointerdown', e => {
 canvas.addEventListener('pointermove', e => {
   const p = pos(e); hover = p;
   const t = pts.get(e.pointerId);
+  if (e.shiftKey && e.pointerType === 'mouse') { lastHover = null; if (t) { t.last = p; t.p = p; t.moved = 99; } return; }   // shift: hands off (no stirring; picks up from here when you let go)
   if (!t) {   // swirl: a hovering mouse stirs gently; on the lattice presets (Ice Cracks, Cubism, Silk) it stirs like a drag
     if (engine === 'swirl' && e.pointerType === 'mouse' && lastHover) {
       const lat = swirl.opts.grid >= 2, k = lat ? 5 : 1.2;
