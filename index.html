@@ -115,7 +115,7 @@ const PRESETS = Object.keys(SWIRL2_PRESETS), PALS = Object.keys(SWIRL2_PALETTES)
 const PROFILES = Object.keys(AUTOMATA_PROFILES), BGS = Object.keys(AUTOMATA_BGS);
 const coarse = matchMedia('(pointer: coarse)').matches;
 const FILLS = SWIRL2_FILLS;
-const BASE = { fill: 'squares', cell: Math.max(4, Math.round(innerHeight / 24)), freq: 3, palette: 'ocean', saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, wash: false, facets: false, jitter: 0, ambient: 1, fadeMin: 8, fadeMax: 22, outline: false, grain: true, tile: 1 };
+const BASE = { fill: 'squares', cell: Math.max(4, Math.round(innerHeight / 24)), freq: 3, palette: 'ocean', saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, wash: false, facets: false, jitter: 0, ambient: 1, fadeMin: 8, fadeMax: 22, outline: false, grain: true, tile: 1, mapCell: 1 };
 // the knobs: [key, label, min, max, step, format]
 const KNOBS = [
   ['fluidity', 'fluidity', 0.9, 1, 0.001, v => v.toFixed(3)],
@@ -131,11 +131,13 @@ const KNOBS = [
   ['carry', 'carry', 0, 1.5, 0.05, v => v.toFixed(2)],
   ['crisp', 'crisp ink', 0, 0.3, 0.005, v => v.toFixed(3)],
   ['freq', 'bands', 1, 6, 0.1, v => v.toFixed(1)],
-  // squares: the hidden map's squares (see them with m); tiles: the screen's own grid, each tile one colour looked up
-  // in the stirred map at its centre (off = every pixel)
-  ['cell', 'squares', 0, 1000, 1, v => v <= 1 ? 'full' : Math.max(1, Math.round(innerHeight / v)) + ' rows',
+  // resolution: the main grid (the squares you see at rest); map: the hidden squares the stirring reveals (see them
+  // with m; 'same' = the main grid); pixelate: the screen in tiles, each one colour looked up at its centre
+  ['cell', 'resolution', 0, 1000, 1, v => v <= 1 ? 'full' : Math.max(1, Math.round(innerHeight / v)) + ' rows',
     { to: v => Math.round(1000 * (1 - Math.log(Math.max(1, v)) / Math.log(maxCell()))), from: t => Math.max(1, Math.round(maxCell() ** (1 - t / 1000))) }],
-  ['tile', 'tiles', 0, 1000, 1, v => v <= 1 ? 'off' : Math.max(1, Math.round(innerHeight / v)) + ' rows',
+  ['mapCell', 'map', 0, 1000, 1, v => v <= 1 ? 'same' : Math.max(1, Math.round(innerHeight / v)) + ' rows',
+    { to: v => Math.round(1000 * (1 - Math.log(Math.max(1, v)) / Math.log(maxCell()))), from: t => Math.max(1, Math.round(maxCell() ** (1 - t / 1000))) }],
+  ['tile', 'pixelate', 0, 1000, 1, v => v <= 1 ? 'off' : Math.max(1, Math.round(innerHeight / v)) + ' rows',
     { to: v => Math.round(1000 * (1 - Math.log(Math.max(1, v)) / Math.log(maxCell()))), from: t => Math.max(1, Math.round(maxCell() ** (1 - t / 1000))) }],
   // one slider, two knobs: each square takes between fadeMin and fadeMax seconds to fade into a new colour (0 = off)
   ['fadeMin', 'colour fade', 0, 60, 1, null, { dual: 'fadeMax', fmt: (a, b) => a ? (a === b ? a : a + '–' + b) + ' s' : 'off' }],

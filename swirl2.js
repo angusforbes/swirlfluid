@@ -213,7 +213,7 @@ function createSwirl2(gl, opts = {}) {
       void main(){ vec3 fr=texture(uFresh,vUv).rgb, c=mix(fr, texture(uSrc,uv2()).rgb, blend);
         c=mix(vec3(dot(c,vec3(.2125,.7154,.0721))),c,sat); c*=bright; c=mix(vec3(.5),c,contrast);
         o=vec4(clamp(crisp(c,fr),0.,1.),1.); }`,
-    display: INIT + `uniform sampler2D uP, uInk; uniform float tilePx, peek, time, freq, fadeMin, fadeMax, grain, seqLen, inkOn, starsOn, wash, fill, cells, seed, blocky; uniform vec2 dir, res;
+    display: INIT + `uniform sampler2D uP, uInk; uniform float mapCells, tilePx, peek, time, freq, fadeMin, fadeMax, grain, seqLen, inkOn, starsOn, wash, fill, cells, seed, blocky; uniform vec2 dir, res;
       uniform vec3 pal[8]; uniform float seq[12], npal; uniform vec3 outline, starC;
       vec3 colAt(float k){ int i=int(mod(k,seqLen)); return pal[int(seq[i])]; }
       // colour fade: every square (or band) fades from its colour into a randomly chosen palette colour, each
@@ -226,8 +226,8 @@ function createSwirl2(gl, opts = {}) {
       float pick(vec2 c, float n, float first){ if(n<.5) return first;
         float a=raw(c,n,first); return a==raw(c,n-1.,first) ? mod(a+1.,npal) : a; }
       // the colour of one square (squares and colour noise fills), from its cell in the stirred coordinates
-      vec3 cellCol(vec2 cell){
-        vec2 c=swirled((cell+.5)/cells)*cells; vec2 ck=clock(rnd(c,seed+11.));
+      vec3 cellCol(vec2 cell, float n){
+        vec2 c=swirled((cell+.5)/n)*n; vec2 ck=clock(rnd(c,seed+11.));
         if(fill>3.5){ float qs=ck.x;
           vec3 a=vec3(rnd(c,seed+2.+qs*3.),rnd(c,seed+3.+qs*3.),rnd(c,seed+4.+qs*3.)),
                b=vec3(rnd(c,seed+5.+qs*3.),rnd(c,seed+6.+qs*3.),rnd(c,seed+7.+qs*3.));
@@ -278,8 +278,14 @@ function createSwirl2(gl, opts = {}) {
           col=mix(colAt(k+sh), colAt(k+sh+1.), fade);
           float fr=fract(b), w=fwidth(b);
           if(fill>2.5){   // squares / colour noise: one colour per square, each drifting on its own clock
-            vec2 raw=PU()*cells, cell=floor(raw);
-            col=cellCol(cell);
+            // map: the hidden squares can have their own size (mapCells; 0 = the same as the main grid). At rest
+            // each main square shows the map's colour at its centre; stirring carries each pixel smoothly across
+            // the map from there, so the swirl's stripes have the map's size while the resting grid keeps its own
+            float mc=mapCells>0. ? mapCells : cells; vec2 raw;
+            if(mapCells>0.&&peek<.5){ vec2 q0=initP(TU()); raw=((floor(q0*cells)+.5)/cells+PU()-q0)*mc; }
+            else raw=PU()*mc;
+            vec2 cell=floor(raw);
+            col=cellCol(cell, mc);
             if(wash>.5){   // watercolour on squares: grain only (no darker edges: only outline draws lines)
               col*=mix(1., .9+.14*vnoise(raw*1.7), grain);
               col*=mix(1., .96+.05*hash(floor(gl_FragCoord.xy*.7)), grain);
@@ -411,7 +417,7 @@ function createSwirl2(gl, opts = {}) {
     gl.uniform1f(u.time, t); gl.uniform1f(u.freq, o.freq); gl.uniform1f(u.fill, Math.max(0, SWIRL2_FILLS.indexOf(o.fill)));
     // tiles: tile 1 = off (not 1 CSS px: on a phone that is ~3 device px and pixelated everything)
     const cellPx = Math.max(1, (o.cell || 1) * (o.height / Math.max(1, o.cssHeight || o.height)));   // in device pixels
-    gl.uniform1f(u.seed, seed); gl.uniform1f(u.peek, peeking ? 1 : 0); gl.uniform1f(u.tilePx, o.tile > 1 ? o.tile * (o.height / Math.max(1, o.cssHeight || o.height)) : 0); gl.uniform1f(u.cells, o.height / 2 / cellPx); gl.uniform1f(u.blocky, cellPx > 1.5 || o.fill === 'squares' || o.fill === 'colour noise' ? 1 : 0);
+    gl.uniform1f(u.seed, seed); gl.uniform1f(u.peek, peeking ? 1 : 0); gl.uniform1f(u.mapCells, o.mapCell > 1 ? o.height / 2 / (o.mapCell * (o.height / Math.max(1, o.cssHeight || o.height))) : 0); gl.uniform1f(u.tilePx, o.tile > 1 ? o.tile * (o.height / Math.max(1, o.cssHeight || o.height)) : 0); gl.uniform1f(u.cells, o.height / 2 / cellPx); gl.uniform1f(u.blocky, cellPx > 1.5 || o.fill === 'squares' || o.fill === 'colour noise' ? 1 : 0);
     gl.uniform1f(u.grain, o.grain === false ? 0 : 1); gl.uniform1f(u.fadeMin, o.fadeMin); gl.uniform1f(u.fadeMax, o.fadeMax); gl.uniform2f(u.dir, o.dir[0], o.dir[1]); gl.uniform2f(u.res, o.width, o.height);
     gl.uniform3fv(u.pal, palArr(pl)); gl.uniform1f(u.npal, pl.pal.length);
     const sq = new Float32Array(12); sq.set(pl.seq.slice(0, 12)); gl.uniform1fv(u.seq, sq);

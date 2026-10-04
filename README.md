@@ -37,7 +37,7 @@ four pastels (pastel, sorbet, mint, light pastel).
 
 **fill** sets what the swirl engine stirs: **bands** (poster bands), **field** (smooth noise through the palette),
 **blobs** (posterized noise with ink outlines), **squares** (a grid of squares, each a random palette colour) or
-**colour noise** (squares in random full colours). The **squares** slider (once called resolution) pixelates any fill, from 2 rows of rectangles to 1 px; the cells are stirred with the fluid. Click the selected fill again (or `r`) for a new random one. Noise fills start
+**colour noise** (squares in random full colours). The **resolution** slider pixelates any fill, from 2 rows of rectangles to 1 px; the cells are stirred with the fluid. Click the selected fill again (or `r`) for a new random one. Noise fills start
 straight (no swirl warp); every reset draws new noise, and the bands get a new random swirl layout. The fill and square
 size stay when you change preset; the palette colours them. Try `?preset=Ice%20Cracks&fill=squares&cell=24`.
 The knobs take ideas from [Fluid Automata](https://github.com/CreativeCodingLab/FluidAutomataJS)
@@ -56,7 +56,7 @@ for this renderer:
   moves its piece rigidly with its own shade (Cubism)
 - **crisp ink**: pulls smeared ink back toward the palette so it keeps hard edges · **wash**: draw bands as watercolour
 - **dive**: hold `z` (in) / `x` (out) or scroll over a spot, or spread two fingers on a phone: the motion grows outward from that point (a whirlpool stays a whirlpool, just bigger) while the hidden map it reads from keeps its size, so the squares stay the same size and new stirring works as before. With fluids on and ink, the paint itself is enlarged. Reset returns to the full view
-- **squares** / **tiles**: squares = the size of the hidden map's squares; tiles = the screen's own grid, each tile one colour looked up in the stirred map at its centre (off = every pixel), so a whirlpool is drawn as a mosaic at its own resolution
+- **resolution** / **map** / **pixelate**: resolution = the main grid, the squares you see at rest; map = the hidden squares that stirring reveals (hold `m` to see them; 'same' = the main grid): at rest each main square shows the map's colour at its centre, and stirring carries each pixel smoothly across the map, so a finer map gives finer stripes while the resting grid keeps its size; pixelate = the screen in tiles, each one colour (off = every pixel)
 - **map**: hold `m` (or the map button) to see the hidden map the picture is drawn from, unstirred and zoomed out 4×, your screen framed in white
 - **grain** (with wash): pigment granulation and paper grain; off keeps the colours solid while the soft pooled edges of bands stay. Squares never get darker edges: with ink and outline off they meet cleanly
 - **outline**: a thin black line (one pixel) around every colour region of the finished picture, the colours inside left clean (pairs well with wash off)
