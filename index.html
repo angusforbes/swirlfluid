@@ -23,6 +23,8 @@
   .presets { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
   .presets button.mine { border-style: dashed; }
   label.idle, button.idle { opacity: .38; }
+  #toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); background: #0b0f1aee; color: #e9e4d8; font: 13px system-ui;
+    padding: 8px 14px; border-radius: 10px; z-index: 50; display: none; max-width: 90vw; }
   .rowlabel { margin-top: 8px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; opacity: .55; }
   .rowlabel { cursor: pointer; }
   .rowlabel.cur { opacity: 1; color: #f4d35e; }
@@ -66,6 +68,7 @@
 </head>
 <body>
 <canvas id="c"></canvas>
+<div id="toast"></div>
 <button id="tuneBtn" title="tune (t)">tune</button>
 <div id="tune" class="panel">
   <div id="swirlTune">
@@ -93,12 +96,12 @@
     </div>
     <input type="file" id="file" accept="image/*" hidden>
   </div>
-  <div class="row"><button id="shareBtn">copy link</button><button id="presetBtn" title="save these settings as a preset in this browser (long-press or right-click one of yours to forget it)">save preset</button><button id="saveBtn">save PNG</button><button id="resetBtn2">reset</button></div>
+  <div class="row"><button id="shareBtn">copy link</button><button id="debugBtn" title="debug capture (d): saves a screenshot and every setting for the agent (local receiver, else downloads)">debug</button><button id="presetBtn" title="save these settings as a preset in this browser (long-press or right-click one of yours to forget it)">save preset</button><button id="saveBtn">save PNG</button><button id="resetBtn2">reset</button></div>
   <p>Ideas borrowed from <a href="https://github.com/CreativeCodingLab/FluidAutomataJS" style="color:inherit">Fluid Automata</a>. <a href="classic/" style="color:inherit">classic version</a> · <a href="https://github.com/angusforbes/swirlfluid" style="color:inherit">source</a></p>
 </div>
 <div id="help" class="panel">
   <span class="mouse">drag to stir · hold <kbd>shift</kbd>+<kbd>→</kbd> / <kbd>shift</kbd>+<kbd>←</kbd> to spin a whirlpool under the cursor · hold <kbd>z</kbd> / <kbd>x</kbd> or scroll to dive in / out<br>
-  <kbd>1</kbd>–<kbd>9</kbd> presets · <kbd>e</kbd> swap engine · <kbd>t</kbd> tune · <kbd>space</kbd> reset · <kbd>s</kbd> save · <kbd>h</kbd> hide<span class="swirlOnly"> · <kbd>p</kbd> palette · <kbd>f</kbd> fill · <kbd>r</kbd> re-roll · hold <kbd>m</kbd> map</span><span class="autoOnly"> · <kbd>b</kbd> background · <kbd>v</kbd> vectors · drop an image to smear it</span></span>
+  <kbd>1</kbd>–<kbd>9</kbd> presets · <kbd>e</kbd> swap engine · <kbd>t</kbd> tune · <kbd>space</kbd> reset · <kbd>s</kbd> save · <kbd>d</kbd> debug · <kbd>h</kbd> hide<span class="swirlOnly"> · <kbd>p</kbd> palette · <kbd>f</kbd> fill · <kbd>r</kbd> re-roll · hold <kbd>m</kbd> map</span><span class="autoOnly"> · <kbd>b</kbd> background · <kbd>v</kbd> vectors · drop an image to smear it</span></span>
   <span class="touch">one finger stirs · press and hold to spin · twist two fingers to spin either way · spread two fingers to dive in · tap to bring this back</span>
   <div class="rowlabel" id="swirlLabel">swirl</div><div class="presets" id="presets"></div>
   <div class="rowlabel" id="autoLabel">fluid automata</div><div class="presets" id="profiles"></div>
@@ -403,6 +406,37 @@ $('shareBtn').onclick = e => {
 };
 function save() { const a = document.createElement('a'); a.download = `swirlfluid-${(engine === 'swirl' ? preset : profile).replace(/[^\w]/g, '')}-${Date.now()}.png`; a.href = canvas.toDataURL('image/png'); a.click(); }
 $('saveBtn').onclick = save;
+// debug capture (d): a screenshot plus every setting, sent to the local vdebug receiver (~/.local/bin/vdebug-server,
+// which writes ~/Work/swirlfluid/debug/captures/<time>-<preset>/) so an agent can read exactly what you saw; with no
+// receiver (phone), the screenshot and the state download instead
+const toast = (t, ms = 3500) => { const el = $('toast'); el.textContent = t; el.style.display = 'block'; clearTimeout(toast.h); toast.h = setTimeout(() => el.style.display = 'none', ms); };
+async function capture() {
+  const note = prompt('Debug capture: what should the agent look at? (optional)', ''); if (note === null) return;
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const e = cur(), o = e.opts, opts = {};
+  for (const [k, v] of Object.entries(o)) if (v === null || typeof v !== 'object') opts[k] = v;
+  const name = engine === 'swirl' ? preset : profile;
+  const state = { project: 'swirlfluid', time: new Date().toISOString(), page: location.href, link: shareURL(), engine, preset: name,
+    base: engine === 'swirl' ? baseOf(preset) : profile, mine: engine === 'swirl' && !BUILTIN.includes(preset), note,
+    rows: { resolution: o.cell > 1 ? +(innerHeight / o.cell).toFixed(2) : 'full', map: o.mapCell > 1 ? +(innerHeight / o.mapCell).toFixed(2) : 'same', pixelate: o.tile > 1 ? +(innerHeight / o.tile).toFixed(2) : 'off' },
+    depth: e.depth, peek: !!e.peek, opts,
+    screen: { css: [innerWidth, innerHeight], dpr: devicePixelRatio, canvas: [canvas.width, canvas.height], touch: coarse },
+    browser: navigator.userAgent, built: document.lastModified };
+  const png = canvas.toDataURL('image/png'), stamp = state.time.replace(/[-:]/g, '').slice(0, 15);
+  try {
+    const ac = new AbortController(); setTimeout(() => ac.abort(), 4000);
+    const r = await fetch('http://127.0.0.1:8790/capture', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: ac.signal,
+      body: JSON.stringify({ project: 'swirlfluid', label: name, note, state, png }) });
+    const j = await r.json(); if (!j.ok) throw new Error(j.error);
+    toast('debug capture saved: ' + j.dir);
+  } catch {
+    const dl = (href, n) => { const a = document.createElement('a'); a.download = n; a.href = href; a.click(); };
+    const base = `swirlfluid-debug-${stamp}-${name.replace(/[^\w]/g, '')}`;
+    dl(png, base + '.png'); dl(URL.createObjectURL(new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' })), base + '.json');
+    toast('no debug receiver here: downloaded ' + base + '.png + .json');
+  }
+}
+$('debugBtn').onclick = capture;
 // save preset: a snapshot of every setting a preset can hold, sizes as rows of the screen
 const PRESET_KEYS = [...new Set(Object.keys(BASE).concat(...BUILTIN.map(n => Object.keys(SWIRL2_PRESETS[n]))))]
   .filter(k => !['cell', 'mapCell', 'tile', 'rows', 'mapRows', 'tileRows', 'base'].includes(k));
@@ -520,6 +554,7 @@ addEventListener('keydown', e => {
   else if (e.key === ' ') { cur().reset(); e.preventDefault(); }
   else if (e.key === 'h') { help.classList.toggle('faded'); tuneBtn.classList.toggle('faded', help.classList.contains('faded')); }
   else if (e.key === 's') save();
+  else if (e.key === 'd') capture();
 });
 addEventListener('keyup', e => { if (e.key === 'm' && swirl) { swirl.peek = false; wake(); } if (e.key === 'z' || e.key === 'x') zoomKey = 0; if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'Shift') keySpin = 0; });
 
