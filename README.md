@@ -46,8 +46,11 @@ for this renderer:
 
 - **fluidity**: how long motion lasts, finer toward the top (the left half covers 0.9–0.99, then 0.999, 0.9999, 0.99999 at the right; 1.000: forever, the idle eddies stop, and thickness and branching stop shaping the motion a moment after you let go, so with fluids off the picture stays exactly as you leave it) · **thickness**: velocity spreads into its neighbours (tar)
 - **branching** / **branch angle**: part of the motion peels off sideways at an angle
-- **energy**: how far paint is carried · **curl**: how hard small eddies are kept spinning
-- **heal**: how fast the picture relaxes back
+In the tune panel a setting that has no effect with the current toggles is dimmed, and its tooltip says what it does and why it is idle.
+
+- **energy**: fluids off: how far each pixel looks along the motion (more energy = more, finer bands); fluids on: how fast the picture is carried · **reach**: how far a press spreads (big reach moves a wide area gently: distance without extra bands) · **curl** (fluids on, lattice off): how hard small eddies are kept spinning
+- **smooth** (fluids off): follow the motion with smooth curves (cubic B-spline) instead of straight lines between its grid points, so high energy doesn't give sawtooth edges; off by default (jag1 / jag2 compare it)
+- **heal** (fluids on; with the lattice: ink): how fast the picture relaxes back · **memory**, **jitter** (lattice only), **carry** (lattice + ink)
 - **lattice**: off = a smooth fluid; N = Fluid Automata's own lattice (used by Ice Cracks and Cubism): N×N cells,
   each holding a vector that is handed on to its neighbours by overlap, and the picture is redrawn each frame through
   that coarse mesh with every vertex shifted by its vector, so it tears along triangle edges · **memory**: how much of

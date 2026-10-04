@@ -22,6 +22,7 @@
   #help a { color: inherit; }
   .presets { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
   .presets button.mine { border-style: dashed; }
+  label.idle, button.idle { opacity: .38; }
   .rowlabel { margin-top: 8px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; opacity: .55; }
   .rowlabel { cursor: pointer; }
   .rowlabel.cur { opacity: 1; color: #f4d35e; }
@@ -252,6 +253,47 @@ const mapBtn = $('mapBtn'); $('fills').appendChild(mapBtn);   // hold to see the
 mapBtn.onpointerdown = e => { mapBtn.setPointerCapture(e.pointerId); getSwirl().peek = true; wake(); };
 mapBtn.onpointerup = mapBtn.onpointercancel = () => { getSwirl().peek = false; };
 const inputs = { swirl: {}, automata: {} };
+// what each swirl setting does (tooltip), and when it does nothing (the slider is dimmed and says why)
+const TIPS = {
+  fluidity: 'how long motion lasts after you let go: 0.9 fades in about a second, 1 keeps it forever',
+  viscosity: 'thickness: motion spreads into its neighbours, so strokes become broad and syrupy (tar)',
+  momentum: 'branching: part of the motion keeps peeling off sideways, so strokes fork and spread',
+  angularity: 'branch angle: the angle those side branches peel off at',
+  energy: 'fluids off: how far each pixel looks along the motion (more = more bands); fluids on: how fast the picture is carried',
+  reach: 'how far a press spreads around your finger: big reach moves a wide area gently (distance without extra bands)',
+  curl: 'keeps small eddies spinning, so the fluid stays curly and turbulent',
+  heal: 'how fast the picture drifts back to its starting pattern',
+  grid: "lattice: off = a smooth fluid; N = Fluid Automata's N×N lattice of vectors, which tears the picture into triangles",
+  jitter: 'lattice: makes the lattice irregular instead of a perfect grid',
+  memory: 'lattice: how much of the last frame each frame keeps (lower = the picture snaps back sooner)',
+  carry: 'lattice + ink: how hard the lattice drags the pattern underneath the ink',
+  crisp: 'ink: pulls smeared colours back to the palette, so edges stay hard',
+  freq: 'how many bands across the screen (bands, field and blobs fills)',
+  cell: 'the main grid: the squares you see at rest (bands etc.: pixelates them)',
+  mapCell: "the hidden squares that stirring reveals (hold m to see them); 'same' = the main grid",
+  tile: 'cuts the screen into tiles of one colour each (off = every pixel)',
+};
+const IDLE = {   // why a setting does nothing right now ('' = it is working)
+  viscosity: o => o.grid >= 2 ? 'no effect with the lattice on' : '',
+  momentum: o => o.grid >= 2 && !o.fluids ? 'no effect: the lattice only branches with fluids on' : '',
+  angularity: o => !(o.momentum > 0) ? 'no effect while branching is 0' : o.grid >= 2 && !o.fluids ? 'no effect: the lattice only branches with fluids on' : '',
+  curl: o => o.grid >= 2 ? 'no effect with the lattice on' : !o.fluids ? 'no effect with fluids off' : '',
+  heal: o => o.grid >= 2 ? (o.paint === 'ink' ? '' : 'no effect: with the lattice, heal only works with ink') : !o.fluids ? 'no effect with fluids off' : '',
+  jitter: o => o.grid >= 2 ? '' : 'no effect with the lattice off',
+  memory: o => o.grid >= 2 ? '' : 'no effect with the lattice off',
+  carry: o => o.grid < 2 ? 'no effect with the lattice off' : o.paint !== 'ink' ? 'no effect with ink off' : '',
+  crisp: o => o.paint === 'ink' ? '' : 'no effect with ink off',
+  freq: o => (o.fill === 'squares' || o.fill === 'colour noise') && o.paint !== 'ink' ? 'no effect on squares and colour noise' : '',
+  mapCell: o => o.fill === 'squares' || o.fill === 'colour noise' ? '' : 'only for squares and colour noise',
+};
+const IDLE_BTNS = { facetBtn: o => o.grid >= 2 ? '' : 'no effect with the lattice off', grainBtn: o => o.wash ? '' : 'no effect with wash off',
+  splineBtn: o => !o.fluids && o.grid < 2 ? '' : 'only with fluids off (and the lattice off)' };
+function idleKnobs(o) {
+  for (const [k, x] of Object.entries(inputs.swirl)) { if (!x.l) continue; const why = IDLE[k]?.(o) || '';
+    x.l.classList.toggle('idle', !!why); x.l.title = (TIPS[k] || '') + (why ? ' (' + why + ')' : ''); }
+  for (const [id, f] of Object.entries(IDLE_BTNS)) { const b = $(id), why = f(o); b.classList.toggle('idle', !!why);
+    b.dataset.tip ??= b.title; b.title = b.dataset.tip + (why ? ' (' + why + ')' : ''); }
+}
 function sliders(knobs, el, which) {
   for (const [k, label, min, max, step, fmt, map] of knobs) {
     if (map?.hidden) continue;
@@ -260,8 +302,8 @@ function sliders(knobs, el, which) {
     l.innerHTML = `<span>${label}</span><input type="range" min="${min}" max="${max}" step="${step}"><output></output>`;
     const inp = l.querySelector('input'), out = l.querySelector('output');
     const val = () => map ? map.from(+inp.value) : +inp.value;
-    inp.oninput = () => { cur().set({ [k]: val() }); out.textContent = fmt(val()); };
-    inputs[which][k] = { inp, out, fmt, map }; el.appendChild(l);
+    inp.oninput = () => { cur().set({ [k]: val() }); out.textContent = fmt(val()); if (which === 'swirl') idleKnobs(cur().opts); };
+    inputs[which][k] = { inp, out, fmt, map, l }; el.appendChild(l);
   }
 }
 // two knobs on one track (two overlaid range inputs; only their thumbs take the pointer); they can't cross
@@ -301,7 +343,7 @@ function sync() {
     [...dots.children].forEach(d => d.classList.toggle('on', d.dataset.n === o.palette));
     [...$('fills').children].forEach(b => b.classList.toggle('on', b.textContent === o.fill));
     $('fluidsBtn').classList.toggle('on', !!o.fluids); $('inkBtn').classList.toggle('on', o.paint === 'ink');
-    $('washBtn').classList.toggle('on', !!o.wash); $('facetBtn').classList.toggle('on', !!o.facets); $('outlineBtn').classList.toggle('on', !!o.outline); $('grainBtn').classList.toggle('on', o.grain !== false); $('splineBtn').classList.toggle('on', !!o.spline);
+    $('washBtn').classList.toggle('on', !!o.wash); $('facetBtn').classList.toggle('on', !!o.facets); $('outlineBtn').classList.toggle('on', !!o.outline); $('grainBtn').classList.toggle('on', o.grain !== false); $('splineBtn').classList.toggle('on', !!o.spline); idleKnobs(o);
   }
 }
 function setEngine(e) {
