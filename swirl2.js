@@ -44,6 +44,7 @@ const SWIRL2_PALETTES = {
   contrast: { hard: true, pal: ['#000000', '#ffffff', '#ff1a1a', '#ffd400', '#0033ff', '#00c853', '#ff2bd6', '#00e5ff'], seq: [0, 2, 1, 4, 0, 3, 1, 5, 0, 6, 1, 7], outline: '#000000' },
   'black & white': { hard: true, pal: ['#000000', '#ffffff', '#000000', '#ffffff', '#000000', '#ffffff', '#000000', '#ffffff'], seq: [0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3], outline: '#000000' },
   'ink & paper': { hard: true, pal: ['#050505', '#fbfaf6', '#14110e', '#e9e4d8', '#0c1016', '#f2f5f8', '#22201e', '#dcd8cf'], seq: [0, 1, 2, 3, 4, 5, 6, 7, 2, 1, 0, 5], outline: '#000000' },
+  greys: { hard: true, pal: ['#000000', '#242424', '#494949', '#6d6d6d', '#929292', '#b6b6b6', '#dbdbdb', '#ffffff'], seq: [0, 4, 7, 2, 5, 1, 6, 3, 0, 5, 2, 7], outline: '#000000' },
   // pastel
   pastel: { pal: ['#ffc8dd', '#bde0fe', '#cdb4db', '#ffafcc', '#a2d2ff', '#fdffb6', '#caffbf', '#9bf6ff'], seq: [0, 1, 2, 3, 4, 5, 6, 7, 2, 5, 0, 4], outline: '#8d7a99' },
   sorbet: { pal: ['#f7ede2', '#f6bd60', '#f5cac3', '#84a59d', '#f28482', '#b8e0d2', '#eac4d5', '#95b8d1'], seq: [0, 1, 2, 3, 0, 4, 5, 6, 0, 7, 2, 1], outline: '#6b705c' },
