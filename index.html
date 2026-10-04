@@ -35,6 +35,7 @@
   button { font: inherit; color: #e9e4d8; background: #ffffff14; border: 1px solid #e9e4d833; border-radius: 999px;
            padding: 3px 10px; cursor: pointer; }
   button.on { background: #e9e4d8; color: #0b0f1a; }
+  body.bare .panel, body.bare #tuneBtn { display: none !important; }   /* Esc: just the picture */
   #tuneBtn { position: fixed; right: 16px; top: calc(14px + env(safe-area-inset-top)); z-index: 2; padding: 6px 12px; background: #0b0f1ad0; backdrop-filter: blur(8px); transition: opacity .6s; }
   #tuneBtn.on { background: #e9e4d8; color: #0b0f1a; }
   #tune { right: 16px; top: calc(54px + env(safe-area-inset-top)); width: 260px; padding: 12px 14px; max-height: calc(100dvh - 90px); overflow-y: auto; display: none; }
@@ -582,6 +583,8 @@ function spinInput(dt, now) {
 }
 
 addEventListener('keydown', e => {
+  // Esc hides every panel and button (just the picture); Esc again brings them back as they were
+  if (e.key === 'Escape') { document.activeElement?.blur?.(); document.body.classList.toggle('bare'); e.preventDefault(); return; }
   if (e.target.tagName === 'INPUT' && (e.target.type !== 'range' || e.key.startsWith('Arrow'))) return;   // a focused slider still lets keys through (but keeps its arrows)
   if (e.shiftKey && e.key === 'ArrowRight') { keySpin = -1; e.preventDefault(); wake(); return; }
   if (e.shiftKey && e.key === 'ArrowLeft') { keySpin = 1; e.preventDefault(); wake(); return; }

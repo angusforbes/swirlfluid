@@ -55,6 +55,7 @@ In the tune panel a setting that has no effect with the current toggles is dimme
 - **image** (fill): your picture becomes the hidden map (fitted to cover the screen, mirrored beyond its edges so stirring never runs out). Click image, or drop a picture on the page; click it again for another. Presets keep your picture and change only the motion; resolution leaves it whole (pixelate cuts it into tiles)
 - **burst**: a mouse press held still pushes outward in every direction, the ring growing as you hold (off = nothing; the phone's long-press still spins). Fluid Automata has its own burst slider
 - **image pixelate** (image fill): cuts your picture itself into blocks of its average colour, which the stirring then moves (off = the picture as it is, 2 rows = the chunkiest); pixelate instead tiles the whole screen
+- **Esc** hides all the panels and buttons (just the picture); Esc again brings them back
 - **outside**: as is / dimmed / grey / washed: draws what the stirring pulled in from beyond the screen differently from what was on screen and moved. The moved part is the main motion, the same with ink on or off (ink off finds new squares beyond the edge, ink on can only stretch the edge colour)
 - **smooth** (fluids off): follow the motion with smooth curves (cubic B-spline) instead of straight lines between its grid points, so high energy doesn't give sawtooth edges; off by default (jag1 / jag2 compare it)
 - **heal** (fluids on; with the lattice: ink): how fast the picture relaxes back · **memory**, **jitter** (lattice only), **carry** (lattice + ink)
