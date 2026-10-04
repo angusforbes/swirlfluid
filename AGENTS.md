@@ -46,3 +46,20 @@ Headless Chromium via `playwright-core` (`executablePath: '/usr/bin/chromium'`, 
 --enable-unsafe-swiftshader`). Serve the repo yourself (`python3 -m http.server <port> --bind 127.0.0.1` from the
 repo); port 8765 is often taken by another project. Hide `.panel,#tuneBtn,#help` before stirring, or the drag lands
 on the panel.
+
+## State as of 2026-10-04 (v39) and open threads
+
+- Keys: n random vectors, m more energy (x1.5), g random stir, space new start (new squares + preset's `startStir`),
+  r back to the grid (same squares, `reset(true)`), l hold = peek map, c palette, p pin (fluidity..bands keep values
+  across presets), k stars (off by default), Esc hide all panels, hold Shift = mouse hands off.
+- Browser-remembered prefs (localStorage): `swirl-mixed-squares` (mixed squares default unless '0'), `swirl-pin`,
+  `swirl-stars`, `swirl-text` ({text, textMode 0 off/1 still/2 flows/3 drift, textColour}).
+- Mosaic 2: fill 'mixed squares' (67% split, FILL_NUM maps it to squares), `startStir: 6` (n + m x6).
+- Text: still = `obstacle` shader on velocity + overlay; flows = letters in picture space (p0) in display; drift =
+  per-letter glyph atlas, `probe` shader + readPixels (needs f32) each frame. Text v2 ideas offered, awaiting Angus:
+  font choice, drag to place, palette-coloured letters, stronger bounce, letters pushing colours / colliding.
+- Next: camera feed as the image fill (setImage takes a <video>; re-upload per frame).
+- Open decisions on the @swirlfluid card: D1 LLM palette route (default bring-your-own-key), D2 map edges
+  (default endless), D3 strata file picker crashes Brave on file dialogs (image button, Save PNG; default keep).
+- Brave hangs/crashes on any file dialog were strata (`strata --portal`, the FileChooser portal), not the site.
+- Test server: `python3 -m http.server 8799 --bind 127.0.0.1`; Playwright scripts in /tmp/pwt.
