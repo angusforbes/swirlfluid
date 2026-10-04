@@ -21,6 +21,7 @@
   #help kbd { font: inherit; padding: 0 5px; border: 1px solid #e9e4d866; border-radius: 4px; }
   #help a { color: inherit; }
   .presets { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+  .presets button.mine { border-style: dashed; }
   .rowlabel { margin-top: 8px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; opacity: .55; }
   .rowlabel { cursor: pointer; }
   .rowlabel.cur { opacity: 1; color: #f4d35e; }
@@ -91,7 +92,7 @@
     </div>
     <input type="file" id="file" accept="image/*" hidden>
   </div>
-  <div class="row"><button id="shareBtn">copy link</button><button id="saveBtn">save PNG</button><button id="resetBtn2">reset</button></div>
+  <div class="row"><button id="shareBtn">copy link</button><button id="presetBtn" title="save these settings as a preset in this browser (long-press or right-click one of yours to forget it)">save preset</button><button id="saveBtn">save PNG</button><button id="resetBtn2">reset</button></div>
   <p>Ideas borrowed from <a href="https://github.com/CreativeCodingLab/FluidAutomataJS" style="color:inherit">Fluid Automata</a>. <a href="classic/" style="color:inherit">classic version</a> · <a href="https://github.com/angusforbes/swirlfluid" style="color:inherit">source</a></p>
 </div>
 <div id="help" class="panel">
@@ -111,6 +112,11 @@ const canvas = document.getElementById('c');
 const gl = canvas.getContext('webgl2', { antialias: false, preserveDrawingBuffer: true, alpha: false });
 const $ = id => document.getElementById(id);
 const help = $('help'), tune = $('tune'), tuneBtn = $('tuneBtn');
+// your presets (save preset): kept in this browser only, for trying things out; each remembers the built-in preset
+// it grew from (base), so its link works anywhere and can be added to the built-ins
+const MINE_KEY = 'swirlfluid.presets', BUILTIN = Object.keys(SWIRL2_PRESETS);
+const loadMine = () => { try { return JSON.parse(localStorage.getItem(MINE_KEY)) || {}; } catch { return {}; } };
+let MINE = loadMine(); for (const [n, v] of Object.entries(MINE)) if (!SWIRL2_PRESETS[n]) SWIRL2_PRESETS[n] = v;
 const PRESETS = Object.keys(SWIRL2_PRESETS), PALS = Object.keys(SWIRL2_PALETTES);
 const PROFILES = Object.keys(AUTOMATA_PROFILES), BGS = Object.keys(AUTOMATA_BGS);
 const coarse = matchMedia('(pointer: coarse)').matches;
@@ -169,7 +175,12 @@ const find = (list, n) => list.find(p => p.toLowerCase() === (n || '').toLowerCa
 let engine = q.get('engine') === 'automata' || find(PROFILES, q.get('profile')) ? 'automata' : 'swirl';
 let preset = find(PRESETS, q.get('preset')) || 'Poster';
 let profile = find(PROFILES, q.get('profile')) || 'Watercolors';
-const presetOpts = n => { const o = Object.assign({}, BASE, SWIRL2_PRESETS[n]); if (o.rows) o.cell = Math.max(1, Math.round(innerHeight / o.rows)); return o; };
+const presetOpts = n => { const o = Object.assign({}, BASE, SWIRL2_PRESETS[n]);   // rows, mapRows, tileRows: sizes in rows of this screen
+  if (o.rows) o.cell = Math.max(1, Math.round(innerHeight / o.rows));
+  if (o.mapRows) o.mapCell = Math.max(1, Math.round(innerHeight / o.mapRows));
+  if (o.tileRows) o.tile = Math.max(1, Math.round(innerHeight / o.tileRows));
+  return o; };
+const baseOf = n => BUILTIN.includes(n) ? n : (SWIRL2_PRESETS[n]?.base || 'Poster');
 const profileOpts = n => Object.assign({}, AUTOMATA_PROFILES[n]);
 function urlOverrides(knobs) {
   const o = {};
@@ -323,7 +334,7 @@ function shareURL() {
   const diff = (knobs, d) => { for (const [k] of knobs) if (Math.abs(o[k] - (d[k] ?? 0)) > 1e-9) p.set(k, +(+o[k]).toFixed(4)); };
   const flag = (k, name, d) => { if (!!o[k] !== !!d[k]) p.set(name, o[k] ? 1 : 0); };
   if (engine === 'swirl') {
-    const d = presetOpts(preset); p.set('preset', preset); diff(KNOBS, d);
+    const b = baseOf(preset), d = presetOpts(b); p.set('preset', b); diff(KNOBS, d);
     if (o.palette !== d.palette) p.set('palette', o.palette);
     if (o.fill !== d.fill) p.set('fill', o.fill);
     if (o.paint !== d.paint) p.set('paint', o.paint);
@@ -342,6 +353,26 @@ $('shareBtn').onclick = e => {
 };
 function save() { const a = document.createElement('a'); a.download = `swirlfluid-${(engine === 'swirl' ? preset : profile).replace(/[^\w]/g, '')}-${Date.now()}.png`; a.href = canvas.toDataURL('image/png'); a.click(); }
 $('saveBtn').onclick = save;
+// save preset: a snapshot of every setting a preset can hold, sizes as rows of the screen
+const PRESET_KEYS = [...new Set(Object.keys(BASE).concat(...BUILTIN.map(n => Object.keys(SWIRL2_PRESETS[n]))))]
+  .filter(k => !['cell', 'mapCell', 'tile', 'rows', 'mapRows', 'tileRows', 'base'].includes(k));
+function mineButton(b) { b.classList.add('mine'); b.title = 'yours (this browser): long-press or right-click to forget it';
+  b.oncontextmenu = e => { e.preventDefault(); const n = b.textContent; if (!confirm(`Forget your preset "${n}"?`)) return;
+    MINE = loadMine(); delete MINE[n]; localStorage.setItem(MINE_KEY, JSON.stringify(MINE)); delete SWIRL2_PRESETS[n];
+    PRESETS.splice(PRESETS.indexOf(n), 1); b.remove(); if (preset === n) preset = baseOf(n); sync(); }; }
+[...$('presets').children].forEach(b => { if (!BUILTIN.includes(b.textContent)) mineButton(b); });
+$('presetBtn').onclick = () => {
+  if (engine !== 'swirl') return;
+  const n = (prompt('Name this preset:', '') || '').trim(); if (!n) return;
+  if (BUILTIN.includes(n)) { alert(`"${n}" is a built-in preset; pick another name.`); return; }
+  const o = getSwirl().opts, v = { base: baseOf(preset) };
+  for (const k of PRESET_KEYS) if (o[k] !== undefined && typeof o[k] !== 'object') v[k] = o[k];
+  for (const [k, r] of [['cell', 'rows'], ['mapCell', 'mapRows'], ['tile', 'tileRows']]) if (o[k] > 1) v[r] = +(innerHeight / o[k]).toFixed(2);
+  MINE = loadMine(); MINE[n] = v; localStorage.setItem(MINE_KEY, JSON.stringify(MINE));
+  const isNew = !SWIRL2_PRESETS[n]; SWIRL2_PRESETS[n] = v; preset = n;
+  if (isNew) { PRESETS.push(n); buttons($('presets'), [n], m => applyPreset(m)); mineButton($('presets').lastChild); }
+  sync();
+};
 $('resetBtn2').onclick = () => cur().reset();
 function toggleTune() { tune.classList.toggle('open'); document.body.classList.toggle('tuning', tune.classList.contains('open')); tuneBtn.classList.toggle('on', tune.classList.contains('open')); wake(true); }
 tuneBtn.onclick = toggleTune;
