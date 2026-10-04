@@ -239,7 +239,7 @@ function createSwirl2(gl, opts = {}) {
       void main(){ vec3 fr=texture(uFresh,vUv).rgb, c=mix(fr, texture(uSrc,uv2()).rgb, blend);
         c=mix(vec3(dot(c,vec3(.2125,.7154,.0721))),c,sat); c*=bright; c=mix(vec3(.5),c,contrast);
         o=vec4(clamp(crisp(c,fr),0.,1.),1.); }`,
-    display: INIT + `uniform sampler2D uP, uInk; uniform sampler2D uImgT; uniform float imgAspect; uniform float reveal, mapCells, tilePx, peek, time, freq, fadeMin, fadeMax, grain, seqLen, inkOn, starsOn, wash, fill, cells, seed, blocky; uniform vec2 dir, res;
+    display: INIT + `uniform sampler2D uP, uInk; uniform sampler2D uImgT; uniform float imgAspect, imgCells; uniform float reveal, mapCells, tilePx, peek, time, freq, fadeMin, fadeMax, grain, seqLen, inkOn, starsOn, wash, fill, cells, seed, blocky; uniform vec2 dir, res;
       uniform vec3 pal[8]; uniform float seq[12], npal; uniform vec3 outline, starC;
       vec3 colAt(float k){ int i=int(mod(k,seqLen)); return pal[int(seq[i])]; }
       // colour fade: every square (or band) fades from its colour into a randomly chosen palette colour, each
@@ -306,7 +306,12 @@ function createSwirl2(gl, opts = {}) {
           if(fill>4.5){   // image: your picture is the hidden map, fitted to cover the screen and mirrored beyond its
             // edges (so the map is endless); the stirring looks it up like the squares
             float hp=max(2., 2.*aspect/imgAspect);
-            col=texture(uImgT, vec2(.5+p.x/(hp*imgAspect), .5-p.y/hp)).rgb;
+            if(imgCells>0.&&peek<.5){   // image pixelate: the picture itself in square blocks (which the stirring then moves),
+              // each block the picture's average colour over it (a mipmap level about the block's size)
+              vec2 pq=(floor(p*imgCells)+.5)/imgCells;
+              float lod=log2(max(1., float(textureSize(uImgT,0).y)/(hp*imgCells)));
+              col=textureLod(uImgT, vec2(.5+pq.x/(hp*imgAspect), .5-pq.y/hp), lod).rgb;
+            } else col=texture(uImgT, vec2(.5+p.x/(hp*imgAspect), .5-p.y/hp)).rgb;
           } else if(fill>2.5){   // squares / colour noise: one colour per square, each drifting on its own clock
             // map: the hidden squares can have their own size (mapCells; 0 = the same as the main grid). At rest
             // each main square shows the map's colour at its centre; stirring carries each pixel smoothly across
@@ -447,7 +452,7 @@ function createSwirl2(gl, opts = {}) {
     const u = use('display', target || { w: o.width, h: o.height });
     gl.uniform1i(u.uP, tex(0, src)); gl.uniform1i(u.uInk, tex(1, S.div));   // placeholder: never sample the target
     gl.uniform1f(u.inkOn, 0); gl.uniform1f(u.starsOn, stars && !o.wash && o.fill !== 'image' ? 1 : 0); gl.uniform1f(u.wash, o.wash ? 1 : 0);
-    gl.uniform1i(u.uImgT, tex(5, { t: imgT })); gl.uniform1f(u.imgAspect, imgAspect); gl.uniform1f(u.time, t); gl.uniform1f(u.freq, o.freq); gl.uniform1f(u.fill, Math.max(0, SWIRL2_FILLS.indexOf(o.fill)));
+    gl.uniform1i(u.uImgT, tex(5, { t: imgT })); gl.uniform1f(u.imgAspect, imgAspect); gl.uniform1f(u.imgCells, o.imgTile > 1 ? o.height / 2 / (o.imgTile * (o.height / Math.max(1, o.cssHeight || o.height))) : 0); gl.uniform1f(u.time, t); gl.uniform1f(u.freq, o.freq); gl.uniform1f(u.fill, Math.max(0, SWIRL2_FILLS.indexOf(o.fill)));
     // tiles: tile 1 = off (not 1 CSS px: on a phone that is ~3 device px and pixelated everything)
     const cellPx = Math.max(1, (o.cell || 1) * (o.height / Math.max(1, o.cssHeight || o.height)));   // in device pixels
     gl.uniform1f(u.seed, seed); gl.uniform1f(u.peek, peeking ? 1 : 0); gl.uniform1f(u.reveal, o.reveal || 0); gl.uniform1f(u.mapCells, o.mapCell > 1 ? o.height / 2 / (o.mapCell * (o.height / Math.max(1, o.cssHeight || o.height))) : 0); gl.uniform1f(u.tilePx, o.tile > 1 ? o.tile * (o.height / Math.max(1, o.cssHeight || o.height)) : 0); gl.uniform1f(u.cells, o.height / 2 / cellPx); gl.uniform1f(u.blocky, o.fill !== 'image' && (cellPx > 1.5 || o.fill === 'squares' || o.fill === 'colour noise') ? 1 : 0);   // a picture is never cut into the preset's squares (pixelate does that)
