@@ -106,7 +106,7 @@
 </div>
 <div id="help" class="panel">
   <span class="mouse">drag to stir · hold <kbd>shift</kbd>+<kbd>→</kbd> / <kbd>shift</kbd>+<kbd>←</kbd> to spin a whirlpool under the cursor · hold <kbd>z</kbd> / <kbd>x</kbd> or scroll to dive in / out<br>
-  <kbd>1</kbd>–<kbd>9</kbd> presets · <kbd>e</kbd> swap engine · <kbd>t</kbd> tune · <kbd>space</kbd> reset · <kbd>s</kbd> save · <kbd>d</kbd> debug · <kbd>h</kbd> hide<span class="swirlOnly"> · <kbd>p</kbd> palette · <kbd>f</kbd> fill · <kbd>r</kbd> re-roll · hold <kbd>m</kbd> map</span><span class="autoOnly"> · <kbd>b</kbd> background · <kbd>v</kbd> vectors · drop an image to smear it</span></span>
+  <kbd>1</kbd>–<kbd>9</kbd> presets · <kbd>e</kbd> swap engine · <kbd>t</kbd> tune · <kbd>space</kbd> reset · <kbd>g</kbd> random stir · <kbd>esc</kbd> hide all · <kbd>s</kbd> save · <kbd>d</kbd> debug · <kbd>h</kbd> hide<span class="swirlOnly"> · <kbd>p</kbd> palette · <kbd>f</kbd> fill · <kbd>r</kbd> re-roll · hold <kbd>m</kbd> map</span><span class="autoOnly"> · <kbd>b</kbd> background · <kbd>v</kbd> vectors · drop an image to smear it</span></span>
   <span class="touch">one finger stirs · press and hold to spin · twist two fingers to spin either way · spread two fingers to dive in · tap to bring this back</span>
   <div class="rowlabel" id="swirlLabel">swirl</div><div class="presets" id="presets"></div>
   <div class="rowlabel" id="autoLabel">fluid automata</div><div class="presets" id="profiles"></div>
@@ -554,8 +554,35 @@ let zoomKey = 0;
 canvas.addEventListener('wheel', e => { if (engine !== 'swirl') return; e.preventDefault(); const p = pos(e);
   swirl.zoom(p[0], p[1], Math.exp(-Math.max(-100, Math.min(100, e.deltaY)) * 0.004)); wake(); }, { passive: false });
 
+// g: random stirring, played like your own hand: a few curving drags and a twist or two, staggered over about a
+// second; each press adds more on top
+let gestures = [];
+function randomStir() {
+  const R = Math.random, n = 3 + Math.floor(R() * 3);
+  for (let i = 0; i < n; i++) gestures.push({ kind: 'drag', delay: Math.floor(R() * 30), len: 20 + Math.floor(R() * 30),
+    x: 0.15 + R() * 0.7, y: 0.15 + R() * 0.7, a: R() * Math.PI * 2, turn: (R() - 0.5) * 0.25, v: 0.006 + R() * 0.01 });
+  for (let i = 0, m = 1 + Math.floor(R() * 2); i < m; i++) gestures.push({ kind: 'spin', delay: Math.floor(R() * 40), len: 15 + Math.floor(R() * 30),
+    x: 0.2 + R() * 0.6, y: 0.2 + R() * 0.6, dir: R() < 0.5 ? -1 : 1 });
+  wake();
+}
+function playGestures(dt) {
+  const A = engine === 'automata';
+  gestures = gestures.filter(g => {
+    if (g.delay > 0) { g.delay--; return true; }
+    if (g.kind === 'spin') A ? auto.spin(g.x, g.y, g.dir * 0.6) : swirl.splat(g.x, g.y, 0, 0, g.dir * 90 * dt, 0.008);
+    else { const ar = innerWidth / innerHeight, x0 = g.x, y0 = g.y;
+      g.a += g.turn; g.x += Math.cos(g.a) * g.v / ar; g.y += Math.sin(g.a) * g.v;
+      if (g.x < 0.03 || g.x > 0.97) g.a = Math.PI - g.a; if (g.y < 0.03 || g.y > 0.97) g.a = -g.a;   // bounce off the edges
+      g.x = Math.min(0.97, Math.max(0.03, g.x)); g.y = Math.min(0.97, Math.max(0.03, g.y));
+      A ? auto.push(x0, y0, g.x, g.y) : swirl.splat(g.x, g.y, (g.x - x0) * 5 * 60, (g.y - y0) * 5 * 60, 0, 0.006); }
+    return --g.len > 0;
+  });
+  if (gestures.length) wake();
+}
+
 function spinInput(dt, now) {
   const A = engine === 'automata', SPIN = 90 * dt;
+  if (gestures.length) playGestures(dt);
   if (zoomKey && !A) { const p = hover || [0.5, 0.5]; swirl.zoom(p[0], p[1], Math.pow(2, zoomKey * dt)); }
   if (keySpin) { const p = hover || [0.5, 0.5]; A ? auto.spin(p[0], p[1], keySpin * 0.6) : swirl.splat(p[0], p[1], 0, 0, keySpin * SPIN, 0.008); }
   if (pts.size === 1) {
@@ -602,6 +629,7 @@ addEventListener('keydown', e => {
   else if (e.key === 't') toggleTune();
   else if (e.key === ' ') { cur().reset(); e.preventDefault(); }
   else if (e.key === 'h') { help.classList.toggle('faded'); tuneBtn.classList.toggle('faded', help.classList.contains('faded')); }
+  else if (e.key === 'g') randomStir();
   else if (e.key === 's') save();
   else if (e.key === 'd') capture();
 });
