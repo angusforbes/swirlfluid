@@ -64,6 +64,8 @@
     #tune { left: 10px; right: 10px; width: auto; top: auto; bottom: calc(10px + env(safe-area-inset-bottom)); max-height: 60dvh; }
     #tune label { grid-template-columns: 110px 1fr 48px; }
     body.tuning #help { display: none; } }
+  #guard { position: fixed; inset: 0; display: grid; place-items: center; background: #0b0f1a; color: #e9e4d8; font: 15px system-ui; text-align: center; z-index: 60; padding: 20px; }
+  #guard button { font-size: 16px; padding: 8px 20px; }
   #err { position: fixed; inset: 0; display: none; place-items: center; color: #f4d35e; font: 16px system-ui; padding: 20px; text-align: center; }
 </style>
 </head>
@@ -109,8 +111,8 @@
   <div class="rowlabel" id="autoLabel">fluid automata</div><div class="presets" id="profiles"></div>
 </div>
 <div id="err"></div>
-<script src="swirl2.js?v=22"></script>
-<script src="automata.js?v=22"></script>
+<script src="swirl2.js?v=23"></script>
+<script src="automata.js?v=23"></script>
 <script>
 // Two engines on one canvas: "swirl" (swirl2.js: a velocity fluid that paints poster bands, ink, facets...) and
 // "fluid automata" (automata.js: an 8-bit energy automaton that smears a background image). Only one runs at a time.
@@ -621,7 +623,19 @@ function frame(now) {
       const e = inputs.automata[k]; if (e) { e.inp.value = x.opts[k]; e.out.textContent = e.fmt(+x.opts[k]); } } }
   requestAnimationFrame(frame);
 }
-requestAnimationFrame(frame);
+// crash guard: a visit marks itself running and clears the mark when the page is closed normally. If the mark is
+// still there (the browser was killed or crashed while this page was open, within the last 15 minutes), the next
+// visit, e.g. a restored session, starts paused behind a button instead of starting the engine straight away
+const RUN_KEY = 'swirlfluid.running', ranAt = +localStorage.getItem(RUN_KEY) || 0;
+const markRunning = () => localStorage.setItem(RUN_KEY, String(Date.now()));
+addEventListener('pagehide', () => localStorage.removeItem(RUN_KEY));
+if (ranAt && Date.now() - ranAt < 15 * 60 * 1000 && !q.has('go')) {
+  const g = document.createElement('div'); g.id = 'guard';
+  g.innerHTML = '<div>swirlfluid didn\u2019t close cleanly last time (the browser was stopped while it was open).<br>It is paused so it can\u2019t hang the browser again.<br><br><button>start</button></div>';
+  document.body.appendChild(g);
+  g.querySelector('button').onclick = () => { g.remove(); markRunning(); requestAnimationFrame(frame); };
+} else { markRunning(); requestAnimationFrame(frame); }
+setInterval(() => { if (!document.getElementById('guard')) markRunning(); }, 20000);
 </script>
 </body>
 </html>
