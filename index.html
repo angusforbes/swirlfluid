@@ -419,7 +419,7 @@ function spinInput(dt, now) {
 }
 
 addEventListener('keydown', e => {
-  if (e.target.tagName === 'INPUT') return;
+  if (e.target.tagName === 'INPUT' && (e.target.type !== 'range' || e.key.startsWith('Arrow'))) return;   // a focused slider still lets keys through (but keeps its arrows)
   if (e.shiftKey && e.key === 'ArrowRight') { keySpin = -1; e.preventDefault(); wake(); return; }
   if (e.shiftKey && e.key === 'ArrowLeft') { keySpin = 1; e.preventDefault(); wake(); return; }
   const A = engine === 'automata', list = A ? PROFILES : PRESETS;
@@ -438,7 +438,7 @@ addEventListener('keydown', e => {
   else if (e.key === 'h') { help.classList.toggle('faded'); tuneBtn.classList.toggle('faded', help.classList.contains('faded')); }
   else if (e.key === 's') save();
 });
-addEventListener('keyup', e => { if (e.key === 'm' && swirl) swirl.peek = false; if (e.key === 'z' || e.key === 'x') zoomKey = 0; if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'Shift') keySpin = 0; });
+addEventListener('keyup', e => { if (e.key === 'm' && swirl) { swirl.peek = false; wake(); } if (e.key === 'z' || e.key === 'x') zoomKey = 0; if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'Shift') keySpin = 0; });
 
 // help fades after a few idle seconds (not while the tune panel is open)
 let idle;
