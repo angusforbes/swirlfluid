@@ -78,7 +78,7 @@
       <button id="facetBtn" title="lattice: each triangle moves its piece rigidly, like cut planes">facets</button>
       <button id="washBtn" title="draw the bands as watercolour instead of poster">wash</button>
       <button id="grainBtn" title="wash: pigment granulation and paper grain; off keeps the colours solid">grain</button>
-      <button id="outlineBtn" title="a thin black line around every colour region; the colours inside stay clean">outline</button>
+      <button id="outlineBtn" title="a thin black line around every colour region; the colours inside stay clean">outline</button><button id="splineBtn" title="smooth: with fluids off, follow the motion with smooth curves instead of straight lines between grid points (no sawtooth edges at high energy)">smooth</button>
     </div>
   </div>
   <div id="autoTune" class="hide">
@@ -121,7 +121,7 @@ const PRESETS = Object.keys(SWIRL2_PRESETS), PALS = Object.keys(SWIRL2_PALETTES)
 const PROFILES = Object.keys(AUTOMATA_PROFILES), BGS = Object.keys(AUTOMATA_BGS);
 const coarse = matchMedia('(pointer: coarse)').matches;
 const FILLS = SWIRL2_FILLS;
-const BASE = { fill: 'squares', cell: Math.max(4, Math.round(innerHeight / 24)), freq: 3, palette: 'ocean', saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, wash: false, facets: false, jitter: 0, ambient: 1, fadeMin: 8, fadeMax: 22, outline: false, grain: true, tile: 1, mapCell: 1 };
+const BASE = { fill: 'squares', cell: Math.max(4, Math.round(innerHeight / 24)), freq: 3, palette: 'ocean', saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, wash: false, facets: false, jitter: 0, ambient: 1, fadeMin: 8, fadeMax: 22, outline: false, grain: true, tile: 1, mapCell: 1, spline: false, reach: 1 };
 // the knobs: [key, label, min, max, step, format]
 const KNOBS = [
   // fluidity: finer toward the top: the left half covers 0.9 to 0.99, then each further stretch adds a 9 (0.999,
@@ -133,6 +133,7 @@ const KNOBS = [
   ['momentum', 'branching', 0, 1, 0.01, v => v.toFixed(2)],
   ['angularity', 'branch angle', 0, Math.PI / 2, 0.01, v => Math.round(v * 180 / Math.PI) + '°'],
   ['energy', 'energy', 0, 2.5, 0.05, v => v.toFixed(2)],
+  ['reach', 'reach', 0.5, 6, 0.05, v => v.toFixed(2) + '×'],   // how far a press spreads (1 = as it always was)
   ['curl', 'curl', 0, 15, 0.5, v => v.toFixed(1)],
   ['heal', 'heal', 0, 0.5, 0.01, v => v.toFixed(2)],
   ['grid', 'lattice', 0, 32, 1, v => v >= 2 ? v + '×' + v : 'off'],
@@ -198,6 +199,7 @@ function urlOverrides(knobs) {
     if (q.has('wash')) o.wash = q.get('wash') !== '0';
     if (q.has('grain')) o.grain = q.get('grain') !== '0';
     if (q.has('outline')) o.outline = q.get('outline') !== '0';
+    if (q.has('smooth')) o.spline = q.get('smooth') !== '0';
     if (['ink', 'bands'].includes(q.get('paint'))) o.paint = q.get('paint');
   } else {
     if (AUTOMATA_BGS[q.get('bg')] && AUTOMATA_BGS[q.get('bg')].mode !== 4) o.bg = q.get('bg');
@@ -278,7 +280,7 @@ function dualSlider(ka, kb, label, min, max, step, fmt, el, which) {
 sliders(KNOBS, $('sliders'), 'swirl');
 sliders(FLUID_KNOBS, $('fluidSliders'), 'automata'); sliders(IMAGE_KNOBS, $('imageSliders'), 'automata');
 const toggle = (id, key, eng) => $(id).onclick = () => { const e = eng(); e.set({ [key]: !e.opts[key] }); sync(); };
-toggle('fluidsBtn', 'fluids', getSwirl); toggle('facetBtn', 'facets', getSwirl); toggle('washBtn', 'wash', getSwirl); toggle('outlineBtn', 'outline', getSwirl); toggle('grainBtn', 'grain', getSwirl);
+toggle('fluidsBtn', 'fluids', getSwirl); toggle('facetBtn', 'facets', getSwirl); toggle('washBtn', 'wash', getSwirl); toggle('outlineBtn', 'outline', getSwirl); toggle('grainBtn', 'grain', getSwirl); toggle('splineBtn', 'spline', getSwirl);
 $('inkBtn').onclick = () => { swirl.set({ paint: swirl.opts.paint === 'ink' ? 'bands' : 'ink' }); sync(); };
 toggle('aFluidsBtn', 'fluids', getAuto); toggle('torusBtn', 'torus', getAuto); toggle('vecBtn', 'vectors', getAuto);
 
@@ -299,7 +301,7 @@ function sync() {
     [...dots.children].forEach(d => d.classList.toggle('on', d.dataset.n === o.palette));
     [...$('fills').children].forEach(b => b.classList.toggle('on', b.textContent === o.fill));
     $('fluidsBtn').classList.toggle('on', !!o.fluids); $('inkBtn').classList.toggle('on', o.paint === 'ink');
-    $('washBtn').classList.toggle('on', !!o.wash); $('facetBtn').classList.toggle('on', !!o.facets); $('outlineBtn').classList.toggle('on', !!o.outline); $('grainBtn').classList.toggle('on', o.grain !== false);
+    $('washBtn').classList.toggle('on', !!o.wash); $('facetBtn').classList.toggle('on', !!o.facets); $('outlineBtn').classList.toggle('on', !!o.outline); $('grainBtn').classList.toggle('on', o.grain !== false); $('splineBtn').classList.toggle('on', !!o.spline);
   }
 }
 function setEngine(e) {
@@ -343,7 +345,7 @@ function shareURL() {
     if (o.palette !== d.palette) p.set('palette', o.palette);
     if (o.fill !== d.fill) p.set('fill', o.fill);
     if (o.paint !== d.paint) p.set('paint', o.paint);
-    flag('fluids', 'fluids', d); flag('facets', 'facets', d); flag('wash', 'wash', d); flag('outline', 'outline', d); flag('grain', 'grain', d);
+    flag('fluids', 'fluids', d); flag('facets', 'facets', d); flag('wash', 'wash', d); flag('outline', 'outline', d); flag('grain', 'grain', d); flag('spline', 'smooth', d);
   } else {
     const d = profileOpts(profile); p.set('engine', 'automata'); p.set('profile', profile); diff(A_KNOBS, d);
     if (o.bg !== d.bg && AUTOMATA_BGS[o.bg].mode !== 4) p.set('bg', o.bg);

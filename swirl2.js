@@ -72,6 +72,10 @@ const SWIRL2_PRESETS = {
   'Cosmic':      { fluids: false, fluidity: 0.995, viscosity: 3,   momentum: 1,    angularity: 0,     energy: 2.5, grid: 0, curl: 0,   heal: 0,   jitter: 0, memory: 0.99,  carry: 0,   paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'candy', freq: 2.4, fadeMin: 0, fadeMax: 0, fill: 'squares', rows: 10 },
   // Angus's phone find: Wormhole's motion, thicker, in plain pop squares (5 rows), ink and wash off, colours fading
   'Al Held':     { fluids: false, fluidity: 0.999, viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'pop', freq: 4.9, fadeMin: 8, fadeMax: 22, fill: 'squares', rows: 5 },
+  // a pair to compare (Angus): high energy, fluids off. jag1 follows the motion with straight lines between its grid
+  // points (sawtooth edges where it bends hard); jag2 is the same with smooth on (cubic B-spline)
+  'jag1':        { fluids: false, fluidity: 0.9999, viscosity: 0, momentum: 0, angularity: 0, energy: 2.5, grid: 0, curl: 0, heal: 0, jitter: 0, memory: 0.99, carry: 0, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'sorbet', freq: 2.4, fadeMin: 0, fadeMax: 0, fill: 'squares', rows: 3, spline: false },
+  'jag2':        { fluids: false, fluidity: 0.9999, viscosity: 0, momentum: 0, angularity: 0, energy: 2.5, grid: 0, curl: 0, heal: 0, jitter: 0, memory: 0.99, carry: 0, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'sorbet', freq: 2.4, fadeMin: 0, fadeMax: 0, fill: 'squares', rows: 3, spline: true },
 };
 
 function createSwirl2(gl, opts = {}) {
@@ -113,6 +117,17 @@ function createSwirl2(gl, opts = {}) {
   const VELAT = `
   uniform sampler2D uVel;
   vec2 velAt(vec2 uv){ return texture(uVel,uv).xy; }`;
+  // spline (off by default, so presets look as they always did): with fluids off, look the motion up with a cubic
+  // B-spline instead of straight lines between grid points. Straight-line lookup bends at every grid line; high
+  // energy magnifies those bends into sawtooth edges. The B-spline bends smoothly (4 linear taps)
+  const BSPL = `uniform float spline;
+  vec2 velS(vec2 uv){
+    if(spline<.5) return velAt(uv);
+    vec2 st=uv/simTexel-.5, i=floor(st), f=st-i, f2=f*f, f3=f2*f;
+    vec2 w0=(1.-3.*f+3.*f2-f3)/6., w1=(4.-6.*f2+3.*f3)/6., w2=(1.+3.*f+3.*f2-3.*f3)/6., w3=f3/6.;
+    vec2 g0=w0+w1, g1=w2+w3, h0=(i-.5+w1/g0)*simTexel, h1=(i+1.5+w3/g1)*simTexel;
+    return g0.y*(g0.x*velAt(h0)+g1.x*velAt(vec2(h1.x,h0.y)))+g1.y*(g0.x*velAt(vec2(h0.x,h1.y))+g1.x*velAt(h1)); }
+  `;
   const SNAP = `
   uniform vec3 pal[8]; uniform float snap, npal;
   // crisp: pull each pixel part of the way to the nearest palette colour, so smears keep hard edges instead of blurring
@@ -135,20 +150,20 @@ function createSwirl2(gl, opts = {}) {
         o=vec4(out_ ? initP(vUv) : initP(vUv)+(s.xy-initP(y))*zs, out_ ? 0. : s.z, 1.); }`,
     advect: `uniform sampler2D uVel, uSrc; uniform vec2 simTexel; uniform float dt;
       void main(){ vec2 c=vUv-dt*texture(uVel,vUv).xy*simTexel; o=texture(uSrc,c); }`,
-    advectP: INIT + VELAT + `uniform sampler2D uSrc; uniform vec2 simTexel; uniform float dt, relax, flow, disp;
+    advectP: INIT + VELAT + `uniform sampler2D uSrc; uniform vec2 simTexel; uniform float dt, relax, flow, disp;` + BSPL + `
       void main(){
         // fluids off: the motion field is a displacement of the original picture (stays put, no smearing)
-        if(flow<.5){ o=vec4(initP(vUv-velAt(vUv)*simTexel*disp),0.,1.); return; }
+        if(flow<.5){ o=vec4(initP(vUv-velS(vUv)*simTexel*disp),0.,1.); return; }
         vec2 c=vUv-dt*velAt(vUv)*simTexel;
         o=vec4(mix(texture(uSrc,c).xy, initP(vUv), relax),0.,1.); }`,
     inkFwd: VELAT + `uniform sampler2D uSrc; uniform vec2 simTexel; uniform float dt;
       void main(){ o=texture(uSrc, vUv-dt*velAt(vUv)*simTexel); }`,
     // MacCormack: forward step, backward check, correct half the error, clamp to the source texels (keeps ink sharp)
-    advectInk: INIT + VELAT + SNAP + `uniform sampler2D uSrc, uFresh, uFwd; uniform vec2 simTexel, texel; uniform float dt, relax, sat, bright, contrast, flow, disp, mac;
+    advectInk: INIT + VELAT + SNAP + `uniform sampler2D uSrc, uFresh, uFwd; uniform vec2 simTexel, texel; uniform float dt, relax, sat, bright, contrast, flow, disp, mac;` + BSPL + `
       void main(){ vec2 d=dt*velAt(vUv)*simTexel, c=vUv-d;
         vec3 col;
         vec3 fr=vec3(9.);
-        if(flow<.5){ fr=texture(uFresh,vUv-velAt(vUv)*simTexel*disp).rgb; col=mix(texture(uSrc,vUv).rgb, fr, .2); }
+        if(flow<.5){ fr=texture(uFresh,vUv-velS(vUv)*simTexel*disp).rgb; col=mix(texture(uSrc,vUv).rgb, fr, .2); }
         else {
           vec3 fwd=texture(uFwd,vUv).rgb, back=texture(uFwd,vUv+d).rgb;
           vec3 m=fwd+.5*(texture(uSrc,vUv).rgb-back);
@@ -535,7 +550,7 @@ function createSwirl2(gl, opts = {}) {
 
   // x,y in 0..1 (y up). force in uv/sec; spin is per-call strength; radius in uv^2
   function splat(x, y, fx, fy, spin = 0, radius = 0.0025, ambient = false) {
-    if (!ambient) idleT = 0;
+    if (!ambient) { idleT = 0; radius *= (o.reach || 1) ** 2; }   // reach: how far your presses spread (radius is in uv^2)
     if (o.grid >= 2) return latticeSplat(x, y, fx, fy, spin, radius);
     const u = use('splat', S.vel.write);
     gl.uniform1i(u.uTarget, tex(0, S.vel.read)); gl.uniform2f(u.point, x, y);
@@ -614,12 +629,12 @@ function createSwirl2(gl, opts = {}) {
       renderBands(S.P0, S.fresh, time, false); blit(S.fresh);
       u = use('inkFwd', S.tmp); gl.uniform1i(u.uVel, tex(0, S.vel.read)); gl.uniform1i(u.uSrc, tex(1, S.ink.read)); gl.uniform1f(u.dt, dt * o.energy); blit(S.tmp);
       u = use('advectInk', S.ink.write); gl.uniform1i(u.uFwd, tex(3, S.tmp)); gl.uniform1i(u.uVel, tex(0, S.vel.read)); gl.uniform1i(u.uSrc, tex(1, S.ink.read)); gl.uniform1i(u.uFresh, tex(2, S.fresh));
-      gl.uniform1f(u.dt, dt * o.energy); gl.uniform1f(u.relax, relax); gl.uniform1f(u.flow, o.fluids ? 1 : 0); gl.uniform1f(u.disp, o.energy * 0.06); gl.uniform1f(u.mac, o.smooth ? 0 : 1);
+      gl.uniform1f(u.dt, dt * o.energy); gl.uniform1f(u.relax, relax); gl.uniform1f(u.flow, o.fluids ? 1 : 0); gl.uniform1f(u.disp, o.energy * 0.06); gl.uniform1f(u.spline, o.spline ? 1 : 0); gl.uniform1f(u.mac, o.smooth ? 0 : 1);
       gl.uniform1f(u.sat, Math.pow(o.saturation, f60)); gl.uniform1f(u.bright, Math.pow(o.brightness, f60)); gl.uniform1f(u.contrast, Math.pow(o.contrast, f60));
       blit(S.ink.write); S.ink.swap();
     } else {
       u = use('advectP', S.P.write); gl.uniform1i(u.uVel, tex(0, S.vel.read)); gl.uniform1i(u.uSrc, tex(1, S.P.read));
-      gl.uniform1f(u.dt, dt * o.energy); gl.uniform1f(u.relax, relax); gl.uniform1f(u.flow, o.fluids ? 1 : 0); gl.uniform1f(u.disp, o.energy * 0.06);
+      gl.uniform1f(u.dt, dt * o.energy); gl.uniform1f(u.relax, relax); gl.uniform1f(u.flow, o.fluids ? 1 : 0); gl.uniform1f(u.disp, o.energy * 0.06); gl.uniform1f(u.spline, o.spline ? 1 : 0);
       blit(S.P.write); S.P.swap();
     }
   }
