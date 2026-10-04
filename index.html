@@ -78,7 +78,7 @@
   <div id="swirlTune">
     <h4>palette</h4><div class="dots" id="dots"></div>
 
-    <h4>fill</h4><div class="row bgs" id="fills"><button id="mapBtn" title="hold (or hold m) to see the hidden map, unstirred, with your screen framed">map</button></div>
+    <h4>fill</h4><div class="row bgs" id="fills"><button id="mapBtn" title="hold (or hold l) to see the hidden map, unstirred, with your screen framed">map</button></div>
     <div id="sliders"></div>
     <div class="row">
       <button id="fluidsBtn" title="on: motion carries itself along, like a liquid. off: it stays where you put it">fluids</button>
@@ -106,14 +106,14 @@
 </div>
 <div id="help" class="panel">
   <span class="mouse">drag to stir · hold <kbd>shift</kbd>+<kbd>→</kbd> / <kbd>shift</kbd>+<kbd>←</kbd> to spin a whirlpool under the cursor · hold <kbd>z</kbd> / <kbd>x</kbd> or scroll to dive in / out<br>
-  <kbd>1</kbd>–<kbd>9</kbd> presets · <kbd>e</kbd> swap engine · <kbd>t</kbd> tune · <kbd>space</kbd> reset · <kbd>g</kbd> random stir · <kbd>n</kbd> random vectors · <kbd>esc</kbd> hide all · <kbd>s</kbd> save · <kbd>d</kbd> debug · <kbd>h</kbd> hide<span class="swirlOnly"> · <kbd>p</kbd> palette · <kbd>f</kbd> fill · <kbd>r</kbd> re-roll · hold <kbd>m</kbd> map</span><span class="autoOnly"> · <kbd>b</kbd> background · <kbd>v</kbd> vectors · drop an image to smear it</span></span>
+  <kbd>1</kbd>–<kbd>9</kbd> presets · <kbd>e</kbd> swap engine · <kbd>t</kbd> tune · <kbd>space</kbd> reset · <kbd>g</kbd> random stir · <kbd>n</kbd> random vectors · <kbd>m</kbd> more energy · <kbd>esc</kbd> hide all · <kbd>s</kbd> save · <kbd>d</kbd> debug · <kbd>h</kbd> hide<span class="swirlOnly"> · <kbd>p</kbd> palette · <kbd>f</kbd> fill · <kbd>r</kbd> re-roll · hold <kbd>l</kbd> map</span><span class="autoOnly"> · <kbd>b</kbd> background · <kbd>v</kbd> vectors · drop an image to smear it</span></span>
   <span class="touch">one finger stirs · press and hold to spin · twist two fingers to spin either way · spread two fingers to dive in · tap to bring this back</span>
   <div class="rowlabel" id="swirlLabel">swirl</div><div class="presets" id="presets"></div>
   <div class="rowlabel" id="autoLabel">fluid automata</div><div class="presets" id="profiles"></div>
 </div>
 <div id="err"></div>
-<script src="swirl2.js?v=27"></script>
-<script src="automata.js?v=27"></script>
+<script src="swirl2.js?v=28"></script>
+<script src="automata.js?v=28"></script>
 <script>
 // Two engines on one canvas: "swirl" (swirl2.js: a velocity fluid that paints poster bands, ink, facets...) and
 // "fluid automata" (automata.js: an 8-bit energy automaton that smears a background image). Only one runs at a time.
@@ -135,7 +135,7 @@ const baseOfA = n => BUILTIN_A.includes(n) ? n : (AUTOMATA_PROFILES[n]?.base || 
 const PROFILES = Object.keys(AUTOMATA_PROFILES), BGS = Object.keys(AUTOMATA_BGS);
 const coarse = matchMedia('(pointer: coarse)').matches;
 const FILLS = SWIRL2_FILLS;
-const BASE = { fill: 'squares', cell: Math.max(4, Math.round(innerHeight / 24)), freq: 3, palette: 'ocean', saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, wash: false, facets: false, jitter: 0, ambient: 1, fadeMin: 8, fadeMax: 22, outline: false, grain: true, tile: 1, mapCell: 1, spline: false, reach: 1, instant: false, reveal: 0, burst: 0.01, imgTile: 1 };
+const BASE = { fill: 'squares', cell: Math.max(4, Math.round(innerHeight / 24)), freq: 3, palette: 'ocean', saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, wash: false, facets: false, jitter: 0, ambient: 1, fadeMin: 8, fadeMax: 22, outline: false, grain: true, tile: 1, mapCell: 1, spline: false, reach: 1, instant: false, reveal: 0, burst: 0.01, imgTile: 1, sizeMix: 0 };
 // the knobs: [key, label, min, max, step, format]
 const KNOBS = [
   // fluidity: finer toward the top: the left half covers 0.9 to 0.99, then each further stretch adds a 9 (0.999,
@@ -293,7 +293,7 @@ const TIPS = {
   crisp: 'ink: pulls smeared colours back to the palette, so edges stay hard',
   freq: 'how many bands across the screen (bands, field and blobs fills)',
   cell: 'the main grid: the squares you see at rest (bands etc.: pixelates them)',
-  mapCell: "the hidden squares that stirring reveals (hold m to see them); 'same' = the main grid",
+  mapCell: "the hidden squares that stirring reveals (hold l to see them); 'same' = the main grid",
   imgTile: 'image pixelate: cuts your picture itself into blocks of its average colour, which the stirring then moves (off = the picture as it is)',
   sizeMix: 'mixed sizes: the squares come in different sizes, big ones (4x the size) split into smaller ones at random, down to half the size; more = more small squares; the map / resolution slider still makes them all bigger or smaller',
   tile: 'cuts the screen into tiles of one colour each (off = every pixel)',
@@ -619,7 +619,7 @@ addEventListener('keydown', e => {
   if (e.shiftKey && e.key === 'ArrowRight') { keySpin = -1; e.preventDefault(); wake(); return; }
   if (e.shiftKey && e.key === 'ArrowLeft') { keySpin = 1; e.preventDefault(); wake(); return; }
   const A = engine === 'automata', list = A ? PROFILES : PRESETS;
-  if (e.key === 'm' && !A && swirl) { swirl.peek = true; wake(); return; }
+  if (e.key === 'l' && !A && swirl) { swirl.peek = true; wake(); return; }
   if ((e.key === 'z' || e.key === 'x') && !A) { zoomKey = e.key === 'z' ? 1 : -1; wake(); return; }
   if (e.key === '0' && list[9]) (A ? applyProfile : applyPreset)(list[9]);
   else if (e.key >= '1' && e.key <= '9' && list[+e.key - 1]) (A ? applyProfile : applyPreset)(list[+e.key - 1]);
@@ -634,10 +634,11 @@ addEventListener('keydown', e => {
   else if (e.key === 'h') { help.classList.toggle('faded'); tuneBtn.classList.toggle('faded', help.classList.contains('faded')); }
   else if (e.key === 'g') randomStir();
   else if (e.key === 'n') { cur().randomize(); wake(); }
+  else if (e.key === 'm') { cur().boost(); wake(); }
   else if (e.key === 's') save();
   else if (e.key === 'd') capture();
 });
-addEventListener('keyup', e => { if (e.key === 'm' && swirl) { swirl.peek = false; wake(); } if (e.key === 'z' || e.key === 'x') zoomKey = 0; if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'Shift') keySpin = 0; });
+addEventListener('keyup', e => { if (e.key === 'l' && swirl) { swirl.peek = false; wake(); } if (e.key === 'z' || e.key === 'x') zoomKey = 0; if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'Shift') keySpin = 0; });
 
 // help fades after a few idle seconds (not while the tune panel is open)
 let idle;

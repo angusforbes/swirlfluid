@@ -190,6 +190,7 @@ function createSwirl2(gl, opts = {}) {
       void main(){ vec2 d=vUv-point; d.x*=aspect; float r2=dot(d,d); float g=exp(-r2/radius);
         vec2 tan_=vec2(-d.y,d.x)*radius/(r2+radius)*exp(-r2/(radius*5.));
         o=vec4(texture(uTarget,vUv).xy + force*g + spin*tan_*.6,0.,1.); }`,
+    scale: `uniform sampler2D uTarget; uniform float k; void main(){ o=vec4(texture(uTarget,vUv).xy*k,0.,1.); }`,
     curl: `uniform sampler2D uVel;
       void main(){ float L=texture(uVel,vL).y, R=texture(uVel,vR).y, T=texture(uVel,vT).x, B=texture(uVel,vB).x;
         o=vec4(.5*(R-L-T+B),0.,0.,1.); }`,
@@ -597,6 +598,12 @@ function createSwirl2(gl, opts = {}) {
       if (k % 3) splat(x, y, 0, 0, (R() < 0.5 ? -1 : 1) * energy * (6 + R() * 18), r, true);
       else { const a = R() * TAU, f = energy * (0.3 + R() * 0.9); splat(x, y, Math.cos(a) * f, Math.sin(a) * f, 0, r, true); } }
   }
+  // m: more energy, same directions: every vector k times as long (lattice: every vertex's charge)
+  function boost(k = 1.5) {
+    idleT = 0;
+    if (o.grid >= 2) { const { ms } = lattice(); for (let i = 0; i < ms.length; i++) ms[i] = Math.min(1, ms[i] * k); return; }
+    const u = use('scale', S.vel.write); gl.uniform1i(u.uTarget, tex(0, S.vel.read)); gl.uniform1f(u.k, k); blit(S.vel.write); S.vel.swap();
+  }
   // burst: a press held still pushes outward in every direction, on a ring of radius r (in screen heights) around
   // (x, y), each push pointing away from the press, like drags out from it; strength from o.burst
   function burst(x, y, r) {
@@ -718,6 +725,6 @@ function createSwirl2(gl, opts = {}) {
   }
   function resize(w, h) { o.width = w; o.height = h; alloc(); }
   alloc();
-  return { step, render, splat, randomize, burst, zoom, reset, resize, set, opts: o, get depth() { return depth; }, setImage, get hasImage() { return hasImage; }, get peek() { return peeking; }, set peek(v) { peeking = !!v; } };
+  return { step, render, splat, randomize, boost, burst, zoom, reset, resize, set, opts: o, get depth() { return depth; }, setImage, get hasImage() { return hasImage; }, get peek() { return peeking; }, set peek(v) { peeking = !!v; } };
 }
 if (typeof window !== 'undefined') { window.createSwirl2 = createSwirl2; window.SWIRL2_PALETTES = SWIRL2_PALETTES; window.SWIRL2_PRESETS = SWIRL2_PRESETS; window.SWIRL2_FILLS = SWIRL2_FILLS; }

@@ -72,6 +72,7 @@ function createAutomata(gl, opts = {}) {
   float angDist(float a, float b){ return mod(mod(b-a,TAU)+3.*3.14159265359,TAU)-3.14159265359; }
   `;
   const FS = {
+    scale: `uniform sampler2D uS; uniform float k; void main(){ vec4 s=texelFetch(uS,ivec2(gl_FragCoord.xy),0); o=vec4(s.r, min(1., s.g*k), s.ba); }`,
     step: `uniform sampler2D uS; uniform ivec2 N; uniform float r1, r2, phi, damp, maxOut, jitter, seed, torus, fluids;
     void main(){
       ivec2 C=ivec2(gl_FragCoord.xy);
@@ -314,6 +315,8 @@ function createAutomata(gl, opts = {}) {
     for (let i = 0; i < cols * rows; i++) { a[i * 4] = Math.random() * 256; a[i * 4 + 1] = Math.min(255, 255 * 0.15 * energy * (0.5 + Math.random())); a[i * 4 + 3] = 255; }
     gl.bindTexture(gl.TEXTURE_2D, S.r.t); gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, cols, rows, gl.RGBA, gl.UNSIGNED_BYTE, a);
   }
+  // m: more energy, same directions: every cell's magnitude k times as large
+  function boost(k = 1.5) { const u = use('scale'); gl.uniform1i(u.uS, tex(0, S.r)); gl.uniform1f(u.k, k); draw(S.w); S.swap(); }
   const spin = (x, y, s, r = 2.2) => splat(x, y, 0, 0, s * o.sens, r);
   function reset() { clearT(S.r); clearT(S.w); seed = Math.floor(Math.random() * 1e6); makeBackground(); restart(); }
   function set(params) {
@@ -330,6 +333,6 @@ function createAutomata(gl, opts = {}) {
   }
   function resize(w, h) { o.width = w; o.height = h; alloc(); }
   alloc();
-  return { step, render, splat, randomize, push, hold, burst, spin, reset, resize, set, setSource, opts: o };
+  return { step, render, splat, randomize, boost, push, hold, burst, spin, reset, resize, set, setSource, opts: o };
 }
 if (typeof window !== 'undefined') Object.assign(window, { createAutomata, AUTOMATA_PROFILES, AUTOMATA_BGS, AUTOMATA_PALETTES });
