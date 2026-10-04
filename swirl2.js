@@ -76,7 +76,7 @@ const SWIRL2_PRESETS = {
   'Al Held':     { fluids: false, fluidity: 0.999, viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'pop', freq: 4.9, fadeMin: 8, fadeMax: 22, fill: 'squares', rows: 5 },
   // Al Held that stays where you put it, like Mosaic (Angus): fluidity 1 (no fading, no idle eddies) and instant
   // thickness (each push is broad and soft the moment you make it; nothing creeps or stops abruptly); colours still fade
-  'Mosaic 2':    { fluids: false, fluidity: 1,     viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'pop', freq: 4.9, fadeMin: 8, fadeMax: 22, fill: 'squares', rows: 5, instant: true, startStir: 7 },   // starts as if you pressed n, then m 7 times
+  'Mosaic 2':    { fluids: false, fluidity: 1,     viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'pop', freq: 4.9, fadeMin: 8, fadeMax: 22, fill: 'mixed squares', rows: 5, instant: true, startStir: 7 },   // starts as if you pressed n, then m 7 times
   // a pair to compare (Angus): high energy, fluids off. jag1 follows the motion with straight lines between its grid
   // points (sawtooth edges where it bends hard); jag2 is the same with smooth on (cubic B-spline)
   'jag1':        { fluids: false, fluidity: 0.9999, viscosity: 0, momentum: 0, angularity: 0, energy: 2.5, grid: 0, curl: 0, heal: 0, jitter: 0, memory: 0.99, carry: 0, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'sorbet', freq: 2.4, fadeMin: 0, fadeMax: 0, fill: 'squares', rows: 3, spline: false },
@@ -193,7 +193,15 @@ function createSwirl2(gl, opts = {}) {
       void main(){ vec2 d=vUv-point; d.x*=aspect; float r2=dot(d,d); float g=exp(-r2/radius);
         vec2 tan_=vec2(-d.y,d.x)*radius/(r2+radius)*exp(-r2/(radius*5.));
         o=vec4(texture(uTarget,vUv).xy + force*g + spin*tan_*.6,0.,1.); }`,
-    scale: `uniform sampler2D uTarget; uniform float k; void main(){ o=vec4(texture(uTarget,vUv).xy*k,0.,1.); }`,
+    // text that stays still: no motion inside the letters, and motion heading into them turned along their edge, so the
+    // colours go around (uTxt: r = the letters, g = a blurred copy whose slope points into them)
+    obstacle: `uniform sampler2D uVel, uTxt;
+      void main(){ vec2 v=texture(uVel,vUv).xy; vec2 t=1./vec2(textureSize(uTxt,0))*3.;
+        float m=texture(uTxt,vUv).g;
+        vec2 g=vec2(texture(uTxt,vUv+vec2(t.x,0.)).g-texture(uTxt,vUv-vec2(t.x,0.)).g, texture(uTxt,vUv+vec2(0.,t.y)).g-texture(uTxt,vUv-vec2(0.,t.y)).g);
+        if(length(g)>1e-5){ vec2 n=normalize(g); float vin=dot(v,n); if(vin>0.) v-=n*vin*smoothstep(.0,.25,m); }
+        v*=1.-smoothstep(.3,.6,texture(uTxt,vUv).r);
+        o=vec4(v,0.,1.); }`,
     curl: `uniform sampler2D uVel;
       void main(){ float L=texture(uVel,vL).y, R=texture(uVel,vR).y, T=texture(uVel,vT).x, B=texture(uVel,vB).x;
         o=vec4(.5*(R-L-T+B),0.,0.,1.); }`,
@@ -243,7 +251,7 @@ function createSwirl2(gl, opts = {}) {
       void main(){ vec3 fr=texture(uFresh,vUv).rgb, c=mix(fr, texture(uSrc,uv2()).rgb, blend);
         c=mix(vec3(dot(c,vec3(.2125,.7154,.0721))),c,sat); c*=bright; c=mix(vec3(.5),c,contrast);
         o=vec4(clamp(crisp(c,fr),0.,1.),1.); }`,
-    display: INIT + `uniform sampler2D uP, uInk; uniform sampler2D uImgT; uniform float imgAspect, imgCells; uniform float sizeMix, inside; uniform float reveal, mapCells, tilePx, peek, time, freq, fadeMin, fadeMax, grain, seqLen, inkOn, starsOn, wash, fill, cells, seed, blocky; uniform vec2 dir, res;
+    display: INIT + `uniform sampler2D uP, uInk; uniform sampler2D uImgT; uniform float imgAspect, imgCells; uniform float sizeMix, inside; uniform sampler2D uTxt; uniform float txtMode; uniform vec3 txtCol; uniform float reveal, mapCells, tilePx, peek, time, freq, fadeMin, fadeMax, grain, seqLen, inkOn, starsOn, wash, fill, cells, seed, blocky; uniform vec2 dir, res;
       uniform vec3 pal[8]; uniform float seq[12], npal; uniform vec3 outline, starC;
       vec3 colAt(float k){ int i=int(mod(k,seqLen)); return pal[int(seq[i])]; }
       // colour fade: every square (or band) fades from its colour into a randomly chosen palette colour, each
@@ -290,7 +298,7 @@ function createSwirl2(gl, opts = {}) {
           if(inside>.5) col=outsideStyle(col, texture(uInk,TU()).a, inside);   // inside with ink: what the ink says was on screen (its alpha)
         }
         else {
-          vec2 p=PU();
+          vec2 p=PU(); vec2 p0=p;
           if(blocky>.5) p=(floor(p*cells)+.5)/cells;   // resolution: one colour per cell, the cells move with the fluid
           p=swirled(p);
           // fill: 0 bands, 1 field (smooth noise), 2 blobs (posterized noise), 3 squares (a palette colour per square),
@@ -349,6 +357,9 @@ function createSwirl2(gl, opts = {}) {
             col*=mix(1., .9+.14*vnoise(p*9.+k), grain);
             col*=mix(1., .96+.05*hash(floor(gl_FragCoord.xy*.7)), grain);
           } else if(blocky<.5) col=mix(col,outline,smoothstep(w*1.4,0.,min(fr,1.-fr)-.015));
+          if(txtMode>1.5){   // text that flows: written into the picture at rest, so the stirring carries it
+            vec2 tu=p0/(vec2(aspect,1.)*2.)+.5;   // (in the picture, so diving in enlarges it too)
+            if(all(greaterThan(tu,vec2(0.)))&&all(lessThan(tu,vec2(1.)))) col=mix(col, txtCol, texture(uTxt,tu).r); }
           float shade=peek>.5 ? 0. : texture(uP,vUv).z; col=shade>0. ? mix(col,vec3(1.,.97,.9),shade*.7) : col*(1.+shade*1.1);
           // outside: what the stirring pulled in from beyond the screen; inside: what was on screen and moved
           // (the same six styles, applied to the other part)
@@ -356,6 +367,7 @@ function createSwirl2(gl, opts = {}) {
             float a=clamp(max(e.x,e.y)*res.y/6.,0.,1.);
             col=outsideStyle(outsideStyle(col, a, reveal), 1.-a, inside); }
         }
+        if(txtMode>.5&&txtMode<1.5&&peek<.5) col=mix(col, txtCol, texture(uTxt,vUv).r);   // text that stays still, on top
         if(starsOn>.5){
           vec2 g=gl_FragCoord.xy/res.y*14.; vec2 i=floor(g), f=fract(g)-.5;
           float rr=hash(i); vec2 q=abs(f-(vec2(hash(i+2.),hash(i+9.))-.5)*.5);
@@ -465,6 +477,7 @@ function createSwirl2(gl, opts = {}) {
     const pl = SWIRL2_PALETTES[o.palette] || o.palette;
     const u = use('display', target || { w: o.width, h: o.height });
     gl.uniform1i(u.uP, tex(0, src)); gl.uniform1i(u.uInk, tex(1, S.div));   // placeholder: never sample the target
+    gl.uniform1i(u.uTxt, tex(6, { t: txtT })); gl.uniform1f(u.txtMode, o.text && o.textMode ? o.textMode : 0); gl.uniform3fv(u.txtCol, o.textColour === 'black' ? [0.02, 0.02, 0.03] : [1, 1, 1]);
     gl.uniform1f(u.inkOn, 0); gl.uniform1f(u.starsOn, stars && o.stars && !o.wash && o.fill !== 'image' ? 1 : 0); gl.uniform1f(u.wash, o.wash ? 1 : 0);
     gl.uniform1i(u.uImgT, tex(5, { t: imgT })); gl.uniform1f(u.imgAspect, imgAspect); gl.uniform1f(u.imgCells, o.imgTile > 1 ? o.height / 2 / (o.imgTile * (o.height / Math.max(1, o.cssHeight || o.height))) : 0); gl.uniform1f(u.time, t); gl.uniform1f(u.freq, o.freq); gl.uniform1f(u.fill, FILL_NUM[o.fill] ?? 0);
     // tiles: tile 1 = off (not 1 CSS px: on a phone that is ~3 device px and pixelated everything)
@@ -611,7 +624,7 @@ function createSwirl2(gl, opts = {}) {
   function boost(k = 1.5) {
     idleT = 0;
     if (o.grid >= 2) { const { ms } = lattice(); for (let i = 0; i < ms.length; i++) ms[i] = Math.min(1, ms[i] * k); return; }
-    const u = use('scale', S.vel.write); gl.uniform1i(u.uTarget, tex(0, S.vel.read)); gl.uniform1f(u.k, k); blit(S.vel.write); S.vel.swap();
+    const u = use('scale', S.vel.write); gl.uniform1i(u.uSrc, tex(0, S.vel.read)); gl.uniform1f(u.k, k); blit(S.vel.write); S.vel.swap();
   }
   // burst: a press held still pushes outward in every direction, on a ring of radius r (in screen heights) around
   // (x, y), each push pointing away from the press, like drags out from it; strength from o.burst
@@ -624,6 +637,26 @@ function createSwirl2(gl, opts = {}) {
   // is (squares keep their size, new stirring is normal); only the motion grows outward from that point, keeping
   // its direction: a whirlpool stays a whirlpool, just bigger, still made of normal-size squares. Ink with fluids
   // on is paint, so there the paint itself is enlarged
+  // text: drawn into a texture the size of the screen (r = the letters, g = a blurred copy for the edges)
+  const txtT = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, txtT); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4));
+  function setText() {
+    if (typeof document === 'undefined') return;
+    const h = Math.min(1080, o.height), w = Math.round(h * o.width / o.height), c = document.createElement('canvas'); c.width = w; c.height = h;
+    const x = c.getContext('2d'), str = (o.text || '').trim();
+    if (str) {
+      const lines = str.split(/\s*\/\s*|\n/);   // "a / b" for two lines
+      let fs = h * 0.34 / lines.length; x.font = `900 ${fs}px system-ui, sans-serif`;
+      const widest = Math.max(...lines.map(l => x.measureText(l).width)); if (widest > w * 0.84) fs *= w * 0.84 / widest;
+      x.font = `900 ${fs}px system-ui, sans-serif`; x.textAlign = 'center'; x.textBaseline = 'middle';
+      const draw = (col, blur) => { x.filter = blur ? `blur(${Math.round(h * 0.02)}px)` : 'none'; x.fillStyle = col;
+        lines.forEach((l, i) => x.fillText(l, w / 2, h / 2 + (i - (lines.length - 1) / 2) * fs * 1.05)); };
+      x.globalCompositeOperation = 'lighter'; draw('#00ff00', true); draw('#00ff00', true); draw('#ff0000', false);
+    }
+    gl.bindTexture(gl.TEXTURE_2D, txtT); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+  }
   // image fill: a picture (an <img>, later a <video>) as the hidden map
   const imgT = gl.createTexture(); let imgAspect = 1, hasImage = false;
   gl.bindTexture(gl.TEXTURE_2D, imgT); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([128, 128, 128, 255]));
@@ -695,6 +728,7 @@ function createSwirl2(gl, opts = {}) {
       u = use('advect', S.vel.write); gl.uniform1i(u.uVel, tex(0, S.vel.read)); gl.uniform1i(u.uSrc, tex(1, S.vel.read));
       gl.uniform1f(u.dt, dt); blit(S.vel.write); S.vel.swap();
     }
+    if (o.text && o.textMode === 1) { u = use('obstacle', S.vel.write); gl.uniform1i(u.uVel, tex(0, S.vel.read)); gl.uniform1i(u.uTxt, tex(1, { t: txtT })); blit(S.vel.write); S.vel.swap(); }
     // fluidity: per-frame retention of motion
     u = use('scale', S.vel.write); gl.uniform1i(u.uSrc, tex(0, S.vel.read)); gl.uniform1f(u.k, Math.pow(o.fluidity, f60)); blit(S.vel.write); S.vel.swap();
 
@@ -726,14 +760,15 @@ function createSwirl2(gl, opts = {}) {
   function set(params) {
     const wasInk = o.paint === 'ink', fillWas = o.fill;
     Object.assign(o, params);
+    if ('text' in params) setText();
     // a new fill keeps your motion and the stirred coordinates (the pattern you made, now in the new fill / picture);
     // only the ink is redrawn from them. Clicking the same fill again (re-roll) and presets still reset
     if (o.fill !== fillWas) { gl.disable(gl.BLEND); renderBands(S.P0, S.fresh, time, false); blit(S.fresh);
       if (o.paint === 'ink') { renderBands(S.P.read, S.ink.read, time, false); blit(S.ink.read); } return; }
     if (o.paint === 'ink' && !wasInk) { renderBands(S.P.read, S.ink.read, time, false); blit(S.ink.read); }
   }
-  function resize(w, h) { o.width = w; o.height = h; alloc(); }
-  alloc();
+  function resize(w, h) { o.width = w; o.height = h; alloc(); setText(); }
+  alloc(); setText();
   return { step, render, splat, randomize, boost, burst, zoom, reset, resize, set, opts: o, get depth() { return depth; }, setImage, get hasImage() { return hasImage; }, get peek() { return peeking; }, set peek(v) { peeking = !!v; } };
 }
 if (typeof window !== 'undefined') { window.createSwirl2 = createSwirl2; window.SWIRL2_PALETTES = SWIRL2_PALETTES; window.SWIRL2_PRESETS = SWIRL2_PRESETS; window.SWIRL2_FILLS = SWIRL2_FILLS; }

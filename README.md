@@ -62,6 +62,7 @@ In the tune panel a setting that has no effect with the current toggles is dimme
 - **p** pin: the sliders from fluidity to bands keep your values when you switch swirl presets; **p** again unpins (presets bring their own). Palette moved to **c**
 - **hold Shift**: hands off: move the mouse (or drag) without stirring, e.g. on the way to the settings
 - **k** stars: the twinkling stars on dark colours, off by default (black is just black)
+- **text** (tune, by pin): type text ("a / b" for two lines); **still** = it stays put and the colours go around it, **flows** = it is written into the picture and moves with the colours; white or black; kept across presets
 - **Esc** hides all the panels and buttons (just the picture); Esc again brings them back
 - **inside**: the same six styles for whatever outside is not: what was on screen and moved (not with fluids and ink both on, like outside)
 - **outside**: as is / dimmed / grey / washed / black / white (solid): draws what the stirring pulled in from beyond the screen differently from what was on screen and moved. The moved part is the main motion, the same with ink on or off (ink off finds new squares beyond the edge, ink on can only stretch the edge colour)
