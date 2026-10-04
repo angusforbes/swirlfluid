@@ -70,9 +70,8 @@ const SWIRL2_PRESETS = {
   'Sanka 2':     { fluids: false, fluidity: 1,     viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1.3, grid: 0, curl: 15,  heal: 0,   jitter: 0, memory: 0.99,  carry: 0,   paint: 'bands', wash: true, facets: false, crisp: 0, palette: 'jelly', freq: 3.2, fadeMin: 0, fadeMax: 0, fill: 'squares', rows: 8, grain: false },
   // Angus's phone find: candy squares, everything off, thick branching motion at full energy
   'Cosmic':      { fluids: false, fluidity: 0.995, viscosity: 3,   momentum: 1,    angularity: 0,     energy: 2.5, grid: 0, curl: 0,   heal: 0,   jitter: 0, memory: 0.99,  carry: 0,   paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'candy', freq: 2.4, fadeMin: 0, fadeMax: 0, fill: 'squares', rows: 10 },
-  // Mosaic over a coarse hidden map (3 rows): neighbouring squares share colours in big hard-edged blocks, stirring
-  // opens broad bands (Angus)
-  'Al Held':     { fluids: false, fluidity: 0.999, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1.3, grid: 0, curl: 15,  heal: 0,   jitter: 0, memory: 0.99,  carry: 0,   paint: 'bands', wash: true, facets: false, crisp: 0, palette: 'jelly', freq: 3.2, fadeMin: 0, fadeMax: 0, fill: 'squares', rows: 8, mapRows: 3, grain: false },
+  // Angus's phone find: Wormhole's motion, thicker, in plain pop squares (5 rows), ink and wash off, colours fading
+  'Al Held':     { fluids: false, fluidity: 0.999, viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'pop', freq: 4.9, fadeMin: 8, fadeMax: 22, fill: 'squares', rows: 5 },
 };
 
 function createSwirl2(gl, opts = {}) {
