@@ -101,7 +101,8 @@
     </div>
     <input type="file" id="file" accept="image/*" hidden>
   </div>
-  <div class="row"><input id="txtIn" placeholder="text (a / b = two lines)" style="width:12em"><button id="txtModeBtn" title="text: off / still (the colours go around it) / flows (written into the colours, stirred with them) / drift (each letter whole, pushed and turned by the fluid)">text: off</button><button id="txtColBtn" title="text colour">white</button></div>
+  <div class="row"><input id="txtIn" placeholder="text (a / b = two lines)" style="width:12em"><button id="txtModeBtn" title="text: off / still (the colours go around it) / flows (written into the colours, stirred with them) / drift (each letter whole, pushed and turned by the fluid) / inside (big letters, the colours flow only inside them)">text: off</button><button id="txtColBtn" title="text colour (inside: the background colour)">white</button></div>
+  <div class="row" id="driftRow"><label title="drift: how far a letter can turn (about 0 to 90 degrees)">spin <input id="driftSpin" type="range" min="0" max="1.6" step="0.05"></label><label title="drift: how far the fluid can push a letter">push <input id="driftPush" type="range" min="0" max="0.5" step="0.01"></label></div>
   <div class="row"><button id="pinBtn" title="pin (p): the sliders from fluidity to bands keep your values when you switch presets; unpin to get each preset's own values">pin</button><button id="shareBtn">copy link</button><button id="debugBtn" title="debug capture (d): saves a screenshot and every setting for the agent (local receiver, else downloads)">debug</button><button id="presetBtn" title="save these settings as a preset in this browser (long-press or right-click one of yours to forget it)">save preset</button><button id="saveBtn">save PNG</button><button id="resetBtn2">reset</button></div>
   <p>Ideas borrowed from <a href="https://github.com/CreativeCodingLab/FluidAutomataJS" style="color:inherit">Fluid Automata</a>. <a href="classic/" style="color:inherit">classic version</a> · <a href="https://github.com/angusforbes/swirlfluid" style="color:inherit">source</a></p>
 </div>
@@ -113,8 +114,8 @@
   <div class="rowlabel" id="autoLabel">fluid automata</div><div class="presets" id="profiles"></div>
 </div>
 <div id="err"></div>
-<script src="swirl2.js?v=40"></script>
-<script src="automata.js?v=40"></script>
+<script src="swirl2.js?v=41"></script>
+<script src="automata.js?v=41"></script>
 <script>
 // Two engines on one canvas: "swirl" (swirl2.js: a velocity fluid that paints poster bands, ink, facets...) and
 // "fluid automata" (automata.js: an 8-bit energy automaton that smears a background image). Only one runs at a time.
@@ -467,12 +468,13 @@ function togglePin() { pin = !pin; localStorage.setItem('swirl-pin', pin ? '1' :
   toast(pin ? 'pinned: fluidity to bands keep your values across presets' : 'unpinned: presets bring their own values'); }
 $('pinBtn').onclick = togglePin; $('pinBtn').classList.toggle('on', pin);
 // text in the scene (swirl): still = the colours go around it, flows = it moves with them; kept across presets
-const TXT_MODES = ['off', 'still', 'flows', 'drift'];
+const TXT_MODES = ['off', 'still', 'flows', 'drift', 'inside'];
 var txt = JSON.parse(localStorage.getItem('swirl-text') || '{"text":"","textMode":0,"textColour":"white"}');
 function setTxt(ch) { Object.assign(txt, ch); localStorage.setItem('swirl-text', JSON.stringify(txt)); if (swirl) swirl.set(ch); showTxt(); wake(); }
-function showTxt() { $('txtModeBtn').textContent = 'text: ' + TXT_MODES[txt.textMode]; $('txtColBtn').textContent = txt.textColour; $('txtModeBtn').classList.toggle('on', txt.textMode > 0); if (document.activeElement !== $('txtIn')) $('txtIn').value = txt.text; }
+function showTxt() { $('driftRow').style.display = txt.textMode === 3 ? '' : 'none'; $('txtModeBtn').textContent = 'text: ' + TXT_MODES[txt.textMode]; $('txtColBtn').textContent = txt.textColour; $('txtModeBtn').classList.toggle('on', txt.textMode > 0); if (document.activeElement !== $('txtIn')) $('txtIn').value = txt.text; }
 $('txtIn').oninput = e => setTxt({ text: e.target.value, ...(txt.textMode ? {} : { textMode: 1 }) });
-$('txtModeBtn').onclick = () => setTxt({ textMode: (txt.textMode + 1) % 4 });
+$('txtModeBtn').onclick = () => setTxt({ textMode: (txt.textMode + 1) % 5 });
+for (const k of ['driftSpin', 'driftPush']) { $(k).value = txt[k] ?? (k === 'driftSpin' ? 0.5 : 0.15); $(k).oninput = e => setTxt({ [k]: +e.target.value }); }
 $('txtColBtn').onclick = () => setTxt({ textColour: txt.textColour === 'white' ? 'black' : 'white' });
 showTxt();
 const toast = (t, ms = 3500) => { const el = $('toast'); el.textContent = t; el.style.display = 'block'; clearTimeout(toast.h); toast.h = setTimeout(() => el.style.display = 'none', ms); };

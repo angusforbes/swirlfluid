@@ -53,7 +53,7 @@ on the panel.
   r back to the grid (same squares, `reset(true)`), l hold = peek map, c palette, p pin (fluidity..bands keep values
   across presets), k stars (off by default), Esc hide all panels, hold Shift = mouse hands off.
 - Browser-remembered prefs (localStorage): `swirl-mixed-squares` (mixed squares default unless '0'), `swirl-pin`,
-  `swirl-stars`, `swirl-text` ({text, textMode 0 off/1 still/2 flows/3 drift, textColour}).
+  `swirl-stars`, `swirl-text` ({text, textMode 0 off/1 still/2 flows/3 drift/4 inside, driftSpin, driftPush, textColour}).
 - Mosaic 2: fill 'mixed squares' (67% split, FILL_NUM maps it to squares), `startStir: 6` (n + m x6).
 - Text: still = `obstacle` shader on velocity + overlay; flows = letters in picture space (p0) in display; drift =
   per-letter glyph atlas, `probe` shader + readPixels (needs f32) each frame. Text v2 ideas offered, awaiting Angus:

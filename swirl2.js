@@ -92,7 +92,7 @@ function createSwirl2(gl, opts = {}) {
     width: gl.drawingBufferWidth, height: gl.drawingBufferHeight,
     simRes: 160, coordRes: 900, palette: 'ocean', freq: 3.0, dir: [0.4, 2.2],
     swirls: [[-0.55, 0.12, 5.5, 0.75], [0.7, -0.3, -4.5, 0.6], [0.15, 0.75, 2.5, 0.4]],
-    fadeMin: 8, fadeMax: 22, ambient: 1, saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, wash: false, facets: false, jitter: 0,
+    fadeMin: 8, fadeMax: 22, ambient: 1, saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, driftSpin: 0.5, driftPush: 0.15, wash: false, facets: false, jitter: 0,
   }, SWIRL2_PRESETS.Poster, opts);
   if (!gl.getExtension('EXT_color_buffer_float') && !gl.getExtension('EXT_color_buffer_half_float'))
     throw new Error('swirl: this GPU cannot render to float textures');
@@ -206,6 +206,9 @@ function createSwirl2(gl, opts = {}) {
         vec2 c=velAt(q.xy)*simTexel*a, r=velAt(q.xy+vec2(q.z,0.))*simTexel*a, l=velAt(q.xy-vec2(q.z,0.))*simTexel*a,
              t=velAt(q.xy+vec2(0.,q.w))*simTexel*a, b=velAt(q.xy-vec2(0.,q.w))*simTexel*a;
         o=vec4((c*2.+r+l+t+b)/6., (r.y-l.y)/(2.*q.z*aspect)-(t.x-b.x)/(2.*q.w), 1.); }`,
+    // inside: the fluid only moves within the letters (no motion outside them, so nothing crosses an outline)
+    walls: `uniform sampler2D uVel, uTxt;
+      void main(){ o=vec4(texture(uVel,vUv).xy*smoothstep(.35,.65,texture(uTxt,vUv).r),0.,1.); }`,
     obstacle: `uniform sampler2D uVel, uTxt;
       void main(){ vec2 v=texture(uVel,vUv).xy; vec2 t=1./vec2(textureSize(uTxt,0))*3.;
         float m=texture(uTxt,vUv).g;
@@ -380,6 +383,9 @@ function createSwirl2(gl, opts = {}) {
         }
         if(hard>.5&&peek<.5){ vec3 b=pal[0]; float bd=9.; for(int i=0;i<8;i++){ if(float(i)>=npal) break; vec3 d=col-pal[i]; float dd=dot(d,d); if(dd<bd){ bd=dd; b=pal[i]; } } col=b; }   // high-contrast palettes: only their own colours, no in-betweens
         if(txtMode>.5&&txtMode<1.5&&peek<.5) col=mix(col, txtCol, texture(uTxt,vUv).r);   // text that stays still, on top
+        if(txtMode>3.5&&peek<.5){ vec4 tm=texture(uTxt,vUv);   // inside: the picture only within the letters, with a thin outline
+          vec2 d=2.5/res; float near=max(max(texture(uTxt,vUv+vec2(d.x,0.)).r, texture(uTxt,vUv-vec2(d.x,0.)).r), max(texture(uTxt,vUv+vec2(0.,d.y)).r, texture(uTxt,vUv-vec2(0.,d.y)).r));
+          vec3 bg=mix(txtCol, 1.-txtCol, near*(1.-tm.r)*.85); col=mix(bg, col, tm.r); }
         if(txtMode>2.5&&peek<.5) for(int i=0;i<32;i++){ if(i>=nL) break;   // drift: each letter whole, where the fluid pushed it, turned by its swirl
           vec2 l=rot(-LP[i].z)*((vUv-LP[i].xy)*vec2(aspect,1.)), h=LH[i];
           if(abs(l.x)<h.x&&abs(l.y)<h.y) col=mix(col, txtCol, texture(uTxtA, LA[i].xy+(l/h*.5+.5)*LA[i].zw).r); }
@@ -683,25 +689,35 @@ function createSwirl2(gl, opts = {}) {
     if (!letters.length || !f32) return;
     if (!probeT) probeT = fbo(32, 1, true);
     const pr = new Float32Array(128), n = letters.length;
-    letters.forEach((L, i) => pr.set([L.pos[0], L.pos[1], Math.max(0.004, L.hs[0] * 0.8 / aspect()), Math.max(0.004, L.hs[1] * 0.8)], i * 4));
+    letters.forEach((L, i) => { const at = o.fluids ? L.pos : L.home; pr.set([at[0], at[1], Math.max(0.004, L.hs[0] / aspect()), Math.max(0.004, L.hs[1])], i * 4); });
     const u = use('probe', probeT); gl.uniform1i(u.uVel, tex(0, S.vel.read)); gl.uniform4fv(u.pr, pr); gl.uniform2f(u.simTexel, 1 / S.sw, 1 / S.sh); blit(probeT);
     const out = new Float32Array(n * 4); gl.bindFramebuffer(gl.FRAMEBUFFER, probeT.fb); gl.readPixels(0, 0, n, 1, gl.RGBA, gl.FLOAT, out);
-    const a = aspect(), k = o.fluids ? dt * o.energy : o.energy * 0.06;
-    letters.forEach((L, i) => { const vx = out[i * 4], vy = out[i * 4 + 1], curl = out[i * 4 + 2];
-      if (o.fluids) { L.pos[0] += vx * k / a; L.pos[1] += vy * k; L.ang += 0.5 * curl * k; }
-      else { const tx = L.home[0] + vx * k / a, ty = L.home[1] + vy * k, e = Math.min(1, dt * 12);   // settle onto the shifted home
-        L.pos[0] += (tx - L.pos[0]) * e; L.pos[1] += (ty - L.pos[1]) * e; L.ang += (0.5 * curl * k - L.ang) * e; }
+    // soft caps (Angus: letters spun too frantically in Mosaic / Jags): tanh keeps small motions as they are and levels
+    // big ones off at driftPush (screen heights) and driftSpin (radians); then ease toward that, at a limited turn speed.
+    // Only the letters are capped, never the motion field itself.
+    const a = aspect(), k = o.fluids ? dt * o.energy : o.energy * 0.06, P = o.driftPush, R = o.driftSpin, e = Math.min(1, dt * 3);
+    const cap = (x, m) => m * Math.tanh(x / Math.max(m, 1e-6));
+    letters.forEach((L, i) => { let vx = out[i * 4] * k, vy = out[i * 4 + 1] * k; const curl = out[i * 4 + 2];
+      const len = Math.hypot(vx, vy);
+      if (o.fluids) { const step = P * dt * 2, s = len > 0 ? cap(len, step) / len : 0;   // fluids on: a capped speed
+        L.pos[0] += vx * s / a; L.pos[1] += vy * s; L.ang += cap(0.5 * curl * k, R * dt * 2); }
+      else { const s = len > 0 ? cap(len, P) / len : 0, tx = L.home[0] + vx * s / a, ty = L.home[1] + vy * s;   // fluids off: settle onto the shifted home
+        L.pos[0] += (tx - L.pos[0]) * e; L.pos[1] += (ty - L.pos[1]) * e;
+        const d = cap(0.5 * curl * k, R) - L.ang; L.ang += Math.max(-R * dt * 2, Math.min(R * dt * 2, d * e)); }
       L.pos[0] = Math.min(1, Math.max(0, L.pos[0])); L.pos[1] = Math.min(1, Math.max(0, L.pos[1])); });
   }
   gl.bindTexture(gl.TEXTURE_2D, txtT); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4));
+  let textDrawnBig = false;
   function setText() {
+    textDrawnBig = o.textMode === 4;
     if (typeof document === 'undefined') return;
     const h = Math.min(1080, o.height), w = Math.round(h * o.width / o.height), c = document.createElement('canvas'); c.width = w; c.height = h;
     const x = c.getContext('2d'), str = (o.text || '').trim();
     if (str) {
       const lines = str.split(/\s*\/\s*|\n/);   // "a / b" for two lines
-      let fs = h * 0.34 / lines.length; x.font = `900 ${fs}px system-ui, sans-serif`;
-      const widest = Math.max(...lines.map(l => x.measureText(l).width)); if (widest > w * 0.84) fs *= w * 0.84 / widest;
+      const big = o.textMode === 4, fit = big ? 0.96 : 0.84;   // inside: big letters that hold the fluid
+      let fs = h * (big ? 0.8 : 0.34) / lines.length; x.font = `900 ${fs}px system-ui, sans-serif`;
+      const widest = Math.max(...lines.map(l => x.measureText(l).width)); if (widest > w * fit) fs *= w * fit / widest;
       x.font = `900 ${fs}px system-ui, sans-serif`; x.textAlign = 'center'; x.textBaseline = 'middle';
       const draw = (col, blur) => { x.filter = blur ? `blur(${Math.round(h * 0.02)}px)` : 'none'; x.fillStyle = col;
         lines.forEach((l, i) => x.fillText(l, w / 2, h / 2 + (i - (lines.length - 1) / 2) * fs * 1.05)); };
@@ -784,6 +800,7 @@ function createSwirl2(gl, opts = {}) {
       gl.uniform1f(u.dt, dt); blit(S.vel.write); S.vel.swap();
     }
     if (o.text && o.textMode === 3) driftLetters(dt);
+    if (o.text && o.textMode === 4) { u = use('walls', S.vel.write); gl.uniform1i(u.uVel, tex(0, S.vel.read)); gl.uniform1i(u.uTxt, tex(1, { t: txtT })); blit(S.vel.write); S.vel.swap(); }
     if (o.text && o.textMode === 1) { u = use('obstacle', S.vel.write); gl.uniform1i(u.uVel, tex(0, S.vel.read)); gl.uniform1i(u.uTxt, tex(1, { t: txtT })); blit(S.vel.write); S.vel.swap(); }
     // fluidity: per-frame retention of motion
     u = use('scale', S.vel.write); gl.uniform1i(u.uSrc, tex(0, S.vel.read)); gl.uniform1f(u.k, Math.pow(o.fluidity, f60)); blit(S.vel.write); S.vel.swap();
@@ -816,7 +833,7 @@ function createSwirl2(gl, opts = {}) {
   function set(params) {
     const wasInk = o.paint === 'ink', fillWas = o.fill;
     Object.assign(o, params);
-    if ('text' in params) setText();
+    if ('text' in params || ('textMode' in params && (params.textMode === 4) !== (textDrawnBig))) setText();
     // a new fill keeps your motion and the stirred coordinates (the pattern you made, now in the new fill / picture);
     // only the ink is redrawn from them. Clicking the same fill again (re-roll) and presets still reset
     if (o.fill !== fillWas) { gl.disable(gl.BLEND); renderBands(S.P0, S.fresh, time, false); blit(S.fresh);
