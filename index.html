@@ -168,6 +168,7 @@ const FLUID_KNOBS = [
   ['fluidity', 'fluidity', 0.85, 1, 0.0005, v => v.toFixed(4)],
   ['maxOut', 'max outflow', 0.02, 1, 0.01, v => v >= 1 ? 'none' : v.toFixed(2)],
   ['jitter', 'jitter', 0, 2, 0.01, v => v.toFixed(2)],
+  ['burst', 'burst', 0, 1, 0.01, v => v.toFixed(2)],   // a press held still shoots energy out in every direction this strong
   ['sens', 'sensitivity', 0.02, 1, 0.01, v => v.toFixed(2)],
 ];
 const IMAGE_KNOBS = [
@@ -518,7 +519,7 @@ function spinInput(dt, now) {
   if (keySpin) { const p = hover || [0.5, 0.5]; A ? auto.spin(p[0], p[1], keySpin * 0.6) : swirl.splat(p[0], p[1], 0, 0, keySpin * SPIN, 0.008); }
   if (pts.size === 1) {
     const t = pts.values().next().value;
-    if (A) { if (++t.still > 2) auto.hold(t.last[0], t.last[1]); }   // held still: keep pushing the last way
+    if (A) { if (++t.still > 2) auto.burst(t.last[0], t.last[1]); }   // held still: energy shoots out in every direction
     else if (t.touch && t.moved < 12 && now - t.t0 > 350) swirl.splat(t.p[0], t.p[1], 0, 0, -SPIN, 0.008);
   } else if (pts.size >= 2) {
     const [a, b] = [...pts.values()];

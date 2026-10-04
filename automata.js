@@ -28,7 +28,7 @@ const AUTOMATA_BGS = {
 // profiles: the JS original's presets (blend, brightness, contrast, saturation, fluidity, momentum, angularity,
 // energy). Its "momentum" m sends 2m of the energy forward, so forward = min(1, 2m) here.
 const AUTOMATA_PROFILES = (() => {
-  const D = { grid: 13, dir: 0.5, maxOut: 1, jitter: 0, sens: 0.25, fluids: true, torus: true, bg: 'colour noise' };
+  const D = { grid: 13, dir: 0.5, maxOut: 1, jitter: 0, sens: 0.25, burst: 0.25, fluids: true, torus: true, bg: 'colour noise' };
   const P = (b, br, c, s, fl, m, a, e, x = {}) => Object.assign({}, D, { blend: b, bright: br, contrast: c, sat: s, fluidity: fl, forward: Math.min(1, 2 * m), ang: a, energy: e }, x);
   return {
     'Watercolors': P(0.8241, 1.0799, 1.1007, 1.04, 0.985, 0.26, 1.18, 0.2),
@@ -275,6 +275,13 @@ function createAutomata(gl, opts = {}) {
   }
   // held still: keep adding energy in the last known direction
   const hold = (x, y) => splat(x, y, lastDir[0] * o.sens * 0.25, lastDir[1] * o.sens * 0.25);
+  // a press held still: energy shoots out in every direction (a ring of 8 pushes one cell out, each pointing away
+  // from the press); burst = how strong each one is, compared with sensitivity
+  function burst(x, y) {
+    const amt = o.sens * (o.burst ?? 0.25);
+    for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4, c = Math.cos(a), s = Math.sin(a);
+      splat(x + c / cols, y + s / rows, c * amt, s * amt, 0, 0.9); }
+  }
   const spin = (x, y, s, r = 2.2) => splat(x, y, 0, 0, s * o.sens, r);
   function reset() { clearT(S.r); clearT(S.w); seed = Math.floor(Math.random() * 1e6); makeBackground(); restart(); }
   function set(params) {
@@ -290,6 +297,6 @@ function createAutomata(gl, opts = {}) {
   }
   function resize(w, h) { o.width = w; o.height = h; alloc(); }
   alloc();
-  return { step, render, splat, push, hold, spin, reset, resize, set, setSource, opts: o };
+  return { step, render, splat, push, hold, burst, spin, reset, resize, set, setSource, opts: o };
 }
 if (typeof window !== 'undefined') Object.assign(window, { createAutomata, AUTOMATA_PROFILES, AUTOMATA_BGS, AUTOMATA_PALETTES });
