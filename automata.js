@@ -34,6 +34,9 @@ const AUTOMATA_PROFILES = (() => {
     'Watercolors': P(0.8241, 1.0799, 1.1007, 1.04, 0.985, 0.26, 1.18, 0.2),
     "Jupiter's Moons": P(0.93, 1.0, 1.03, 1.04, 0.95, 0.45, Math.PI / 2, 0.5, { grid: 16 }),
     'Ice Cracks': P(0.824, 1.0799, 1.1007, 0.9757, 1.0, 0.0001, 0.0001, 0.25, { fluids: false, grid: 14 }),
+    // Angus's tuning of Ice Cracks (2026-10-03): coarse colour, wrapping, desaturated, gentler feedback
+    'Cracks 2': Object.assign({}, D, { grid: 14, forward: 0, dir: 0.5, ang: 0, fluidity: 1, maxOut: 1, jitter: 0, burst: 0.25, sens: 0.25, energy: 0.25,
+      blend: 0.821, bright: 1.083, contrast: 1.131, sat: 0.705, fluids: false, torus: true, bg: 'coarse colour' }),
     'Milky Way': P(0.7954, 1.1076, 1.165, 0.7188, 0.9999, 0.158, Math.PI / 4, 0.05, { grid: 18 }),
     'La Brea': P(0.82, 1.12, 1.1732, 0.5, 0.96, 0.4, Math.PI / 4, 0.15),
     'Cubism': P(0.7851, 1.0694, 1.1632, 1.0347, 0.99, 0, 0.0001, 0.5),

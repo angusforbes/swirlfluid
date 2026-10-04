@@ -124,6 +124,11 @@ const MINE_KEY = 'swirlfluid.presets', BUILTIN = Object.keys(SWIRL2_PRESETS);
 const loadMine = () => { try { return JSON.parse(localStorage.getItem(MINE_KEY)) || {}; } catch { return {}; } };
 let MINE = loadMine(); for (const [n, v] of Object.entries(MINE)) if (!SWIRL2_PRESETS[n]) SWIRL2_PRESETS[n] = v;
 const PRESETS = Object.keys(SWIRL2_PRESETS), PALS = Object.keys(SWIRL2_PALETTES);
+// your Fluid Automata profiles (save preset in that mode), kept in this browser like your swirl presets
+const MINE_A_KEY = 'swirlfluid.profiles', BUILTIN_A = Object.keys(AUTOMATA_PROFILES);
+const loadMineA = () => { try { return JSON.parse(localStorage.getItem(MINE_A_KEY)) || {}; } catch { return {}; } };
+for (const [n, v] of Object.entries(loadMineA())) if (!AUTOMATA_PROFILES[n]) AUTOMATA_PROFILES[n] = v;
+const baseOfA = n => BUILTIN_A.includes(n) ? n : (AUTOMATA_PROFILES[n]?.base || 'Watercolors');
 const PROFILES = Object.keys(AUTOMATA_PROFILES), BGS = Object.keys(AUTOMATA_BGS);
 const coarse = matchMedia('(pointer: coarse)').matches;
 const FILLS = SWIRL2_FILLS;
@@ -402,7 +407,7 @@ function shareURL() {
     if (o.paint !== d.paint) p.set('paint', o.paint);
     flag('fluids', 'fluids', d); flag('facets', 'facets', d); flag('wash', 'wash', d); flag('outline', 'outline', d); flag('grain', 'grain', d); flag('spline', 'smooth', d); flag('instant', 'instant', d); if ((o.reveal || 0) !== (d.reveal || 0)) p.set('outside', o.reveal || 0);
   } else {
-    const d = profileOpts(profile); p.set('engine', 'automata'); p.set('profile', profile); diff(A_KNOBS, d);
+    const b = baseOfA(profile), d = profileOpts(b); p.set('engine', 'automata'); p.set('profile', b); diff(A_KNOBS, d);
     if (o.bg !== d.bg && AUTOMATA_BGS[o.bg].mode !== 4) p.set('bg', o.bg);
     flag('fluids', 'fluids', d); flag('torus', 'wrap', d);
   }
@@ -449,14 +454,26 @@ $('debugBtn').onclick = capture;
 // save preset: a snapshot of every setting a preset can hold, sizes as rows of the screen
 const PRESET_KEYS = [...new Set(Object.keys(BASE).concat(...BUILTIN.map(n => Object.keys(SWIRL2_PRESETS[n]))))]
   .filter(k => !['cell', 'mapCell', 'tile', 'rows', 'mapRows', 'tileRows', 'base'].includes(k));
-function mineButton(b) { b.classList.add('mine'); b.title = 'yours (this browser): long-press or right-click to forget it';
+function mineButton(b, A) { b.classList.add('mine'); b.title = 'yours (this browser): long-press or right-click to forget it';
   b.oncontextmenu = e => { e.preventDefault(); const n = b.textContent; if (!confirm(`Forget your preset "${n}"?`)) return;
+    if (A) { const m = loadMineA(); delete m[n]; localStorage.setItem(MINE_A_KEY, JSON.stringify(m)); delete AUTOMATA_PROFILES[n];
+      PROFILES.splice(PROFILES.indexOf(n), 1); b.remove(); if (profile === n) profile = baseOfA(n); sync(); return; }
     MINE = loadMine(); delete MINE[n]; localStorage.setItem(MINE_KEY, JSON.stringify(MINE)); delete SWIRL2_PRESETS[n];
     PRESETS.splice(PRESETS.indexOf(n), 1); b.remove(); if (preset === n) preset = baseOf(n); sync(); }; }
 [...$('presets').children].forEach(b => { if (!BUILTIN.includes(b.textContent)) mineButton(b); });
+[...$('profiles').children].forEach(b => { if (!BUILTIN_A.includes(b.textContent)) mineButton(b, true); });
 $('presetBtn').onclick = () => {
-  if (engine !== 'swirl') return;
   const n = (prompt('Name this preset:', '') || '').trim(); if (!n) return;
+  if (engine === 'automata') {   // a snapshot of every setting; a picture or camera background can't be stored, so keep the profile's
+    if (BUILTIN_A.includes(n)) { alert(`"${n}" is a built-in profile; pick another name.`); return; }
+    const o = getAuto().opts, v = { base: baseOfA(profile) };
+    for (const [k, x] of Object.entries(o)) if (!k.startsWith('_') && k !== 'autoStats' && (x === null || typeof x !== 'object')) v[k] = x;
+    if (AUTOMATA_BGS[o.bg]?.mode === 4) v.bg = AUTOMATA_PROFILES[v.base].bg;
+    const m = loadMineA(); m[n] = v; localStorage.setItem(MINE_A_KEY, JSON.stringify(m));
+    const isNew = !AUTOMATA_PROFILES[n]; AUTOMATA_PROFILES[n] = v; profile = n;
+    if (isNew) { PROFILES.push(n); buttons($('profiles'), [n], x => applyProfile(x)); mineButton($('profiles').lastChild, true); }
+    sync(); return;
+  }
   if (BUILTIN.includes(n)) { alert(`"${n}" is a built-in preset; pick another name.`); return; }
   const o = getSwirl().opts, v = { base: baseOf(preset) };
   for (const k of PRESET_KEYS) if (o[k] !== undefined && typeof o[k] !== 'object') v[k] = o[k];
