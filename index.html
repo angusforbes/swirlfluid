@@ -132,7 +132,7 @@ const baseOfA = n => BUILTIN_A.includes(n) ? n : (AUTOMATA_PROFILES[n]?.base || 
 const PROFILES = Object.keys(AUTOMATA_PROFILES), BGS = Object.keys(AUTOMATA_BGS);
 const coarse = matchMedia('(pointer: coarse)').matches;
 const FILLS = SWIRL2_FILLS;
-const BASE = { fill: 'squares', cell: Math.max(4, Math.round(innerHeight / 24)), freq: 3, palette: 'ocean', saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, wash: false, facets: false, jitter: 0, ambient: 1, fadeMin: 8, fadeMax: 22, outline: false, grain: true, tile: 1, mapCell: 1, spline: false, reach: 1, instant: false, reveal: 0, burst: 1 };
+const BASE = { fill: 'squares', cell: Math.max(4, Math.round(innerHeight / 24)), freq: 3, palette: 'ocean', saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, wash: false, facets: false, jitter: 0, ambient: 1, fadeMin: 8, fadeMax: 22, outline: false, grain: true, tile: 1, mapCell: 1, spline: false, reach: 1, instant: false, reveal: 0, burst: 0.05 };
 // the knobs: [key, label, min, max, step, format]
 const KNOBS = [
   // fluidity: finer toward the top: the left half covers 0.9 to 0.99, then each further stretch adds a 9 (0.999,
@@ -145,7 +145,7 @@ const KNOBS = [
   ['angularity', 'branch angle', 0, Math.PI / 2, 0.01, v => Math.round(v * 180 / Math.PI) + '°'],
   ['energy', 'energy', 0, 2.5, 0.05, v => v.toFixed(2)],
   ['reach', 'reach', 0.5, 6, 0.05, v => v.toFixed(2) + '×'],   // how far a press spreads (1 = as it always was)
-  ['burst', 'burst', 0, 3, 0.05, v => v ? v.toFixed(2) : 'off'],   // a mouse press held still pushes outward in every direction
+  ['burst', 'burst', 0, 0.1, 0.001, v => v ? v.toFixed(3) : 'off'],   // a mouse press held still pushes outward in every direction
   ['curl', 'curl', 0, 15, 0.5, v => v.toFixed(1)],
   ['heal', 'heal', 0, 0.5, 0.01, v => v.toFixed(2)],
   // (lattice, hidden for now) ['grid', 'lattice', 0, 32, 1, v => v >= 2 ? v + '×' + v : 'off'],
