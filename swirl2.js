@@ -87,6 +87,8 @@ const SWIRL2_PRESETS = {
   'Ink in Water':{ fluids: true,  fluidity: 0.985, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 3,   heal: 0, jitter: 0, ambient: 0.15, paint: 'bands', palette: 'food', fadeMin: 0, fill: 'squares', water: true, drops: true },
   // pour (2026-10): press and hold (not just a tap) to keep pouring ink while you drag, like moving a pipette over the water
   'Ink Ribbons': { fluids: true,  fluidity: 0.985, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 3,   heal: 0, jitter: 0, ambient: 0.15, paint: 'bands', palette: 'food', fadeMin: 0, fill: 'squares', water: true, drops: true, pour: true },
+  // Angus 2026-10-06, render-only: Ink in Water seen through a shallow glass dish (shadow, caustic shimmer, a gentle highlight); the ink itself moves exactly as it does in Ink in Water
+  'Glass Dish': { fluids: true,  fluidity: 0.985, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 3,   heal: 0, jitter: 0, ambient: 0.15, paint: 'bands', palette: 'food', fadeMin: 0, fill: 'squares', water: true, drops: true, dish: true },
   // Angus 2026-10-05: Mandala: Ink in Water in a kaleidoscope (6 copies, each mirrored): every drop and stir is repeated around the centre
   'Mandala':     { fluids: true,  fluidity: 0.985, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 3,   heal: 0, jitter: 0, ambient: 0, paint: 'bands', palette: 'food', fadeMin: 0, fill: 'squares', water: true, drops: true, sym: 6, symMirror: true, dropSize: 0.06 },
   // the other families in a kaleidoscope (Angus 2026-10-05: "a few different mandala versions")
@@ -97,6 +99,8 @@ const SWIRL2_PRESETS = {
   'Springs':     { fluids: true,  fluidity: 0.985, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 3,   heal: 0, jitter: 0, ambient: 0.1, paint: 'bands', palette: 'tropic', fadeMin: 0, fill: 'squares', water: true, drops: true, fountains: true, fountainStrength: 1, startFountains: 3 },
   'Milk Drops':  { fluids: false, fluidity: 1,     viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 0.15,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'food', freq: 4.9, fadeMin: 0, fadeMax: 22, fill: 'mixed squares', rows: 5, instant: true, compose: true, drops: true, milk: true },
   'Mosaic 2':    { fluids: false, fluidity: 1,     viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'pop', freq: 4.9, fadeMin: 8, fadeMax: 22, fill: 'mixed squares', rows: 5, instant: true, startStir: 6 },   // starts as if you pressed n, then m 6 times
+  // Angus 2026-10-06, render-only: Mosaic 2 lit as raised glossy paint / enamel; the motion and squares are exactly Mosaic 2's
+  'Enamel':      { fluids: false, fluidity: 1,     viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'pop', freq: 4.9, fadeMin: 8, fadeMax: 22, fill: 'mixed squares', rows: 5, instant: true, startStir: 6, gloss: 0.7 },
   // a pair to compare (Angus): high energy, fluids off. jag1 follows the motion with straight lines between its grid
   // points (sawtooth edges where it bends hard); jag2 is the same with smooth on (cubic B-spline)
   // fold (2026-10-05): Mosaic and Mosaic 2 drawn through the folding triangle mesh (straight-edged shards); hidden, the fold button stays
@@ -336,6 +340,26 @@ function createSwirl2(gl, opts = {}) {
       void main(){ vec2 d=vUv-c; d.x*=aspect; float r=length(d), an=atan(d.y,d.x);
         float m=smoothstep(R,R*.4,r)*(.65+.5*vnoise(vec2(cos(an),sin(an))*2.5+sd));
         o=vec4(mix(texture(uSrc,vUv).rgb, ab, clamp(m*rate,0.,1.)),1.); }`,
+    // glass dish (2026-10-06, render-only, Angus: "ink in a shallow glass dish of water seen from above"): the same
+    // dye absorption as waterShow, plus a faint shadow of the ink cast a little below it on the dish bottom (as if lit
+    // from the upper left), a soft drifting caustic shimmer (light focused by the ripples) that shows more on the bare
+    // wet glass than through the ink, and a gentle highlight across one side of the dish. time drives the shimmer (the
+    // engine's own clock, not the wall clock, so a seeded replay still matches); FC (device px, pxs-scaled) keeps the
+    // shimmer's apparent size the same on screen and in a 2x/3x Save PNG.
+    waterDish: `uniform sampler2D uSrc; uniform float time;
+      void main(){ vec3 a=texture(uSrc,vUv).rgb; vec3 absorb=.9*(1.-exp(-a/.9));
+        vec3 base=vec3(.985,.98,.965)*exp(-absorb);
+        // a faint grey-blue shadow of the ink, cast a little down-right on the dish bottom (as if lit from the upper
+        // left): a cool tint, not just more ink, so it reads as a shadow and not as denser colour
+        vec3 ash=texture(uSrc,vUv-vec2(.035,-.05)).rgb; float sh=clamp(max(ash.r,max(ash.g,ash.b))*1.3,0.,1.);
+        base=mix(base, base*vec3(.76,.8,.86), smoothstep(0.,.6,sh)*.5);
+        vec2 p=FC*.016;
+        float c1=vnoise(p*2.3+vec2(time*.11,-time*.08)), c2=vnoise(p*4.1-vec2(time*.07,time*.09)+11.3);
+        float caustic=pow(clamp(c1*.55+c2*.55-.18,0.,1.),2.2), ink=max(a.r,max(a.g,a.b));
+        base+=vec3(1.,.99,.95)*caustic*.11*(1.-smoothstep(0.,.4,ink));
+        vec2 nn=vUv*2.-1.; float sheen=smoothstep(1.5,.1,length(nn-vec2(-.4,.5)));
+        base+=vec3(1.)*sheen*.06;
+        o=vec4(clamp(base,0.,1.),1.); }`,
     dropInk: `uniform sampler2D uSrc; uniform vec2 c; uniform float aspect, a0, a1; uniform vec3 col;
       void main(){ vec2 d=vUv-c; d.x*=aspect; float L2=dot(d,d);
         if(L2<a1){ o=vec4(col,1.); return; }
@@ -376,6 +400,27 @@ function createSwirl2(gl, opts = {}) {
         vec3 c=texture(uSrc,vUv).rgb;
         float amt=hair*clamp(m*26.,0.,1.);
         o=vec4(c*mix(1., .55+.9*fiber, amt*.65), 1.); }`,
+    // gloss (2026-10-06, render-only, Angus: "raised paint / enamel"): post pass over the finished picture. Its
+    // luminance stands in for a height field (colour boundaries become ridges); a normal built from that height is lit
+    // from a fixed direction (soft diffuse shading) with a tight specular highlight on top, like thick glossy paint or
+    // enamel catching the light. amt (o.gloss, 0..1) fades the whole effect in; 0 leaves the picture untouched.
+    // Neighbour taps step by k device pixels (pxs-scaled, as outline does) so the paint's "grain" stays the same size
+    // whether this draws to the screen or into a 2x/3x Save PNG target.
+    gloss: `uniform sampler2D uSrc; uniform float amt;
+      float glum(ivec2 q, ivec2 m){ return dot(texelFetch(uSrc,clamp(q,ivec2(0),m),0).rgb, vec3(.299,.587,.114)); }
+      void main(){ ivec2 q=ivec2(gl_FragCoord.xy), m=textureSize(uSrc,0)-1; float kk=max(pxs,1.);
+        vec3 c=texelFetch(uSrc,q,0).rgb;
+        // a few radii, not just a 1px hairline: the height drop at a colour edge is felt over several pixels, like a
+        // rounded bead of paint built up along the seam, instead of a razor-thin ridge
+        vec2 g=vec2(0.);
+        for(int i=0;i<3;i++){ float r=i==0?2.:i==1?5.:9.; float w=i==0?1.:i==1?.7:.45; int k=int(kk*r+.5);
+          g += w*vec2(glum(q+ivec2(k,0),m)-glum(q-ivec2(k,0),m), glum(q+ivec2(0,k),m)-glum(q-ivec2(0,k),m))/r; }
+        g *= 5.5;
+        vec3 n=normalize(vec3(-g,1.));
+        vec3 Ld=normalize(vec3(-.5,.6,.65)), H=normalize(Ld+vec3(0.,0.,1.));
+        float diff=max(dot(n,Ld),0.), spec=pow(max(dot(n,H),0.),40.);
+        vec3 shaded=c*(.62+.5*diff)+vec3(1.,.97,.9)*spec*1.2;
+        o=vec4(mix(c, clamp(shaded,0.,1.), amt), 1.); }`,
     grad: `uniform sampler2D uP, uVel;
       void main(){ float L=texture(uP,vL).x, R=texture(uP,vR).x, T=texture(uP,vT).x, B=texture(uP,vB).x;
         o=vec4(texture(uVel,vUv).xy-vec2(R-L,T-B),0.,1.); }`,
@@ -1147,7 +1192,7 @@ function createSwirl2(gl, opts = {}) {
       const fb = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0); return { t, fb, w: W, h: H }; };
     // fx: colour split / hair streaks are post passes too (same as outline): give them the same full-resolution
     // scratch-buffer swap so Save PNG draws them at export resolution, not screen resolution
-    const needPost = o.outline || o.split > 0 || o.hair > 0;
+    const needPost = o.outline || o.gloss > 0 || o.split > 0 || o.hair > 0;
     const tgt = mk(), out = needPost ? mk() : null, out2 = needPost ? mk() : null, keep = S.out, keep2 = S.out2;
     try {
       pxs = s; if (out) { S.out = out; S.out2 = out2; }
@@ -1158,10 +1203,14 @@ function createSwirl2(gl, opts = {}) {
   }
   function render(t = time, target = null) {
     if (!target) lastT = t;
-    if (o.water) { const u = use('waterShow', target || { w: o.width, h: o.height }); gl.uniform1i(u.uSrc, tex(0, S.dye.read)); blit(target); return; }
+    if (o.water) {   // glass dish (o.dish): the same dye render, with a shadow, a caustic shimmer and a highlight on top
+      const u = use(o.dish ? 'waterDish' : 'waterShow', target || { w: o.width, h: o.height });
+      gl.uniform1i(u.uSrc, tex(0, S.dye.read)); if (o.dish) gl.uniform1f(u.time, t);
+      blit(target); return;
+    }
     const to0 = target || { w: o.width, h: o.height };
-    const line = o.outline && S.out, doSplit = o.split > 0 && S.out2, doHair = o.hair > 0 && S.out2;
-    const stages = (line ? 1 : 0) + (doSplit ? 1 : 0) + (doHair ? 1 : 0);
+    const line = o.outline && S.out, doGloss = (o.gloss || 0) > 0 && S.out2, doSplit = o.split > 0 && S.out2, doHair = o.hair > 0 && S.out2;
+    const stages = (line ? 1 : 0) + (doGloss ? 1 : 0) + (doSplit ? 1 : 0) + (doHair ? 1 : 0);   // post passes, in this order
     const bufs = [S.out, S.out2]; let bi = 0, done = 0;
     const base = stages ? bufs[bi] : target;
     const u = renderBands(S.P.read, base, t, true);
@@ -1171,6 +1220,11 @@ function createSwirl2(gl, opts = {}) {
     if (line) {   // outline: draw the picture, then the lines around its colour regions on top
       done++; const nxt = done < stages ? bufs[(bi = 1 - bi)] : target;
       const v = use('outline', to0); gl.uniform1i(v.uSrc, tex(0, cur)); gl.uniform1f(v.pxs, pxs); blit(nxt); cur = nxt;
+    }
+    // gloss (o.gloss, post pass): the finished picture (outline included, if on) lit as raised glossy paint
+    if (doGloss) {
+      done++; const nxt = done < stages ? bufs[(bi = 1 - bi)] : target;
+      const v = use('gloss', to0); gl.uniform1i(v.uSrc, tex(0, cur)); gl.uniform1f(v.amt, o.gloss); gl.uniform1f(v.pxs, pxs); blit(nxt); cur = nxt;
     }
     // ==== fx: COLOUR SPLIT (o.split, off by default) ===========================================================
     // a post pass over the finished picture (chromatic fringing along the local flow velocity, see the 'split'
