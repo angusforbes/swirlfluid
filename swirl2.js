@@ -85,13 +85,25 @@ const SWIRL2_PRESETS = {
   // Angus 2026-10-05: "drops of food colouring into water or milk": tap to drop colour onto milk, drag to marble it
   // Angus 2026-10-05: ink dropped into a dish of water, from above: tap to drop, it blooms and curls by itself
   'Ink in Water':{ fluids: true,  fluidity: 0.985, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 3,   heal: 0, jitter: 0, ambient: 0.15, paint: 'bands', palette: 'food', fadeMin: 0, fill: 'squares', water: true, drops: true },
+  // pour (2026-10): press and hold (not just a tap) to keep pouring ink while you drag, like moving a pipette over the water
+  'Ink Ribbons': { fluids: true,  fluidity: 0.985, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 3,   heal: 0, jitter: 0, ambient: 0.15, paint: 'bands', palette: 'food', fadeMin: 0, fill: 'squares', water: true, drops: true, pour: true },
+  // Angus 2026-10-06, render-only: Ink in Water seen through a shallow glass dish (shadow, caustic shimmer, a gentle highlight); the ink itself moves exactly as it does in Ink in Water
+  'Glass Dish': { fluids: true,  fluidity: 0.985, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 3,   heal: 0, jitter: 0, ambient: 0.15, paint: 'bands', palette: 'food', fadeMin: 0, fill: 'squares', water: true, drops: true, dish: true },
   // Angus 2026-10-05: Mandala: Ink in Water in a kaleidoscope (6 copies, each mirrored): every drop and stir is repeated around the centre
   'Mandala':     { fluids: true,  fluidity: 0.985, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 3,   heal: 0, jitter: 0, ambient: 0, paint: 'bands', palette: 'food', fadeMin: 0, fill: 'squares', water: true, drops: true, sym: 6, symMirror: true, dropSize: 0.06 },
+  // the other families in a kaleidoscope (Angus 2026-10-05: "a few different mandala versions")
+  'Mosaic Mandala':{ fluids: false, fluidity: 1,   viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'pop', freq: 4.9, fadeMin: 8, fadeMax: 22, fill: 'mixed squares', rows: 5, instant: true, startStir: 4, sym: 6, symMirror: true },
+  'Fluid Mandala':{ fluids: true,  fluidity: 0.982, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4, heal: 0.1,  paint: 'bands', palette: 'candy', sym: 6, symMirror: true },
+  // Angus 2026-10-06, fountains: Ink in Water with 3 little springs already pouring colour and push, so it keeps
+  // blooming and curling on its own without a single tap; taps and drags still work as in Ink in Water
+  'Springs':     { fluids: true,  fluidity: 0.985, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 3,   heal: 0, jitter: 0, ambient: 0.1, paint: 'bands', palette: 'tropic', fadeMin: 0, fill: 'squares', water: true, drops: true, fountains: true, fountainStrength: 1, startFountains: 3 },
   // Angus 2026-10-06, "growing patterns": a Gray-Scott reaction-diffusion (coral regime) grows and divides on its
   // own texture, carried and bent by the swirl fluid as you stir it
   'Coral':       { fluids: true,  fluidity: 0.996, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 0.7, grid: 0, curl: 3,   heal: 0, jitter: 0, ambient: 0.25, paint: 'bands', palette: 'sea', fill: 'squares', grow: true, growKind: 'coral', growSpeed: 14, growMix: 1 },
   'Milk Drops':  { fluids: false, fluidity: 1,     viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 0.15,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'food', freq: 4.9, fadeMin: 0, fadeMax: 22, fill: 'mixed squares', rows: 5, instant: true, compose: true, drops: true, milk: true },
   'Mosaic 2':    { fluids: false, fluidity: 1,     viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'pop', freq: 4.9, fadeMin: 8, fadeMax: 22, fill: 'mixed squares', rows: 5, instant: true, startStir: 6 },   // starts as if you pressed n, then m 6 times
+  // Angus 2026-10-06, render-only: Mosaic 2 lit as raised glossy paint / enamel; the motion and squares are exactly Mosaic 2's
+  'Enamel':      { fluids: false, fluidity: 1,     viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'pop', freq: 4.9, fadeMin: 8, fadeMax: 22, fill: 'mixed squares', rows: 5, instant: true, startStir: 6, gloss: 0.7 },
   // a pair to compare (Angus): high energy, fluids off. jag1 follows the motion with straight lines between its grid
   // points (sawtooth edges where it bends hard); jag2 is the same with smooth on (cubic B-spline)
   // fold (2026-10-05): Mosaic and Mosaic 2 drawn through the folding triangle mesh (straight-edged shards); hidden, the fold button stays
@@ -117,6 +129,11 @@ const SWIRL2_PRESETS = {
   // Since then every preset saves this way (smoothPng: true in index.html's BASE), so these now equal Mosaic 2 / jag2
   'Mosaic 3':    { fluids: false, fluidity: 1,     viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'pop', freq: 4.9, fadeMin: 8, fadeMax: 22, fill: 'mixed squares', rows: 5, instant: true, startStir: 6, smoothPng: true },
   'jag3':        { fluids: false, fluidity: 0.9999, viscosity: 0, momentum: 0, angularity: 0, energy: 2.5, grid: 0, curl: 0, heal: 0, jitter: 0, memory: 0.99, carry: 0, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'sorbet', freq: 2.4, fadeMin: 0, fadeMax: 0, fill: 'squares', rows: 3, spline: true, smoothPng: true },
+  // fx: colour split / hair streaks, each a post pass on the finished picture along the local flow velocity (off by
+  // default everywhere else). Prism Flow: Mosaic 2's motion with full colour split so every whirl trails a rainbow
+  // fringe. Fur: Al Held's branching motion combed into fine hair streaks, like brushed fur, no colour split
+  'Prism Flow':  { fluids: false, fluidity: 1,     viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'pop', freq: 4.9, fadeMin: 8, fadeMax: 22, fill: 'mixed squares', rows: 5, instant: true, startStir: 6, split: 1 },
+  'Fur':         { fluids: false, fluidity: 0.999, viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'tar', freq: 4.9, fadeMin: 0, fadeMax: 0, fill: 'squares', rows: 5, hair: 1 },
 };
 
 function createSwirl2(gl, opts = {}) {
@@ -319,6 +336,33 @@ function createSwirl2(gl, opts = {}) {
         float e=R*(1.+.25*(vnoise(vec2(cos(an),sin(an))*3.+sd)-.5));
         o=vec4(texture(uSrc,vUv).rgb*smoothstep(e*.75,e,r),1.); }`,
     waterShow: `uniform sampler2D uSrc; void main(){ vec3 a=texture(uSrc,vUv).rgb; a=.9*(1.-exp(-a/.9)); o=vec4(vec3(.985,.98,.965)*exp(-a),1.); }`,
+    // fountains (2026-10-06, Angus: "points that keep pouring out colour and push"): in water mode each fountain
+    // trickles its own colour every frame instead of dropping it all at once; rate (0..1, how far this frame moves
+    // toward full ab) is a per-frame blend, so the dye eases in and never overshoots ab however long it runs
+    fountainDye: `uniform sampler2D uSrc; uniform vec2 c; uniform float aspect, R, sd, rate; uniform vec3 ab;
+      void main(){ vec2 d=vUv-c; d.x*=aspect; float r=length(d), an=atan(d.y,d.x);
+        float m=smoothstep(R,R*.4,r)*(.65+.5*vnoise(vec2(cos(an),sin(an))*2.5+sd));
+        o=vec4(mix(texture(uSrc,vUv).rgb, ab, clamp(m*rate,0.,1.)),1.); }`,
+    // glass dish (2026-10-06, render-only, Angus: "ink in a shallow glass dish of water seen from above"): the same
+    // dye absorption as waterShow, plus a faint shadow of the ink cast a little below it on the dish bottom (as if lit
+    // from the upper left), a soft drifting caustic shimmer (light focused by the ripples) that shows more on the bare
+    // wet glass than through the ink, and a gentle highlight across one side of the dish. time drives the shimmer (the
+    // engine's own clock, not the wall clock, so a seeded replay still matches); FC (device px, pxs-scaled) keeps the
+    // shimmer's apparent size the same on screen and in a 2x/3x Save PNG.
+    waterDish: `uniform sampler2D uSrc; uniform float time;
+      void main(){ vec3 a=texture(uSrc,vUv).rgb; vec3 absorb=.9*(1.-exp(-a/.9));
+        vec3 base=vec3(.985,.98,.965)*exp(-absorb);
+        // a faint grey-blue shadow of the ink, cast a little down-right on the dish bottom (as if lit from the upper
+        // left): a cool tint, not just more ink, so it reads as a shadow and not as denser colour
+        vec3 ash=texture(uSrc,vUv-vec2(.035,-.05)).rgb; float sh=clamp(max(ash.r,max(ash.g,ash.b))*1.3,0.,1.);
+        base=mix(base, base*vec3(.76,.8,.86), smoothstep(0.,.6,sh)*.5);
+        vec2 p=FC*.016;
+        float c1=vnoise(p*2.3+vec2(time*.11,-time*.08)), c2=vnoise(p*4.1-vec2(time*.07,time*.09)+11.3);
+        float caustic=pow(clamp(c1*.55+c2*.55-.18,0.,1.),2.2), ink=max(a.r,max(a.g,a.b));
+        base+=vec3(1.,.99,.95)*caustic*.11*(1.-smoothstep(0.,.4,ink));
+        vec2 nn=vUv*2.-1.; float sheen=smoothstep(1.5,.1,length(nn-vec2(-.4,.5)));
+        base+=vec3(1.)*sheen*.06;
+        o=vec4(clamp(base,0.,1.),1.); }`,
     // growing patterns (2026-10-06, Angus: "spots and stripes slowly grow and divide while you stir them"): a
     // Gray-Scott reaction-diffusion on its own texture (x = U, y = V), carried by the swirl's velocity field each
     // step so stirring visibly bends the pattern. Runs at half the picture's resolution (linear upsampling) and a
@@ -359,6 +403,53 @@ function createSwirl2(gl, opts = {}) {
       void main(){ ivec2 q=ivec2(gl_FragCoord.xy), m=textureSize(uSrc,0)-1; vec3 c=texelFetch(uSrc,q,0).rgb; int k=int(max(pxs,1.)+.5);
         float e=max(length(texelFetch(uSrc,min(q+ivec2(k,0),m),0).rgb-c), length(texelFetch(uSrc,min(q+ivec2(0,k),m),0).rgb-c));
         o=vec4(mix(c, vec3(0.), smoothstep(.1,.25,e)), 1.); }`,
+    // ==== fx: COLOUR SPLIT (o.split, 0..1, off by default) ====================================================
+    // a post pass over the finished picture: red, green and blue are each sampled at an offset along the LOCAL
+    // FLOW VELOCITY (uVelD, the same field the 'motion colour' option already samples), so moving regions fringe
+    // like chromatic aberration and still regions stay sharp. Render-only: the motion itself is untouched.
+    split: `uniform sampler2D uSrc, uVelD; uniform vec2 mvTexel; uniform float split;
+      void main(){ vec2 duv=texture(uVelD,vUv).xy*mvTexel; float m=length(duv);
+        vec2 dir=m>1e-6 ? duv/m : vec2(0.);
+        vec2 off=dir*split*clamp(m*22.,0.,1.)*0.02;
+        float r=texture(uSrc,vUv+off).r, g=texture(uSrc,vUv).g, b=texture(uSrc,vUv-off).b;
+        o=vec4(r,g,b,1.); }`,
+    // ==== fx: HAIR STREAKS (o.hair, 0..1, off by default) ======================================================
+    // a post pass over the finished picture: fine streaks combed along the flow, like brush bristles or combed fur.
+    // A line integral convolution of fixed fine noise (hash(), no time/seed: always the same fibres) along the
+    // LOCAL FLOW VELOCITY direction (uVelD, same field as colour split above), fading where there is no motion.
+    // Render-only: the motion itself is untouched. FC (not gl_FragCoord) keeps the fibre size the same at any
+    // Save PNG export scale. Keep this block separate from any other post pass so passes can be chained in order.
+    hair: `uniform sampler2D uSrc, uVelD; uniform vec2 mvTexel; uniform float hair;
+      void main(){ vec2 duv=texture(uVelD,vUv).xy*mvTexel; float m=length(duv);
+        vec2 dir=m>1e-6 ? duv/m : vec2(1.,0.);
+        float sum=0., wsum=0.;
+        for(int i=-12;i<=12;i++){ vec2 p=FC+dir*float(i)*1.15; float w=1.-abs(float(i))/13.;
+          sum+=hash(floor(p)+.5)*w; wsum+=w; }
+        float fiber=smoothstep(.38,.62,sum/max(wsum,1e-5));
+        vec3 c=texture(uSrc,vUv).rgb;
+        float amt=hair*clamp(m*26.,0.,1.);
+        o=vec4(c*mix(1., .55+.9*fiber, amt*.65), 1.); }`,
+    // gloss (2026-10-06, render-only, Angus: "raised paint / enamel"): post pass over the finished picture. Its
+    // luminance stands in for a height field (colour boundaries become ridges); a normal built from that height is lit
+    // from a fixed direction (soft diffuse shading) with a tight specular highlight on top, like thick glossy paint or
+    // enamel catching the light. amt (o.gloss, 0..1) fades the whole effect in; 0 leaves the picture untouched.
+    // Neighbour taps step by k device pixels (pxs-scaled, as outline does) so the paint's "grain" stays the same size
+    // whether this draws to the screen or into a 2x/3x Save PNG target.
+    gloss: `uniform sampler2D uSrc; uniform float amt;
+      float glum(ivec2 q, ivec2 m){ return dot(texelFetch(uSrc,clamp(q,ivec2(0),m),0).rgb, vec3(.299,.587,.114)); }
+      void main(){ ivec2 q=ivec2(gl_FragCoord.xy), m=textureSize(uSrc,0)-1; float kk=max(pxs,1.);
+        vec3 c=texelFetch(uSrc,q,0).rgb;
+        // a few radii, not just a 1px hairline: the height drop at a colour edge is felt over several pixels, like a
+        // rounded bead of paint built up along the seam, instead of a razor-thin ridge
+        vec2 g=vec2(0.);
+        for(int i=0;i<3;i++){ float r=i==0?2.:i==1?5.:9.; float w=i==0?1.:i==1?.7:.45; int k=int(kk*r+.5);
+          g += w*vec2(glum(q+ivec2(k,0),m)-glum(q-ivec2(k,0),m), glum(q+ivec2(0,k),m)-glum(q-ivec2(0,k),m))/r; }
+        g *= 5.5;
+        vec3 n=normalize(vec3(-g,1.));
+        vec3 Ld=normalize(vec3(-.5,.6,.65)), H=normalize(Ld+vec3(0.,0.,1.));
+        float diff=max(dot(n,Ld),0.), spec=pow(max(dot(n,H),0.),40.);
+        vec3 shaded=c*(.62+.5*diff)+vec3(1.,.97,.9)*spec*1.2;
+        o=vec4(mix(c, clamp(shaded,0.,1.), amt), 1.); }`,
     grad: `uniform sampler2D uP, uVel;
       void main(){ float L=texture(uP,vL).x, R=texture(uP,vR).x, T=texture(uP,vT).x, B=texture(uP,vB).x;
         o=vec4(texture(uVel,vUv).xy-vec2(R-L,T-B),0.,1.); }`,
@@ -604,6 +695,7 @@ function createSwirl2(gl, opts = {}) {
 
   let S = {};
   let drops = [], lastLab = -1;   // ink drops (see drop())
+  let fountains = [];   // fountains (see plantFountain()): { x, y, ang, spin, ab, sd }, up to FOUNTAIN_MAX
   const aspect = () => o.width / o.height;
   function alloc() {
     const sh_ = o.simRes, sw_ = Math.round(sh_ * aspect());
@@ -612,7 +704,7 @@ function createSwirl2(gl, opts = {}) {
     const gh = Math.max(48, Math.min(256, Math.round(ch / 2))), gw = Math.max(48, Math.round(gh * aspect()));
     S = { vel: dbl(sw_, sh_, true), velPrev: fbo(sw_, sh_, true),   // full float: fluidity can be 0.99999, which half float would round to 1
       press: dbl(sw_, sh_), div: fbo(sw_, sh_), curl: fbo(sw_, sh_), v0: fbo(sw_, sh_),
-          P: dbl(cw, ch, true), P0: fbo(cw, ch, true), ink: dbl(cw, ch), dye: dbl(cw, ch), fresh: fbo(cw, ch), tmp: fbo(cw, ch), out: fbo(o.width, o.height), grow: dbl(gw, gh), sw: sw_, sh: sh_ };
+          P: dbl(cw, ch, true), P0: fbo(cw, ch, true), ink: dbl(cw, ch), dye: dbl(cw, ch), fresh: fbo(cw, ch), tmp: fbo(cw, ch), out: fbo(o.width, o.height), out2: fbo(o.width, o.height), grow: dbl(gw, gh), sw: sw_, sh: sh_ };   // out/out2: scratch for post passes (outline, fx: colour split, fx: hair streaks)
     reset();
   }
   const GROW_KINDS = { spots: { f: 0.035, k: 0.065 }, maze: { f: 0.029, k: 0.057 }, coral: { f: 0.0545, k: 0.062 }, mitosis: { f: 0.0367, k: 0.0649 } };
@@ -672,7 +764,7 @@ function createSwirl2(gl, opts = {}) {
   const rndSwirl = (sgn) => [(Math.random() * 2 - 1) * aspect() * 0.8, (Math.random() * 2 - 1) * 0.75, sgn * (2.5 + Math.random() * 3.5), 0.35 + Math.random() * 0.45];
   // reset: new squares (new seed) and no motion; reset(true) (r): back to the unstirred grid, the same squares
   function reset(same = false) {
-    drops = [];
+    drops = []; fountains = [];
     if (S.dye) [S.dye.read, S.dye.write].forEach(clear);
     growClear(); if (o.grow) seedGrow(Math.round(o.growSeeds ?? 10));
     if (!same) seed = 1 + Math.floor(Math.random() * 1e5);
@@ -823,11 +915,16 @@ function createSwirl2(gl, opts = {}) {
   // centre, and with symMirror each copy also mirrored (a kaleidoscope). Positions in uv, vectors in square units
   let inSym = false, noSym = false;
   const symOn = () => o.sym > 1 && o.grid < 2 && !inSym && !noSym;
+  // mirror points (symCentres, default the screen centre): a stroke is measured from the point nearest it and repeated
+  // around every point, so several points give several identical mandalas
   function symCopies(x, y, vx = 0, vy = 0) {
-    const n = Math.round(o.sym), a = aspect(), dx = (x - 0.5) * a, dy = y - 0.5, out = [];
-    for (let m = 0; m < (o.symMirror ? 2 : 1); m++) for (let k = 0; k < n; k++) {
+    const n = Math.round(o.sym), a = aspect(), C = o.symCentres && o.symCentres.length ? o.symCentres : [[0.5, 0.5]], out = [];
+    let c0 = C[0], best = Infinity;
+    for (const c of C) { const d = ((x - c[0]) * a) ** 2 + (y - c[1]) ** 2; if (d < best) { best = d; c0 = c; } }
+    const dx = (x - c0[0]) * a, dy = y - c0[1];
+    for (const [cx, cy] of C) for (let m = 0; m < (o.symMirror ? 2 : 1); m++) for (let k = 0; k < n; k++) {
       const t = 2 * Math.PI * k / n, c = Math.cos(t), s = Math.sin(t), ry = m ? -dy : dy, rvy = m ? -vy : vy;
-      out.push([0.5 + (c * dx - s * ry) / a, 0.5 + s * dx + c * ry, c * vx - s * rvy, s * vx + c * rvy, m]);
+      out.push([cx + (c * dx - s * ry) / a, cy + s * dx + c * ry, c * vx - s * rvy, s * vx + c * rvy, m]);
     }
     return out;
   }
@@ -976,17 +1073,28 @@ function createSwirl2(gl, opts = {}) {
   let ambT = 0, idleT = 0;
   // ink drops: each grows over DROP_T seconds (easing out, like a drop spreading) to radius r (screen heights)
   const DROP_T = 0.6;
-  function drop(x, y, size) {
+  // colour order (2026-10, Angus: a tune button for how drop colours are picked): 'random' (default, never repeats
+  // the last one), 'cycle' (palette order), 'one' (always the first palette colour, like a single pot of ink).
+  // opts.k forces a colour (pour reuses the colour its stream started with); opts.splash scales the landing splash
+  // (a continuous pour uses a lighter splash per tick than a single tap). Returns the colour index used.
+  function drop(x, y, size, opts) {
+    opts = opts || {};
     const pl = SWIRL2_PALETTES[o.palette] || o.palette, n = pl.pal.length;
-    let k; do k = Math.floor(Math.random() * n); while (n > 1 && k === lastLab); lastLab = k;
-    const r = (size || o.dropSize || 0.09) * (0.75 + 0.5 * Math.random()), sd = Math.random() * 50, sp = o.splash ?? 1;
+    let k;
+    if (opts.k !== undefined) k = opts.k;
+    else if (o.dropColours === 'cycle') k = n > 1 ? (lastLab + 1) % n : 0;
+    else if (o.dropColours === 'one') k = 0;
+    else { do k = Math.floor(Math.random() * n); while (n > 1 && k === lastLab); }
+    lastLab = k;
+    const r = (size || o.dropSize || 0.09) * (0.75 + 0.5 * Math.random()), sd = Math.random() * 50, sp = opts.splash ?? o.splash ?? 1;
     const ed = []; for (let i = 0; i < Math.round(5 * sp); i++) ed.push([Math.random() * TAU, r * (0.4 + 0.6 * Math.random()), (Math.random() < 0.5 ? -1 : 1) * (3 + 5 * Math.random()) * (0.5 + 0.5 * sp)]);
     const at = symOn() ? symCopies(x, y) : [[x, y, 0, 0, 0]];
     for (const [X, Y, , , m] of at) {   // symmetry: the same drop (colour, size, splash) at every copy
-      drops.push({ x: X, y: Y, r, t: 0, a: 0, k, col: hex(pl.pal[k]), sd });
+      drops.push({ x: X, y: Y, r, t: 0, a: 0, k, col: hex(pl.pal[k]), sd, bloom: opts.bloom ?? 1, life: opts.life });
       if (o.water) { idleT = 0; noSym = true; for (const [a0, rr, s] of ed) {   // splash: a few small eddies around the landing spot (5 at 1)
         const a = m ? -a0 : a0; splat(X + Math.cos(a) * rr * o.height / o.width, Y + Math.sin(a) * rr, 0, 0, m ? -s : s, 0.0006, true); } noSym = false; }
     }
+    return k;
   }
   // water: each drop puts in its dye at once, then blooms outward for WATER_T seconds, the push easing off
   const WATER_T = 1.6, SOAP_T = 2.2;
@@ -1001,19 +1109,61 @@ function createSwirl2(gl, opts = {}) {
   function waterStep(dt) {
     let u;
     for (const d of drops) {
-      if (!d.inked && !d.soap) { d.inked = true; const ab = d.col.map(v => -Math.log(Math.max(0.04, v)) * 1.4);
+      if (!d.inked && !d.soap) { d.inked = true; const ab = d.col.map(v => -Math.log(Math.max(0.04, v)) * 1.4 * (o.inkStrength ?? 1));   // ink strength: scales absorbance (pale wash .. deep dye); waterShow still never lets it go black
         u = use('waterDye', S.dye.write); gl.uniform1i(u.uSrc, tex(0, S.dye.read)); gl.uniform2f(u.c, d.x, d.y);
         gl.uniform1f(u.R, d.r * 0.6); gl.uniform1f(u.sd, d.sd); gl.uniform1f(u.rag, o.ragged ?? 0.5); gl.uniform3fv(u.ab, ab); blit(S.dye.write); S.dye.swap(); }
-      const T = d.soap ? SOAP_T : WATER_T; d.t = Math.min(T, d.t + dt); const q = 1 - d.t / T, Rt = d.r * (0.45 + 0.55 * (1 - q * q));
+      const T = d.soap ? SOAP_T : (d.life || WATER_T); d.t = Math.min(T, d.t + dt); const q = 1 - d.t / T, Rt = d.r * (0.45 + 0.55 * (1 - q * q));
       u = use('waterPush', S.vel.write); gl.uniform1i(u.uVel, tex(0, S.vel.read)); gl.uniform2f(u.c, d.x, d.y);
       gl.uniform1f(u.R, Rt); gl.uniform1f(u.sd, d.sd); gl.uniform1f(u.rag, d.soap ? 0.15 : (o.ragged ?? 0.5));
-      gl.uniform1f(u.sp, (d.soap ? 0.6 : (o.bloom ?? 1)) * d.r * S.sh * 1.6 * q * q * dt * 12); blit(S.vel.write); S.vel.swap();
+      gl.uniform1f(u.sp, (d.soap ? 0.6 : (o.bloom ?? 1) * (d.bloom ?? 1)) * d.r * S.sh * 1.6 * q * q * dt * 12); blit(S.vel.write); S.vel.swap();
       if (d.soap) { u = use('waterClear', S.dye.write); gl.uniform1i(u.uSrc, tex(0, S.dye.read)); gl.uniform2f(u.c, d.x, d.y);
         gl.uniform1f(u.R, Rt * 0.55); gl.uniform1f(u.sd, d.sd); blit(S.dye.write); S.dye.swap(); }
     }
-    drops = drops.filter(d => d.t < (d.soap ? SOAP_T : WATER_T));
+    drops = drops.filter(d => d.t < (d.soap ? SOAP_T : (d.life || WATER_T)));
     u = use('waterAdv', S.dye.write, S.dye.read); gl.uniform1i(u.uVel, tex(0, S.vel.read)); gl.uniform1i(u.uSrc, tex(1, S.dye.read));
     gl.uniform1f(u.dt, dt * o.energy); gl.uniform1f(u.diff, Math.min(1, (o.spread ?? 0.01) * dt * 60)); blit(S.dye.write); S.dye.swap();
+  }
+  // fountains (2026-10-06, Angus: "points that keep pouring out colour and push, so the picture keeps evolving
+  // without strokes"): each fountain is a steady push in a slowly rotating direction; in water mode it also trickles
+  // its own palette colour every frame. Placed at the mouse (u), cleared all at once (shift+u) or by reset (r/R).
+  const FOUNTAIN_MAX = 8, FOUNTAIN_PUSH = 2.6, FOUNTAIN_R = 0.011, FOUNTAIN_DYE_R = 0.045, FOUNTAIN_TRICKLE = 0.9;
+  // ang0 / forceK let a preset (plantSprings) place fountains at fixed angles and colours, deterministic every time;
+  // left out (the u key), each fountain gets its own random start angle, spin and colour, like a drop's splash
+  function plantFountain(x, y, ang0, forceK) {
+    if (!o.fountains || fountains.length >= FOUNTAIN_MAX) return;
+    const pl = SWIRL2_PALETTES[o.palette] || o.palette, n = pl.pal.length;
+    const k = forceK == null ? Math.floor(Math.random() * n) : forceK % n, col = hex(pl.pal[k]);
+    const ab = col.map(v => -Math.log(Math.max(0.04, v)) * 1.4);
+    const a0 = ang0 ?? Math.random() * TAU, spin = (forceK == null ? (Math.random() < 0.5 ? -1 : 1) : (k % 2 ? -1 : 1)) * (0.12 + 0.22 * ((k % 5) / 5 + (forceK == null ? Math.random() : 0.4)));
+    const at = symOn() ? symCopies(x, y, Math.cos(a0), Math.sin(a0)) : [[x, y, Math.cos(a0), Math.sin(a0), 0]];
+    for (const [X, Y, VX, VY, m] of at) {
+      if (fountains.length >= FOUNTAIN_MAX) break;
+      fountains.push({ x: X, y: Y, ang: Math.atan2(VY, VX), spin: m ? -spin : spin, ab, sd: Math.random() * 50 });
+    }
+  }
+  function clearFountains() { fountains = []; }
+  // a preset's starting fountains (startFountains n): fixed spots and angles, so the preset looks the same every time
+  function plantSprings(n = 3) {
+    if (!o.fountains) return;
+    fountains = [];
+    const spots = [[0.32, 0.6, 0.3], [0.7, 0.58, 2.65], [0.5, 0.27, 4.55]];
+    for (let i = 0; i < Math.min(n, spots.length); i++) { const [x, y, a] = spots[i]; plantFountain(x, y, a, i); }
+  }
+  function stepFountains(dt) {
+    if (!o.fountains || !fountains.length) return;
+    const str = o.fountainStrength ?? 1;
+    noSym = true;   // each fountain already holds its symmetry copies from when it was placed
+    for (const fnt of fountains) {
+      fnt.ang += fnt.spin * dt;
+      const fx = Math.cos(fnt.ang), fy = Math.sin(fnt.ang);
+      splat(fnt.x, fnt.y, fx * FOUNTAIN_PUSH * str * dt, fy * FOUNTAIN_PUSH * str * dt, 0, FOUNTAIN_R, true);
+      if (o.water) {
+        const u = use('fountainDye', S.dye.write); gl.uniform1i(u.uSrc, tex(0, S.dye.read)); gl.uniform2f(u.c, fnt.x, fnt.y);
+        gl.uniform1f(u.R, FOUNTAIN_DYE_R); gl.uniform1f(u.sd, fnt.sd); gl.uniform1f(u.rate, 1 - Math.exp(-FOUNTAIN_TRICKLE * str * dt));
+        gl.uniform3fv(u.ab, fnt.ab); blit(S.dye.write); S.dye.swap();
+      }
+    }
+    noSym = false;
   }
   function stepDrops(dt) {
     if (!drops.length || o.grid >= 2) { drops = []; return; }
@@ -1080,6 +1230,7 @@ function createSwirl2(gl, opts = {}) {
     if (o.text && o.textMode === 1) { u = use('obstacle', S.vel.write); gl.uniform1i(u.uVel, tex(0, S.vel.read)); gl.uniform1i(u.uTxt, tex(1, { t: txtT })); blit(S.vel.write); S.vel.swap(); }
     // fluidity: per-frame retention of motion
     u = use('scale', S.vel.write); gl.uniform1i(u.uSrc, tex(0, S.vel.read)); gl.uniform1f(u.k, Math.pow(o.fluidity, f60)); blit(S.vel.write); S.vel.swap();
+    stepFountains(dt);   // fountains: a steady push (and, in water, a trickle of dye) every frame, after fluidity so it doesn't fade away
 
     const relax = 1 - Math.exp(-dt * o.heal);
     if (!(o.compose && !o.fluids && o.paint !== 'ink')) composing = false;
@@ -1113,24 +1264,60 @@ function createSwirl2(gl, opts = {}) {
     const mk = () => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, W, H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
       for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
       const fb = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0); return { t, fb, w: W, h: H }; };
-    const tgt = mk(), out = o.outline ? mk() : null, keep = S.out;
+    // fx: colour split / hair streaks are post passes too (same as outline): give them the same full-resolution
+    // scratch-buffer swap so Save PNG draws them at export resolution, not screen resolution
+    const needPost = o.outline || o.gloss > 0 || o.split > 0 || o.hair > 0;
+    const tgt = mk(), out = needPost ? mk() : null, out2 = needPost ? mk() : null, keep = S.out, keep2 = S.out2;
     try {
-      pxs = s; if (out) S.out = out;
+      pxs = s; if (out) { S.out = out; S.out2 = out2; }
       render(lastT, tgt);
       const data = new Uint8Array(W * H * 4); gl.bindFramebuffer(gl.FRAMEBUFFER, tgt.fb); gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, data);
       return { width: W, height: H, scale: s, data };
-    } finally { pxs = 1; S.out = keep; for (const f of [tgt, out]) if (f) { gl.deleteFramebuffer(f.fb); gl.deleteTexture(f.t); } gl.bindFramebuffer(gl.FRAMEBUFFER, null); }
+    } finally { pxs = 1; S.out = keep; S.out2 = keep2; for (const f of [tgt, out, out2]) if (f) { gl.deleteFramebuffer(f.fb); gl.deleteTexture(f.t); } gl.bindFramebuffer(gl.FRAMEBUFFER, null); }
   }
   function render(t = time, target = null) {
     if (!target) lastT = t;
-    if (o.water) { const u = use('waterShow', target || { w: o.width, h: o.height }); gl.uniform1i(u.uSrc, tex(0, S.dye.read)); blit(target); return; }
-    const line = o.outline && S.out, to = line ? S.out : target;
-    const u = renderBands(S.P.read, to, t, true);
+    if (o.water) {   // glass dish (o.dish): the same dye render, with a shadow, a caustic shimmer and a highlight on top
+      const u = use(o.dish ? 'waterDish' : 'waterShow', target || { w: o.width, h: o.height });
+      gl.uniform1i(u.uSrc, tex(0, S.dye.read)); if (o.dish) gl.uniform1f(u.time, t);
+      blit(target); return;
+    }
+    const to0 = target || { w: o.width, h: o.height };
+    const line = o.outline && S.out, doGloss = (o.gloss || 0) > 0 && S.out2, doSplit = o.split > 0 && S.out2, doHair = o.hair > 0 && S.out2;
+    const stages = (line ? 1 : 0) + (doGloss ? 1 : 0) + (doSplit ? 1 : 0) + (doHair ? 1 : 0);   // post passes, in this order
+    const bufs = [S.out, S.out2]; let bi = 0, done = 0;
+    const base = stages ? bufs[bi] : target;
+    const u = renderBands(S.P.read, base, t, true);
     gl.uniform1f(u.inkOn, o.paint === 'ink' ? 1 : 0); gl.uniform1i(u.uInk, tex(1, S.ink.read));
-    blit(to);
+    blit(base);
+    let cur = base;
     if (line) {   // outline: draw the picture, then the lines around its colour regions on top
-      const v = use('outline', target || { w: o.width, h: o.height });
-      gl.uniform1i(v.uSrc, tex(0, S.out)); gl.uniform1f(v.pxs, pxs); blit(target);
+      done++; const nxt = done < stages ? bufs[(bi = 1 - bi)] : target;
+      const v = use('outline', to0); gl.uniform1i(v.uSrc, tex(0, cur)); gl.uniform1f(v.pxs, pxs); blit(nxt); cur = nxt;
+    }
+    // gloss (o.gloss, post pass): the finished picture (outline included, if on) lit as raised glossy paint
+    if (doGloss) {
+      done++; const nxt = done < stages ? bufs[(bi = 1 - bi)] : target;
+      const v = use('gloss', to0); gl.uniform1i(v.uSrc, tex(0, cur)); gl.uniform1f(v.amt, o.gloss); gl.uniform1f(v.pxs, pxs); blit(nxt); cur = nxt;
+    }
+    // ==== fx: COLOUR SPLIT (o.split, off by default) ===========================================================
+    // a post pass over the finished picture (chromatic fringing along the local flow velocity, see the 'split'
+    // shader above). Kept as its own clearly-delimited step so another post pass (e.g. a 'gloss' pass on another
+    // branch) can be chained before or after it without touching this block.
+    if (doSplit) {
+      done++; const nxt = done < stages ? bufs[(bi = 1 - bi)] : target;
+      const v = use('split', to0);
+      gl.uniform1i(v.uSrc, tex(0, cur)); gl.uniform1i(v.uVelD, tex(8, S.vel.read)); gl.uniform2f(v.mvTexel, 1 / S.sw, 1 / S.sh);
+      gl.uniform1f(v.split, o.split); gl.uniform1f(v.pxs, pxs); blit(nxt); cur = nxt;
+    }
+    // ==== fx: HAIR STREAKS (o.hair, off by default) =============================================================
+    // a post pass over the finished picture (fine LIC-style streaks along the local flow velocity, see the 'hair'
+    // shader above). Kept as its own clearly-delimited step, same reason as colour split above.
+    if (doHair) {
+      done++; const nxt = done < stages ? bufs[(bi = 1 - bi)] : target;
+      const v = use('hair', to0);
+      gl.uniform1i(v.uSrc, tex(0, cur)); gl.uniform1i(v.uVelD, tex(8, S.vel.read)); gl.uniform2f(v.mvTexel, 1 / S.sw, 1 / S.sh);
+      gl.uniform1f(v.hair, o.hair); gl.uniform1f(v.pxs, pxs); blit(nxt); cur = nxt;
     }
   }
   // switching paint mode: start the ink from the current bands so nothing jumps
@@ -1149,6 +1336,7 @@ function createSwirl2(gl, opts = {}) {
   }
   function resize(w, h) { o.width = w; o.height = h; alloc(); setText(); }
   alloc(); setText();
-  return { step, render, exportPixels, splat, drop, soap, get dropping() { return drops.length > 0; }, randomize, boost, burst, zoom, reset, resize, set, opts: o, get depth() { return depth; }, setImage, get hasImage() { return hasImage; }, get peek() { return peeking; }, set peek(v) { peeking = !!v; } };
+  return { step, render, exportPixels, splat, drop, soap, get dropping() { return drops.length > 0; }, randomize, boost, burst, zoom, reset, resize, set, opts: o, get depth() { return depth; }, setImage, get hasImage() { return hasImage; }, get peek() { return peeking; }, set peek(v) { peeking = !!v; },
+    plantFountain, clearFountains, plantSprings, get fountainCount() { return fountains.length; } };
 }
 if (typeof window !== 'undefined') { window.createSwirl2 = createSwirl2; window.SWIRL2_PALETTES = SWIRL2_PALETTES; window.SWIRL2_PRESETS = SWIRL2_PRESETS; window.SWIRL2_FILLS = SWIRL2_FILLS; }
