@@ -85,6 +85,8 @@ const SWIRL2_PRESETS = {
   // Angus 2026-10-05: "drops of food colouring into water or milk": tap to drop colour onto milk, drag to marble it
   // Angus 2026-10-05: ink dropped into a dish of water, from above: tap to drop, it blooms and curls by itself
   'Ink in Water':{ fluids: true,  fluidity: 0.985, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 3,   heal: 0, jitter: 0, ambient: 0.15, paint: 'bands', palette: 'food', fadeMin: 0, fill: 'squares', water: true, drops: true },
+  // Angus 2026-10-05: Mandala: Ink in Water in a kaleidoscope (6 copies, each mirrored): every drop and stir is repeated around the centre
+  'Mandala':     { fluids: true,  fluidity: 0.985, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 3,   heal: 0, jitter: 0, ambient: 0, paint: 'bands', palette: 'food', fadeMin: 0, fill: 'squares', water: true, drops: true, sym: 6, symMirror: true, dropSize: 0.06 },
   'Milk Drops':  { fluids: false, fluidity: 1,     viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 0.15,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'food', freq: 4.9, fadeMin: 0, fadeMax: 22, fill: 'mixed squares', rows: 5, instant: true, compose: true, drops: true, milk: true },
   'Mosaic 2':    { fluids: false, fluidity: 1,     viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'pop', freq: 4.9, fadeMin: 8, fadeMax: 22, fill: 'mixed squares', rows: 5, instant: true, startStir: 6 },   // starts as if you pressed n, then m 6 times
   // a pair to compare (Angus): high energy, fluids off. jag1 follows the motion with straight lines between its grid
@@ -745,7 +747,22 @@ function createSwirl2(gl, opts = {}) {
 
   // x,y in 0..1 (y up). force in uv/sec; spin is per-call strength; radius in uv^2
   const INSTANT = (typeof window !== 'undefined' && window.INSTANT_K) || 0.008;   // instant thickness: added splat radius per unit of thickness
+  // symmetry (2026-10-05, Angus: "Mandala"): every stroke, drop and random stir copied sym times around the screen's
+  // centre, and with symMirror each copy also mirrored (a kaleidoscope). Positions in uv, vectors in square units
+  let inSym = false, noSym = false;
+  const symOn = () => o.sym > 1 && o.grid < 2 && !inSym && !noSym;
+  function symCopies(x, y, vx = 0, vy = 0) {
+    const n = Math.round(o.sym), a = aspect(), dx = (x - 0.5) * a, dy = y - 0.5, out = [];
+    for (let m = 0; m < (o.symMirror ? 2 : 1); m++) for (let k = 0; k < n; k++) {
+      const t = 2 * Math.PI * k / n, c = Math.cos(t), s = Math.sin(t), ry = m ? -dy : dy, rvy = m ? -vy : vy;
+      out.push([0.5 + (c * dx - s * ry) / a, 0.5 + s * dx + c * ry, c * vx - s * rvy, s * vx + c * rvy, m]);
+    }
+    return out;
+  }
   function splat(x, y, fx, fy, spin = 0, radius = 0.0025, ambient = false) {
+    if (symOn()) { inSym = true;
+      try { for (const [X, Y, VX, VY, m] of symCopies(x, y, fx * S.sw, fy * S.sh)) splat(X, Y, VX / S.sw, VY / S.sh, m ? -spin : spin, radius, ambient); }
+      finally { inSym = false; } return; }
     if (!ambient) { idleT = 0; radius *= (o.reach || 1) ** 2; }   // reach: how far your presses spread (radius is in uv^2)
     // instant: thickness acts on each push as you make it (spread once into a broad soft blob of the same total
     // motion) instead of spreading the motion every frame, so nothing creeps while you move and nothing is cut off
@@ -763,7 +780,7 @@ function createSwirl2(gl, opts = {}) {
   function randomize(energy = 1) {
     const R = Math.random;
     if (o.grid >= 2) { const { ms, os } = lattice(); for (let i = 0; i < os.length; i++) { os[i] = R() * TAU; ms[i] = 0.06 * energy * (0.5 + R()); } return; }
-    if (o.water) { for (let k = 0; k < 5; k++) drop(0.15 + 0.7 * R(), 0.15 + 0.7 * R()); return; }   // water: n drops a few at random
+    if (o.water) { for (let k = 0; k < (o.sym > 1 ? 2 : 5); k++) drop(0.15 + 0.7 * R(), 0.15 + 0.7 * R()); return; }   // water: n drops a few at random
     [S.vel.read, S.vel.write].forEach(clear); idleT = 0;
     if (o.compose && !o.fluids) {   // compose: n starts the picture over too, so it looks as when the preset is chosen
       clear(S.velPrev); composing = true; use('init', S.P.write); blit(S.P.write); S.P.swap(); }
@@ -889,17 +906,21 @@ function createSwirl2(gl, opts = {}) {
   function drop(x, y, size) {
     const pl = SWIRL2_PALETTES[o.palette] || o.palette, n = pl.pal.length;
     let k; do k = Math.floor(Math.random() * n); while (n > 1 && k === lastLab); lastLab = k;
-    drops.push({ x, y, r: (size || o.dropSize || 0.09) * (0.75 + 0.5 * Math.random()), t: 0, a: 0, k, col: hex(pl.pal[k]), sd: Math.random() * 50 });
-    const sp = o.splash ?? 1;
-    if (o.water) { idleT = 0; for (let i = 0; i < Math.round(5 * sp); i++) {   // splash: how many of these eddies (5 at 1), and how strong   // a few small eddies around the landing spot: the splash's unevenness
-      const a = Math.random() * TAU, rr = drops[drops.length - 1].r * (0.4 + 0.6 * Math.random());
-      splat(x + Math.cos(a) * rr * o.height / o.width, y + Math.sin(a) * rr, 0, 0, (Math.random() < 0.5 ? -1 : 1) * (3 + 5 * Math.random()) * (0.5 + 0.5 * sp), 0.0006, true); } }
+    const r = (size || o.dropSize || 0.09) * (0.75 + 0.5 * Math.random()), sd = Math.random() * 50, sp = o.splash ?? 1;
+    const ed = []; for (let i = 0; i < Math.round(5 * sp); i++) ed.push([Math.random() * TAU, r * (0.4 + 0.6 * Math.random()), (Math.random() < 0.5 ? -1 : 1) * (3 + 5 * Math.random()) * (0.5 + 0.5 * sp)]);
+    const at = symOn() ? symCopies(x, y) : [[x, y, 0, 0, 0]];
+    for (const [X, Y, , , m] of at) {   // symmetry: the same drop (colour, size, splash) at every copy
+      drops.push({ x: X, y: Y, r, t: 0, a: 0, k, col: hex(pl.pal[k]), sd });
+      if (o.water) { idleT = 0; noSym = true; for (const [a0, rr, s] of ed) {   // splash: a few small eddies around the landing spot (5 at 1)
+        const a = m ? -a0 : a0; splat(X + Math.cos(a) * rr * o.height / o.width, Y + Math.sin(a) * rr, 0, 0, m ? -s : s, 0.0006, true); } noSym = false; }
+    }
   }
   // water: each drop puts in its dye at once, then blooms outward for WATER_T seconds, the push easing off
   const WATER_T = 1.6, SOAP_T = 2.2;
   // soap (shift+i): a drop of dish soap: no colour, a strong wide push that makes the colours rush away from it
   // (water); on milk drops (marbling) a clear drop that pushes the rings aside and leaves bare milk
   function soap(x, y) {
+    if (symOn()) { inSym = true; try { for (const [X, Y] of symCopies(x, y)) soap(X, Y); } finally { inSym = false; } return; }
     if (o.water) drops.push({ x, y, r: 0.18, t: 0, a: 0, k: 0, sd: Math.random() * 50, soap: true, inked: true });
     else drops.push({ x, y, r: 0.12, t: 0, a: 0, k: -1, col: [1, 1, 1], sd: 0 });
     idleT = 0;
@@ -939,10 +960,12 @@ function createSwirl2(gl, opts = {}) {
     const f60 = dt * 60;
     gl.disable(gl.BLEND); gl.disable(gl.DEPTH_TEST);
     ambT += dt;
+    noSym = true;   // (the idle eddies are not copied by symmetry)
     if (o.ambient > 0 && o.fluidity < 1) for (let i = 0; i < 3; i++) {   // three slow drifting eddies keep it alive when idle (not at fluidity 1: then it stays as you leave it)
       const t = ambT * (0.05 + i * 0.017) + i * 2.1;
       splat(0.5 + 0.35 * Math.cos(t * 1.3 + i), 0.5 + 0.32 * Math.sin(t * 0.9 + i * 2), 0, 0, (i % 2 ? -1 : 1) * 0.4 * o.ambient * dt, 0.02, true);
     }
+    noSym = false;
     let u;
     if (o.fluids) {
       if (o.curl > 0) {
