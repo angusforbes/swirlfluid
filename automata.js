@@ -64,8 +64,8 @@ const AUTOMATA_PROFILES = (() => {
     // Ice Crack on squares of mixed sizes, each colour noise at its own grain (Angus 2026-10-05)
     'Ice Crack (mixed)': P(0.824063, 1.079861, 1.100694, 0.975694, 0.95, 0.000001, 0.000001, 0.08, { grid: 14, fluids: false, mesh: true, torus: false, bg: 'mixed squares' }),
     // the mesh in mixed sizes (squares 8 cells across split at random): big shards beside fine ones
-    'Stained Glass (mixed mesh)': P(0.817917, 1.047367, 1.100694, 1.024306, 0.99, 0, 0.785398, 0.07, { grid: 16, fluids: false, mesh: true, meshMix: 0.55, zoom: -0.04, torus: false, bg: 'colour noise lo-res' }),
-    'Ice Crack (mixed mesh)': P(0.824063, 1.079861, 1.100694, 0.975694, 0.95, 0.000001, 0.000001, 0.08, { grid: 24, fluids: false, mesh: true, meshMix: 0.55, torus: false }),
+    // (hidden 2026-10-05, Angus: mixed mesh "gives really bad results") 'Stained Glass (mixed mesh)': P(0.817917, 1.047367, 1.100694, 1.024306, 0.99, 0, 0.785398, 0.07, { grid: 16, fluids: false, mesh: true, meshMix: 0.55, zoom: -0.04, torus: false, bg: 'colour noise lo-res' }),
+    // (hidden 2026-10-05, Angus: mixed mesh "gives really bad results") 'Ice Crack (mixed mesh)': P(0.824063, 1.079861, 1.100694, 0.975694, 0.95, 0.000001, 0.000001, 0.08, { grid: 24, fluids: false, mesh: true, meshMix: 0.55, torus: false }),
     // the rest of the iOS presets, values as in PresetsCollection.m (blend, bright, contrast, sat, zoom | fluidity,
     // momentum, direction, angularity, energy | rows), all on the mesh
     "Jupiter's Moons (iOS)": P(0.93, 1.0, 1.03, 1.04, 0.9, 0.9, Math.PI / 4, 1.0, { grid: 14, dir: 0.5, mesh: true, torus: false, bg: 'colour noise' }),

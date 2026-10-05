@@ -84,9 +84,13 @@ const SWIRL2_PRESETS = {
   'Mosaic 2':    { fluids: false, fluidity: 1,     viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'pop', freq: 4.9, fadeMin: 8, fadeMax: 22, fill: 'mixed squares', rows: 5, instant: true, startStir: 6 },   // starts as if you pressed n, then m 6 times
   // a pair to compare (Angus): high energy, fluids off. jag1 follows the motion with straight lines between its grid
   // points (sawtooth edges where it bends hard); jag2 is the same with smooth on (cubic B-spline)
-  // fold (2026-10-05): Mosaic and Mosaic 2 drawn through the folding triangle mesh (straight-edged shards)
-  'Shards':      { fluids: false, fluidity: 0.999, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1.3, grid: 0, curl: 15,  heal: 0,   jitter: 0, memory: 0.99,  carry: 0,   paint: 'bands', wash: true, facets: false, crisp: 0, palette: 'jelly', freq: 3.2, fadeMin: 0, fadeMax: 0, fill: 'squares', rows: 2, grain: false, fold: true, foldRows: 12 },
-  'Shards 2':    { fluids: false, fluidity: 1,     viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'pop', freq: 4.9, fadeMin: 8, fadeMax: 22, fill: 'mixed squares', rows: 5, instant: true, startStir: 6, fold: true, foldRows: 16 },
+  // fold (2026-10-05): Mosaic and Mosaic 2 drawn through the folding triangle mesh (straight-edged shards); hidden, the fold button stays
+  // (hidden 2026-10-05, Angus: "don't work so well") 'Shards':      { fluids: false, fluidity: 0.999, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1.3, grid: 0, curl: 15,  heal: 0,   jitter: 0, memory: 0.99,  carry: 0,   paint: 'bands', wash: true, facets: false, crisp: 0, palette: 'jelly', freq: 3.2, fadeMin: 0, fadeMax: 0, fill: 'squares', rows: 2, grain: false, fold: true, foldRows: 12 },
+  // (hidden 2026-10-05, Angus: "don't work so well") 'Shards 2':    { fluids: false, fluidity: 1,     viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'pop', freq: 4.9, fadeMin: 8, fadeMax: 22, fill: 'mixed squares', rows: 5, instant: true, startStir: 6, fold: true, foldRows: 16 },
+  // compose and motion colour (2026-10-05): Mosaic 2 where each stroke drags the picture as it is now, and Mosaic 2
+  // coloured by its motion (rings around every whirl, crossings where they meet)
+  'Smudge':      { fluids: false, fluidity: 1,     viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'pop', freq: 4.9, fadeMin: 8, fadeMax: 22, fill: 'mixed squares', rows: 5, instant: true, startStir: 6, compose: true },
+  'Contours':    { fluids: false, fluidity: 1,     viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'pop', freq: 4.9, fadeMin: 8, fadeMax: 22, fill: 'mixed squares', rows: 5, instant: true, startStir: 6, motion: 1 },
   'jag1':        { fluids: false, fluidity: 0.9999, viscosity: 0, momentum: 0, angularity: 0, energy: 2.5, grid: 0, curl: 0, heal: 0, jitter: 0, memory: 0.99, carry: 0, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'sorbet', freq: 2.4, fadeMin: 0, fadeMax: 0, fill: 'squares', rows: 3, spline: false },
   'jag2':        { fluids: false, fluidity: 0.9999, viscosity: 0, momentum: 0, angularity: 0, energy: 2.5, grid: 0, curl: 0, heal: 0, jitter: 0, memory: 0.99, carry: 0, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'sorbet', freq: 2.4, fadeMin: 0, fadeMax: 0, fill: 'squares', rows: 3, spline: true },
   // test pair for the sharpest PNG (Angus 2026-10-04): Mosaic 2 and jag2 exactly, plus smoothPng: Save PNG draws the
@@ -253,6 +257,10 @@ function createSwirl2(gl, opts = {}) {
         if(vL.x<0.) L=-C.x; if(vR.x>1.) R=-C.x; if(vT.y>1.) T=-C.y; if(vB.y<0.) B=-C.y;
         o=vec4(.5*(R-L+T-B),0.,0.,1.); }`,
     scale: `uniform sampler2D uSrc; uniform float k; void main(){ o=texture(uSrc,vUv)*k; }`,
+    // compose (2026-10-05): with fluids off, move the picture as it is now by only what the motion changed this frame,
+    // so each stroke drags the already-stirred picture (folds on folds) instead of adding to one total displacement
+    composeP: VELAT + `uniform sampler2D uSrc, uPrev; uniform vec2 simTexel; uniform float disp;
+      void main(){ vec2 d=(velAt(vUv)-texture(uPrev,vUv).xy)*simTexel*disp; o=vec4(texture(uSrc,vUv-d).xyz,1.); }`,
     press: `uniform sampler2D uP, uDiv;
       void main(){ float L=texture(uP,vL).x, R=texture(uP,vR).x, T=texture(uP,vT).x, B=texture(uP,vB).x;
         o=vec4((L+R+B+T-texture(uDiv,vUv).x)*.25,0.,0.,1.); }`,
@@ -280,6 +288,7 @@ function createSwirl2(gl, opts = {}) {
         o=vec4(clamp(crisp(c,fr),0.,1.),1.); }`,
     display: INIT + `uniform sampler2D uP, uInk; uniform sampler2D uImgT; uniform float imgAspect, imgCells; uniform float sizeMix, inside; uniform sampler2D uTxt, uTxtA; uniform float txtMode; uniform vec3 txtCol; uniform vec4 LP[32], LA[32]; uniform vec2 LH[32]; uniform int nL; uniform float reveal, mapCells, tilePx, peek, time, freq, fadeMin, fadeMax, grain, seqLen, inkOn, starsOn, wash, fill, cells, seed, blocky; uniform vec2 dir, res;
       uniform vec3 pal[8]; uniform float seq[12], npal, hard; uniform vec3 outline, starC;
+      uniform sampler2D uVelD; uniform vec2 mvTexel; uniform float motion, mvDisp;
       vec3 colAt(float k){ int i=int(mod(k,seqLen)); return pal[int(seq[i])]; }
       // colour fade: every square (or band) fades from its colour into a randomly chosen palette colour, each
       // taking its own time between fadeMin and fadeMax seconds (fadeMin 0 = off). Returns (colour step, fade 0..1);
@@ -394,6 +403,11 @@ function createSwirl2(gl, opts = {}) {
             float a=clamp(max(e.x,e.y)*res.y/6.,0.,1.);
             col=outsideStyle(outsideStyle(col, a, reveal), 1.-a, inside); }
         }
+        // motion colour (2026-10-05): every spot coloured by the motion under it, its direction in 6 sectors and its
+        // strength in rings (2 per halving), so every whirl is a set of rings and whirls meet in crossings
+        if(motion>0.&&peek<.5){ vec2 d=texture(uVelD,vUv).xy*mvTexel*mvDisp*vec2(aspect,1.); float m=length(d);
+          if(m>1e-5){ float k=floor(fract(atan(d.y,d.x)/6.28318530718+1.)*6.)+floor(log2(m)*2.);
+            col=mix(col, colAt(k), motion*smoothstep(1e-4,2e-3,m)); } }
         if(hard>.5&&peek<.5){ vec3 b=pal[0]; float bd=9.; for(int i=0;i<8;i++){ if(float(i)>=npal) break; vec3 d=col-pal[i]; float dd=dot(d,d); if(dd<bd){ bd=dd; b=pal[i]; } } col=b; }   // high-contrast palettes: only their own colours, no in-betweens
         if(txtMode>.5&&txtMode<1.5&&peek<.5) col=mix(col, txtCol, texture(uTxt,vUv).r);   // text that stays still, on top
         if(txtMode>3.5&&peek<.5){ vec4 tm=texture(uTxt,vUv);   // inside: the picture only within the letters, with a thin outline
@@ -493,7 +507,7 @@ function createSwirl2(gl, opts = {}) {
   function alloc() {
     const sh_ = o.simRes, sw_ = Math.round(sh_ * aspect());
     const ch = Math.min(o.coordRes, o.height), cw = Math.round(ch * aspect());
-    S = { vel: dbl(sw_, sh_, true),   // full float: fluidity can be 0.99999, which half float would round to 1
+    S = { vel: dbl(sw_, sh_, true), velPrev: fbo(sw_, sh_, true),   // full float: fluidity can be 0.99999, which half float would round to 1
       press: dbl(sw_, sh_), div: fbo(sw_, sh_), curl: fbo(sw_, sh_), v0: fbo(sw_, sh_),
           P: dbl(cw, ch, true), P0: fbo(cw, ch, true), ink: dbl(cw, ch), fresh: fbo(cw, ch), tmp: fbo(cw, ch), out: fbo(o.width, o.height), sw: sw_, sh: sh_ };
     reset();
@@ -535,7 +549,7 @@ function createSwirl2(gl, opts = {}) {
     }
     gl.disable(gl.BLEND); gl.disable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE); gl.disable(gl.SCISSOR_TEST);
     zoomA = 1; zoomB = [0, 0]; depth = 1;
-    [S.vel.read, S.vel.write, S.press.read, S.press.write].forEach(clear);
+    [S.vel.read, S.vel.write, S.press.read, S.press.write, S.velPrev].forEach(clear); composing = true;   // fresh picture and no motion: in step, so a start stir composes in
     if (L) { L.ms.fill(0); L.os.fill(0); }
     use('init', S.P.write); blit(S.P.write); S.P.swap();
     use('init', S.P0); blit(S.P0);
@@ -546,6 +560,7 @@ function createSwirl2(gl, opts = {}) {
     const u = use('display', target || { w: o.width, h: o.height });
     gl.uniform1i(u.uP, tex(0, src)); gl.uniform1i(u.uInk, tex(1, S.div));   // placeholder: never sample the target
     gl.uniform1i(u.uTxt, tex(6, { t: txtT })); gl.uniform1i(u.uTxtA, tex(7, { t: atlasT }));
+    gl.uniform1i(u.uVelD, tex(8, S.vel.read)); gl.uniform2f(u.mvTexel, 1 / S.sw, 1 / S.sh); gl.uniform1f(u.motion, o.motion || 0); gl.uniform1f(u.mvDisp, o.fluids ? 0.06 : o.energy * 0.06);
     if (o.textMode === 3 && letters.length) { const n = letters.length, lp = new Float32Array(128), la = new Float32Array(128), lh = new Float32Array(64);
       letters.forEach((L, i) => { lp.set([L.pos[0], L.pos[1], L.ang, 0], i * 4); la.set(L.atlas, i * 4); lh.set(L.hs, i * 2); });
       gl.uniform4fv(u.LP, lp); gl.uniform4fv(u.LA, la); gl.uniform2fv(u.LH, lh); gl.uniform1i(u.nL, n); } else gl.uniform1i(u.nL, 0); gl.uniform1f(u.txtMode, o.text && o.textMode ? o.textMode : 0); gl.uniform3fv(u.txtCol, o.textColour === 'black' ? [0.02, 0.02, 0.03] : [1, 1, 1]);
@@ -731,7 +746,7 @@ function createSwirl2(gl, opts = {}) {
   // each frame: measure the motion under every letter (a tiny render, read back), then move and turn it. Fluids on:
   // it travels with the flow; fluids off (the picture is the original shifted by the motion): it sits at its home
   // shifted the same way, so it stays with the colours around it
-  let probeT = null;
+  let probeT = null, composing = false;
   function driftLetters(dt) {
     if (!letters.length || !f32) return;
     if (!probeT) probeT = fbo(32, 1, true);
@@ -856,6 +871,7 @@ function createSwirl2(gl, opts = {}) {
     u = use('scale', S.vel.write); gl.uniform1i(u.uSrc, tex(0, S.vel.read)); gl.uniform1f(u.k, Math.pow(o.fluidity, f60)); blit(S.vel.write); S.vel.swap();
 
     const relax = 1 - Math.exp(-dt * o.heal);
+    if (!(o.compose && !o.fluids && o.paint !== 'ink')) composing = false;
     if (o.paint === 'ink') {
       renderBands(S.P0, S.fresh, time, false); blit(S.fresh);
       u = use('inkFwd', S.tmp); gl.uniform1i(u.uVel, tex(0, S.vel.read)); gl.uniform1i(u.uSrc, tex(1, S.ink.read)); gl.uniform1f(u.dt, dt * o.energy); blit(S.tmp);
@@ -863,6 +879,11 @@ function createSwirl2(gl, opts = {}) {
       gl.uniform1f(u.dt, dt * o.energy); gl.uniform1f(u.relax, relax); gl.uniform1f(u.flow, o.fluids ? 1 : 0); gl.uniform1f(u.disp, o.energy * 0.06); gl.uniform1f(u.spline, o.spline ? 1 : 0); gl.uniform1f(u.reveal, o.reveal || 0); gl.uniform1f(u.mac, o.smooth ? 0 : 1);
       gl.uniform1f(u.sat, Math.pow(o.saturation, f60)); gl.uniform1f(u.bright, Math.pow(o.brightness, f60)); gl.uniform1f(u.contrast, Math.pow(o.contrast, f60));
       blit(S.ink.write); S.ink.swap();
+    } else if (o.compose && !o.fluids) {
+      if (!composing) { u = use('scale', S.velPrev); gl.uniform1i(u.uSrc, tex(0, S.vel.read)); gl.uniform1f(u.k, 1); blit(S.velPrev); composing = true; }   // just switched on: start from now
+      u = use('composeP', S.P.write); gl.uniform1i(u.uVel, tex(0, S.vel.read)); gl.uniform1i(u.uSrc, tex(1, S.P.read)); gl.uniform1i(u.uPrev, tex(2, S.velPrev));
+      gl.uniform1f(u.disp, o.energy * 0.06); blit(S.P.write); S.P.swap();
+      u = use('scale', S.velPrev); gl.uniform1i(u.uSrc, tex(0, S.vel.read)); gl.uniform1f(u.k, 1); blit(S.velPrev);
     } else if (o.fold && !o.fluids) foldStep();
     else {
       u = use('advectP', S.P.write); gl.uniform1i(u.uVel, tex(0, S.vel.read)); gl.uniform1i(u.uSrc, tex(1, S.P.read));

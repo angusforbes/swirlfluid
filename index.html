@@ -86,7 +86,7 @@
       <!-- lattice, hidden for now: <button id="facetBtn" title="lattice: each triangle moves its piece rigidly, like cut planes">facets</button> -->
       <button id="washBtn" title="draw the bands as watercolour instead of poster">wash</button>
       <button id="grainBtn" title="wash: pigment granulation and paper grain; off keeps the colours solid">grain</button>
-      <button id="outlineBtn" title="a thin black line around every colour region; the colours inside stay clean">outline</button><button id="foldBtn" title="fold: with fluids off, push a mesh of triangles instead of looking each pixel up, so where the motion crosses itself the triangles fold over each other (straight-edged shards)">fold</button><button id="splineBtn" title="smooth: with fluids off, follow the motion with smooth curves instead of straight lines between grid points (no sawtooth edges at high energy)">smooth</button><button id="instantBtn" title="instant: thickness shapes each push the moment you make it (no spreading over time, so nothing creeps while you move or stops abruptly)">instant</button><button id="revealBtn" title="outside: draw what the stirring pulled in from beyond the screen differently from what was on screen and moved (the main motion, the same with ink on or off)">outside: as is</button><button id="insideBtn" title="inside: draw what was on screen and moved (everything the stirring did not pull in from beyond the screen) as is, dimmed, grey, washed, black or white">inside: as is</button>
+      <button id="outlineBtn" title="a thin black line around every colour region; the colours inside stay clean">outline</button><button id="composeBtn" title="compose: with fluids off, each stroke drags the picture as it is now (folds on folds) instead of adding to one total push">compose</button><button id="foldBtn" title="fold: with fluids off, push a mesh of triangles instead of looking each pixel up, so where the motion crosses itself the triangles fold over each other (straight-edged shards)">fold</button><button id="splineBtn" title="smooth: with fluids off, follow the motion with smooth curves instead of straight lines between grid points (no sawtooth edges at high energy)">smooth</button><button id="instantBtn" title="instant: thickness shapes each push the moment you make it (no spreading over time, so nothing creeps while you move or stops abruptly)">instant</button><button id="revealBtn" title="outside: draw what the stirring pulled in from beyond the screen differently from what was on screen and moved (the main motion, the same with ink on or off)">outside: as is</button><button id="insideBtn" title="inside: draw what was on screen and moved (everything the stirring did not pull in from beyond the screen) as is, dimmed, grey, washed, black or white">inside: as is</button>
     </div>
   </div>
   <div id="autoTune" class="hide">
@@ -114,8 +114,8 @@
   <div class="rowlabel" id="autoLabel">fluid automata</div><div class="presets" id="profiles"></div>
 </div>
 <div id="err"></div>
-<script src="swirl2.js?v=51"></script>
-<script src="automata.js?v=51"></script>
+<script src="swirl2.js?v=52"></script>
+<script src="automata.js?v=52"></script>
 <script>
 // Two engines on one canvas: "swirl" (swirl2.js: a velocity fluid that paints poster bands, ink, facets...) and
 // "fluid automata" (automata.js: an 8-bit energy automaton that smears a background image). Only one runs at a time.
@@ -137,7 +137,7 @@ const baseOfA = n => BUILTIN_A.includes(n) ? n : (AUTOMATA_PROFILES[n]?.base || 
 const PROFILES = Object.keys(AUTOMATA_PROFILES), BGS = Object.keys(AUTOMATA_BGS);
 const coarse = matchMedia('(pointer: coarse)').matches;
 const FILLS = SWIRL2_FILLS;
-const BASE = { fill: 'squares', cell: Math.max(4, Math.round(innerHeight / 24)), freq: 3, palette: 'ocean', saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, wash: false, facets: false, jitter: 0, ambient: 1, fadeMin: 8, fadeMax: 22, outline: false, grain: true, tile: 1, mapCell: 1, spline: false, reach: 1, instant: false, startStir: 0, fold: false, foldRows: 16, smoothPng: true, reveal: 0, inside: 0, burst: 0.01, imgTile: 1 };
+const BASE = { fill: 'squares', cell: Math.max(4, Math.round(innerHeight / 24)), freq: 3, palette: 'ocean', saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, wash: false, facets: false, jitter: 0, ambient: 1, fadeMin: 8, fadeMax: 22, outline: false, grain: true, tile: 1, mapCell: 1, spline: false, reach: 1, instant: false, startStir: 0, fold: false, foldRows: 16, compose: false, motion: 0, smoothPng: true, reveal: 0, inside: 0, burst: 0.01, imgTile: 1 };
 // the knobs: [key, label, min, max, step, format]
 const KNOBS = [
   // fluidity: finer toward the top: the left half covers 0.9 to 0.99, then each further stretch adds a 9 (0.999,
@@ -173,7 +173,8 @@ const KNOBS = [
   // one slider, two knobs: each square takes between fadeMin and fadeMax seconds to fade into a new colour (0 = off)
   ['fadeMin', 'colour fade', 0, 60, 1, null, { dual: 'fadeMax', fmt: (a, b) => a ? (a === b ? a : a + '–' + b) + ' s' : 'off' }],
   ['fadeMax', '', 0, 60, 1, null, { hidden: true }],
-  ['foldRows', 'fold rows', 3, 64, 1, v => Math.round(v)],   // fold: how many rows of triangles (fewer = bigger shards)
+  ['foldRows', 'fold rows', 3, 64, 1, v => Math.round(v)],
+  ['motion', 'motion colour', 0, 1, 0.01, v => v > 0 ? Math.round(v * 100) + '%' : 'off'],   // colour by the motion: direction sectors x strength rings   // fold: how many rows of triangles (fewer = bigger shards)
 ];
 const maxCell = () => Math.max(2, innerHeight / 2);   // the coarsest background: 2 rows of cells
 const maxTile = () => Math.max(2, innerHeight / 50);   // the coarsest pixelate: 50 rows
@@ -194,7 +195,7 @@ const IMAGE_KNOBS = [
   ['bright', 'brightness', 0.8, 1.25, 0.001, v => v.toFixed(3)],
   ['contrast', 'contrast', 0.8, 1.3, 0.001, v => v.toFixed(3)],
   ['sat', 'saturation', 0, 1.4, 0.005, v => v.toFixed(3)],
-  ['meshMix', 'mesh mix', 0, 1, 0.01, v => v > 0 ? v.toFixed(2) : 'even'],   // mesh presets: squares of mixed sizes (0 = the even iOS mesh)
+  // (hidden 2026-10-05 with the mixed-mesh presets) ['meshMix', 'mesh mix', 0, 1, 0.01, v => v > 0 ? v.toFixed(2) : 'even'],   // mesh presets: squares of mixed sizes (0 = the even iOS mesh)
 ];
 const A_KNOBS = FLUID_KNOBS.concat(IMAGE_KNOBS);
 
@@ -326,7 +327,8 @@ const IDLE = {   // why a setting does nothing right now ('' = it is working)
 const IDLE_BTNS = { /* facetBtn: o => o.grid >= 2 ? '' : 'no effect with the lattice off', (lattice, hidden for now) */ instantBtn: o => o.viscosity > 0 ? '' : 'no effect while thickness is 0', grainBtn: o => o.wash ? '' : 'no effect with wash off',
   insideBtn: o => o.fluids && o.paint === 'ink' ? 'no effect with fluids and ink both on' : '',
   revealBtn: o => o.fluids && o.paint === 'ink' ? 'no effect with fluids and ink both on' : '', splineBtn: o => !o.fluids && o.grid < 2 && !o.fold ? '' : o.fold ? 'no effect with fold on' : 'only with fluids off (and the lattice off)',
-  foldBtn: o => !o.fluids && o.paint !== 'ink' ? '' : 'only with fluids off and bands paint' };
+  foldBtn: o => o.compose ? 'no effect with compose on' : !o.fluids && o.paint !== 'ink' ? '' : 'only with fluids off and bands paint',
+  composeBtn: o => !o.fluids && o.paint !== 'ink' ? '' : 'only with fluids off and bands paint' };
 function idleKnobs(o) {
   for (const [k, x] of Object.entries(inputs.swirl)) { if (!x.l) continue; const why = IDLE[k]?.(o) || '';
     x.l.classList.toggle('idle', !!why); x.l.title = (TIPS[k] || '') + (why ? ' (' + why + ')' : ''); }
@@ -361,7 +363,7 @@ function dualSlider(ka, kb, label, min, max, step, fmt, el, which) {
 sliders(KNOBS, $('sliders'), 'swirl');
 sliders(FLUID_KNOBS, $('fluidSliders'), 'automata'); sliders(IMAGE_KNOBS, $('imageSliders'), 'automata');
 const toggle = (id, key, eng) => $(id).onclick = () => { const e = eng(); e.set({ [key]: !e.opts[key] }); sync(); };
-toggle('fluidsBtn', 'fluids', getSwirl); toggle('foldBtn', 'fold', getSwirl); /* toggle('facetBtn', 'facets', getSwirl); (lattice, hidden for now) */ toggle('instantBtn', 'instant', getSwirl);
+toggle('fluidsBtn', 'fluids', getSwirl); toggle('foldBtn', 'fold', getSwirl); toggle('composeBtn', 'compose', getSwirl); /* toggle('facetBtn', 'facets', getSwirl); (lattice, hidden for now) */ toggle('instantBtn', 'instant', getSwirl);
 const REVEAL = ['as is', 'dimmed', 'grey', 'washed', 'black', 'white'];
 $('insideBtn').onclick = () => { const e = getSwirl(); e.set({ inside: ((e.opts.inside || 0) + 1) % REVEAL.length }); sync(); };
 $('revealBtn').onclick = () => { const e = getSwirl(); e.set({ reveal: ((e.opts.reveal || 0) + 1) % REVEAL.length }); sync(); }; toggle('washBtn', 'wash', getSwirl); toggle('outlineBtn', 'outline', getSwirl); toggle('grainBtn', 'grain', getSwirl); toggle('splineBtn', 'spline', getSwirl);
@@ -385,7 +387,7 @@ function sync() {
     [...dots.children].forEach(d => d.classList.toggle('on', d.dataset.n === o.palette));
     [...$('fills').children].forEach(b => b.classList.toggle('on', b.textContent === o.fill));
     $('fluidsBtn').classList.toggle('on', !!o.fluids); $('inkBtn').classList.toggle('on', o.paint === 'ink');
-    $('washBtn').classList.toggle('on', !!o.wash); /* $('facetBtn').classList.toggle('on', !!o.facets); (lattice, hidden for now) */ $('instantBtn').classList.toggle('on', !!o.instant); $('foldBtn').classList.toggle('on', !!o.fold); $('revealBtn').textContent = 'outside: ' + REVEAL[o.reveal || 0]; $('insideBtn').textContent = 'inside: ' + REVEAL[o.inside || 0]; $('revealBtn').classList.toggle('on', !!o.reveal); $('outlineBtn').classList.toggle('on', !!o.outline); $('grainBtn').classList.toggle('on', o.grain !== false); $('splineBtn').classList.toggle('on', !!o.spline); idleKnobs(o);
+    $('washBtn').classList.toggle('on', !!o.wash); /* $('facetBtn').classList.toggle('on', !!o.facets); (lattice, hidden for now) */ $('instantBtn').classList.toggle('on', !!o.instant); $('foldBtn').classList.toggle('on', !!o.fold); $('composeBtn').classList.toggle('on', !!o.compose); $('revealBtn').textContent = 'outside: ' + REVEAL[o.reveal || 0]; $('insideBtn').textContent = 'inside: ' + REVEAL[o.inside || 0]; $('revealBtn').classList.toggle('on', !!o.reveal); $('outlineBtn').classList.toggle('on', !!o.outline); $('grainBtn').classList.toggle('on', o.grain !== false); $('splineBtn').classList.toggle('on', !!o.spline); idleKnobs(o);
   }
 }
 function setEngine(e) {
