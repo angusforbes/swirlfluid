@@ -376,8 +376,11 @@ function createSwirl2(gl, opts = {}) {
         o=vec4(clamp(s.x-m*.5,0.,1.),v,0.,1.); }`,
     // carried by the fluid (semi-Lagrangian, same velocity field as everything else); the chemistry itself does its
     // own diffusion, so no extra blur here
-    growAdv: VELAT + `uniform sampler2D uSrc; uniform vec2 simTexel; uniform float dt;
-      void main(){ vec2 c=vUv-dt*velAt(vUv)*simTexel; o=vec4(texture(uSrc,c).xy,0.,1.); }`,
+    // mode 0: carried by the flow (fluids, water); 1: moved as the compose picture is, by this frame's change in
+    // displacement (fluids off + compose); 2: stays put (other fluids-off modes, where vel is not a flow)
+    growAdv: VELAT + `uniform sampler2D uSrc, uPrev; uniform vec2 simTexel; uniform float dt, mode, disp;
+      void main(){ vec2 c = mode<.5 ? vUv-dt*velAt(vUv)*simTexel : mode<1.5 ? vUv-(velAt(vUv)-texture(uPrev,vUv).xy)*simTexel*disp : vUv;
+        o=vec4(texture(uSrc,c).xy,0.,1.); }`,
     // one Gray-Scott iteration: du/dt = Du*lap(u) - u*v^2 + f*(1-u), dv/dt = Dv*lap(v) + u*v^2 - (f+k)*v
     // (a 9-point Laplacian for isotropy); f and k pick the regime (spots / maze / coral / mitosis)
     growStep: `uniform sampler2D uSrc; uniform vec2 texel; uniform float du, dv, f, k;
@@ -743,10 +746,10 @@ function createSwirl2(gl, opts = {}) {
   // one visual frame of growth: advect by the velocity field (bends the pattern as you stir), then a Gray-Scott
   // iterations (grow speed, scaled by dt so the pattern grows at the same wall-clock rate at any frame rate: grow
   // speed is iterations per 1/60s of simulated time, not per rendered frame)
-  function growStep(dt) {
+  function growStep(dt, mode = 0) {
     if (!S.grow) return;
-    let u = use('growAdv', S.grow.write); gl.uniform1i(u.uVel, tex(0, S.vel.read)); gl.uniform1i(u.uSrc, tex(1, S.grow.read));
-    gl.uniform1f(u.dt, dt * o.energy); blit(S.grow.write); S.grow.swap();
+    let u = use('growAdv', S.grow.write); gl.uniform1i(u.uVel, tex(0, S.vel.read)); gl.uniform1i(u.uSrc, tex(1, S.grow.read)); gl.uniform1i(u.uPrev, tex(2, S.velPrev));
+    gl.uniform1f(u.dt, dt * o.energy); gl.uniform1f(u.mode, mode); gl.uniform1f(u.disp, o.energy * 0.06); blit(S.grow.write); S.grow.swap();
     const kind = GROW_KINDS[o.growKind] || GROW_KINDS.coral;
     growAcc += (o.growSpeed || 10) * dt * 60; const n = Math.min(90, Math.floor(growAcc)); growAcc -= n;
     for (let i = 0; i < n; i++) {
@@ -1199,7 +1202,6 @@ function createSwirl2(gl, opts = {}) {
   }
   function step(dt) {
     dt = Math.min(dt, 1 / 30); time += dt;
-    if (o.grow) growStep(dt);
     if (o.grid >= 2) { gl.disable(gl.BLEND); gl.disable(gl.DEPTH_TEST); latticeStep(dt); return; }
     const f60 = dt * 60;
     gl.disable(gl.BLEND); gl.disable(gl.DEPTH_TEST);
@@ -1266,6 +1268,7 @@ function createSwirl2(gl, opts = {}) {
       if (!composing) { u = use('scale', S.velPrev); gl.uniform1i(u.uSrc, tex(0, S.vel.read)); gl.uniform1f(u.k, 1); blit(S.velPrev); composing = true; }   // just switched on: start from now
       u = use('composeP', S.P.write); gl.uniform1i(u.uVel, tex(0, S.vel.read)); gl.uniform1i(u.uSrc, tex(1, S.P.read)); gl.uniform1i(u.uPrev, tex(2, S.velPrev));
       gl.uniform1f(u.disp, o.energy * 0.06); blit(S.P.write); S.P.swap();
+      if (o.grow) growStep(dt, 1);   // growing patterns move with the picture (before velPrev catches up)
       u = use('scale', S.velPrev); gl.uniform1i(u.uSrc, tex(0, S.vel.read)); gl.uniform1f(u.k, 1); blit(S.velPrev);
     } else if (o.fold && !o.fluids) foldStep();
     else {
@@ -1273,6 +1276,7 @@ function createSwirl2(gl, opts = {}) {
       gl.uniform1f(u.dt, dt * o.energy); gl.uniform1f(u.relax, relax); gl.uniform1f(u.flow, o.fluids ? 1 : 0); gl.uniform1f(u.disp, o.energy * 0.06); gl.uniform1f(u.spline, o.spline ? 1 : 0);
       blit(S.P.write); S.P.swap();
     }
+    if (o.grow && !(o.compose && !o.fluids && !o.water && o.paint !== 'ink')) growStep(dt, o.fluids || o.water ? 0 : 2);
     if (!o.water) stepDrops(dt);
   }
   // Save PNG (Angus: it shouldn't lose resolution): draw the current picture again, scale times the canvas size, into
