@@ -33,7 +33,7 @@ const AUTOMATA_BGS = {
 // profiles: the JS original's presets (blend, brightness, contrast, saturation, fluidity, momentum, angularity,
 // energy). Its "momentum" m sends 2m of the energy forward, so forward = min(1, 2m) here.
 const AUTOMATA_PROFILES = (() => {
-  const D = { grid: 13, dir: 0.5, maxOut: 1, jitter: 0, sens: 0.25, burst: 0.25, fluids: true, torus: true, bg: 'colour noise', mesh: false, zoom: 0 };
+  const D = { grid: 13, dir: 0.5, maxOut: 1, jitter: 0, sens: 0.25, burst: 0.25, fluids: true, torus: true, bg: 'colour noise', mesh: false, zoom: 0, meshMix: 0 };
   const P = (b, br, c, s, fl, m, a, e, x = {}) => Object.assign({}, D, { blend: b, bright: br, contrast: c, sat: s, fluidity: fl, forward: Math.min(1, 2 * m), ang: a, energy: e }, x);
   return {
     'Watercolors': P(0.8241, 1.0799, 1.1007, 1.04, 0.985, 0.26, 1.18, 0.2),
@@ -63,6 +63,9 @@ const AUTOMATA_PROFILES = (() => {
     'Ice Crack (mesh)': P(0.824063, 1.079861, 1.100694, 0.975694, 0.95, 0.000001, 0.000001, 0.08, { grid: 14, fluids: false, mesh: true, torus: false }),
     // Ice Crack on squares of mixed sizes, each colour noise at its own grain (Angus 2026-10-05)
     'Ice Crack (mixed)': P(0.824063, 1.079861, 1.100694, 0.975694, 0.95, 0.000001, 0.000001, 0.08, { grid: 14, fluids: false, mesh: true, torus: false, bg: 'mixed squares' }),
+    // the mesh in mixed sizes (squares 8 cells across split at random): big shards beside fine ones
+    'Stained Glass (mixed mesh)': P(0.817917, 1.047367, 1.100694, 1.024306, 0.99, 0, 0.785398, 0.07, { grid: 16, fluids: false, mesh: true, meshMix: 0.55, zoom: -0.04, torus: false, bg: 'colour noise lo-res' }),
+    'Ice Crack (mixed mesh)': P(0.824063, 1.079861, 1.100694, 0.975694, 0.95, 0.000001, 0.000001, 0.08, { grid: 24, fluids: false, mesh: true, meshMix: 0.55, torus: false }),
     // the rest of the iOS presets, values as in PresetsCollection.m (blend, bright, contrast, sat, zoom | fluidity,
     // momentum, direction, angularity, energy | rows), all on the mesh
     "Jupiter's Moons (iOS)": P(0.93, 1.0, 1.03, 1.04, 0.9, 0.9, Math.PI / 4, 1.0, { grid: 14, dir: 0.5, mesh: true, torus: false, bg: 'colour noise' }),
@@ -88,7 +91,7 @@ const AUTOMATA_PROFILES = (() => {
 })();
 
 function createAutomata(gl, opts = {}) {
-  const o = Object.assign({ width: gl.drawingBufferWidth, height: gl.drawingBufferHeight, vectors: false, mesh: false, zoom: 0 },
+  const o = Object.assign({ width: gl.drawingBufferWidth, height: gl.drawingBufferHeight, vectors: false, mesh: false, zoom: 0, meshMix: 0 },
     AUTOMATA_PROFILES.Watercolors, opts);
   const VS = `#version 300 es
   in vec2 a; out vec2 vUv; void main(){ vUv=a*.5+.5; gl_Position=vec4(a,0.,1.); }`;
@@ -224,9 +227,14 @@ function createAutomata(gl, opts = {}) {
   const MESH_VS = `#version 300 es
   precision highp float; precision highp int; precision highp sampler2D;
   in vec4 a; out vec2 vUv; uniform sampler2D uS; uniform vec2 Nf, scale; uniform float energy, zoom;
+  vec2 vecAt(ivec2 c){ c=clamp(c,ivec2(0),ivec2(Nf)-1); vec4 s=texelFetch(uS,c,0); return s.g*vec2(cos(s.r*6.28318530718),sin(s.r*6.28318530718)); }
   void main(){ vec2 p=a.xy; vUv=-zoom+p*(1.+2.*zoom);
-    if(a.z>=0.){ vec4 s=texelFetch(uS,ivec2(a.zw),0); vec2 v=s.g*vec2(cos(s.r*6.28318530718),sin(s.r*6.28318530718))*energy*4.*scale;   // iOS: each touch adds energy, so vertices sit near the cap
-      float cap=min(1./Nf.x,1./Nf.y), l=length(v); if(l>cap) v*=cap/l; p+=v; }
+    vec2 v=vec2(0.);
+    if(a.z>=0.) v=vecAt(ivec2(a.zw));
+    else if(a.z<-1.5){ vec2 g=a.xy*Nf-.5; ivec2 i=ivec2(floor(g)); vec2 f=fract(g);   // mixed mesh: the field at this corner
+      v=mix(mix(vecAt(i),vecAt(i+ivec2(1,0)),f.x), mix(vecAt(i+ivec2(0,1)),vecAt(i+1),f.x), f.y); }
+    v*=energy*4.*scale;   // iOS: each touch adds energy, so vertices sit near the cap
+    float cap=min(1./Nf.x,1./Nf.y), l=length(v); if(l>cap) v*=cap/l; p+=v;
     gl_Position=vec4(p*2.-1.,0.,1.); }`;
   const meshP = (() => { const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, MESH_VS));
     gl.attachShader(p, sh(gl.FRAGMENT_SHADER, HEAD + `uniform sampler2D uPrev; void main(){ o=vec4(texture(uPrev,vUv).rgb,1.); }`));
@@ -238,6 +246,15 @@ function createAutomata(gl, opts = {}) {
     const pt = (gi, gj) => { const x = gi === 0 ? 0 : gi === cols + 1 ? 1 : (gi - 0.5) / cols, y = gj === 0 ? 0 : gj === rows + 1 ? 1 : (gj - 0.5) / rows;
       const inner = gi > 0 && gi <= cols && gj > 0 && gj <= rows; return [x, y, inner ? gi - 1 : -1, inner ? gj - 1 : -1]; };
     const v = [];
+    if (o.meshMix > 0) {   // mixed sizes: squares 8 cells across, split at random (chance meshMix) down to one cell
+      const B = 8, cw = 1 / cols, rh = 1 / rows;
+      const q = (x, y) => { const pin = x <= 0 || x >= 1 || y <= 0 || y >= 1; return [Math.min(1, Math.max(0, x)), Math.min(1, Math.max(0, y)), pin ? -1 : -2, 0]; };
+      const quad = (x, y, n) => {   // a square n cells across, lower-left at (x, y) in cells
+        if (n > 1 && Math.random() < o.meshMix) { const h = n / 2; quad(x, y, h); quad(x, y + h, h); quad(x + h, y, h); quad(x + h, y + h, h); return; }
+        const L = x * cw, R = Math.min(cols, x + n) * cw, Bt = y * rh, T = Math.min(rows, y + n) * rh;
+        const LB = q(L, Bt), LT = q(L, T), RB = q(R, Bt), RT = q(R, T); v.push(...LB, ...LT, ...RB, ...RB, ...LT, ...RT); };
+      for (let x = 0; x < cols; x += B) for (let y = 0; y < rows; y += B) quad(x, y, B);
+    } else
     for (let gi = 0; gi <= cols; gi++) for (let gj = 0; gj <= rows; gj++) {
       const LB = pt(gi, gj), LT = pt(gi, gj + 1), RB = pt(gi + 1, gj), RT = pt(gi + 1, gj + 1);
       v.push(...LB, ...LT, ...RB, ...RB, ...LT, ...RT);
@@ -402,9 +419,10 @@ function createAutomata(gl, opts = {}) {
   // m: more energy, same directions: every cell's magnitude k times as large
   function boost(k = 1.5) { const u = use('scale'); gl.uniform1i(u.uS, tex(0, S.r)); gl.uniform1f(u.k, k); draw(S.w); S.swap(); }
   const spin = (x, y, s, r = 2.2) => splat(x, y, 0, 0, s * o.sens, r);
-  function reset() { clearT(S.r); clearT(S.w); seed = Math.floor(Math.random() * 1e6); makeBackground(); restart(); }
+  function reset() { clearT(S.r); clearT(S.w); seed = Math.floor(Math.random() * 1e6); if (o.meshMix > 0) buildMesh(); makeBackground(); restart(); }
   function set(params) {
-    const bgWas = o.bg; Object.assign(o, params);
+    const bgWas = o.bg, mixWas = o.meshMix; Object.assign(o, params);
+    if (o.meshMix !== mixWas) buildMesh();
     if ('auto' in params || 'blend' in params || ('bright' in params || 'contrast' in params) && !params._auto) autoK = null;   // re-seed from the current values
     if (o.bg !== bgWas) { makeBackground(); }
   }
