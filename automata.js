@@ -308,7 +308,15 @@ function createAutomata(gl, opts = {}) {
     } else
     for (let gi = 0; gi <= cols; gi++) for (let gj = 0; gj <= rows; gj++) {
       const LB = pt(gi, gj), LT = pt(gi, gj + 1), RB = pt(gi + 1, gj), RT = pt(gi + 1, gj + 1);
-      v.push(...LB, ...LT, ...RB, ...RB, ...LT, ...RT);
+      // the bottom-left and top-right corner squares split along the other diagonal: the usual split leaves a triangle
+      // there with every corner pinned, which never moves (Angus 2026-10-05: a dead triangle top right)
+      if ((gi === 0 && gj === 0) || (gi === cols && gj === rows)) v.push(...LB, ...LT, ...RT, ...LB, ...RT, ...RB);
+      else v.push(...LB, ...LT, ...RB, ...RB, ...LT, ...RT);
+    }
+    {   // triangles with every corner pinned never move: draw them first, so the moving ones fold over them
+      const T = []; for (let t = 0; t < v.length; t += 12) T.push(v.slice(t, t + 12));
+      const still = t => t[2] === -1 && t[6] === -1 && t[10] === -1;
+      v.length = 0; for (const t of T) if (still(t)) v.push(...t); for (const t of T) if (!still(t)) v.push(...t);
     }
     meshN = v.length / 4;
     const L = [];   // edges for the mesh view: each triangle's three sides
