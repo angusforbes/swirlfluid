@@ -84,6 +84,9 @@ const SWIRL2_PRESETS = {
   'Mosaic 2':    { fluids: false, fluidity: 1,     viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'pop', freq: 4.9, fadeMin: 8, fadeMax: 22, fill: 'mixed squares', rows: 5, instant: true, startStir: 6 },   // starts as if you pressed n, then m 6 times
   // a pair to compare (Angus): high energy, fluids off. jag1 follows the motion with straight lines between its grid
   // points (sawtooth edges where it bends hard); jag2 is the same with smooth on (cubic B-spline)
+  // fold (2026-10-05): Mosaic and Mosaic 2 drawn through the folding triangle mesh (straight-edged shards)
+  'Shards':      { fluids: false, fluidity: 0.999, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1.3, grid: 0, curl: 15,  heal: 0,   jitter: 0, memory: 0.99,  carry: 0,   paint: 'bands', wash: true, facets: false, crisp: 0, palette: 'jelly', freq: 3.2, fadeMin: 0, fadeMax: 0, fill: 'squares', rows: 2, grain: false, fold: true, foldRows: 12 },
+  'Shards 2':    { fluids: false, fluidity: 1,     viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'pop', freq: 4.9, fadeMin: 8, fadeMax: 22, fill: 'mixed squares', rows: 5, instant: true, startStir: 6, fold: true, foldRows: 16 },
   'jag1':        { fluids: false, fluidity: 0.9999, viscosity: 0, momentum: 0, angularity: 0, energy: 2.5, grid: 0, curl: 0, heal: 0, jitter: 0, memory: 0.99, carry: 0, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'sorbet', freq: 2.4, fadeMin: 0, fadeMax: 0, fill: 'squares', rows: 3, spline: false },
   'jag2':        { fluids: false, fluidity: 0.9999, viscosity: 0, momentum: 0, angularity: 0, energy: 2.5, grid: 0, curl: 0, heal: 0, jitter: 0, memory: 0.99, carry: 0, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'sorbet', freq: 2.4, fadeMin: 0, fadeMax: 0, fill: 'squares', rows: 3, spline: true },
   // test pair for the sharpest PNG (Angus 2026-10-04): Mosaic 2 and jag2 exactly, plus smoothPng: Save PNG draws the
@@ -426,6 +429,39 @@ function createSwirl2(gl, opts = {}) {
   const meshVs = sh(gl.VERTEX_SHADER, `#version 300 es
   in vec2 a, off; uniform float offScale; out vec2 vUv, vUv2, vL, vR, vT, vB; flat out vec2 vFlat; flat out float vFace;
   void main(){ vUv=a*.5+.5; vUv2=vUv+off*offScale; vFlat=off*offScale; vFace=fract(sin(dot(a,vec2(12.9898,78.233)))*43758.5453); vL=vUv; vR=vUv; vT=vUv; vB=vUv; gl_Position=vec4(a,0.,1.); }`);
+  // fold (2026-10-05, after the iOS Fluid Automata): with fluids off, instead of each pixel looking its picture
+  // position up, a triangle mesh (foldRows rows) is pushed forward by the same displacement and drawn in order, so
+  // where the motion crosses itself the triangles fold over each other: straight-edged shards. Borders stay pinned;
+  // a still pass underneath fills any gap with the unmoved picture
+  const foldVs = sh(gl.VERTEX_SHADER, `#version 300 es
+  precision highp float; precision highp sampler2D;
+  in vec2 a; out vec2 vUv, vRest; uniform sampler2D uVel; uniform vec2 simTexel; uniform float disp;
+  void main(){ vRest=a; vUv=a; vec2 p=a; if(a.x>0.&&a.x<1.&&a.y>0.&&a.y<1.) p+=texture(uVel,a).xy*simTexel*disp; gl_Position=vec4(p*2.-1.,0.,1.); }`);
+  const foldP = (() => { const p = gl.createProgram(); gl.attachShader(p, foldVs);
+    gl.attachShader(p, sh(gl.FRAGMENT_SHADER, HEAD + INIT + `in vec2 vRest; void main(){ o=vec4(initP(vRest),0.,1.); }`));
+    gl.bindAttribLocation(p, 0, 'a'); gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error('swirl fold link: ' + gl.getProgramInfoLog(p));
+    const u = {}; for (const nm of ['uVel', 'simTexel', 'disp', 'aspect', 'zA', 'zB']) u[nm] = gl.getUniformLocation(p, nm); return { p, u }; })();
+  const foldVao = gl.createVertexArray(), foldBuf = gl.createBuffer(); let foldN = 0, foldKey = '';
+  function buildFold() {
+    const rows = Math.max(2, Math.round(o.foldRows || 16)), cols = Math.max(2, Math.round(rows * aspect())), key = cols + 'x' + rows;
+    if (key === foldKey) return; foldKey = key;
+    const v = [];
+    for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) {   // columns, then rows (as iOS): later triangles cover
+      const L = i / cols, R = (i + 1) / cols, B = j / rows, T = (j + 1) / rows; v.push(L, B, L, T, R, B, R, B, L, T, R, T); }
+    foldN = v.length / 2;
+    gl.bindVertexArray(foldVao); gl.bindBuffer(gl.ARRAY_BUFFER, foldBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(v), gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0); gl.bindVertexArray(vao_);
+  }
+  function foldStep() {
+    buildFold(); const t = S.P.write; gl.useProgram(foldP.p); const u = foldP.u;
+    gl.uniform1i(u.uVel, tex(0, S.vel.read)); gl.uniform2f(u.simTexel, 1 / S.sw, 1 / S.sh);
+    gl.uniform1f(u.aspect, aspect()); gl.uniform1f(u.zA, zoomA); gl.uniform2f(u.zB, zoomB[0], zoomB[1]);
+    gl.bindVertexArray(foldVao); gl.bindFramebuffer(gl.FRAMEBUFFER, t.fb); gl.viewport(0, 0, t.w, t.h);
+    gl.uniform1f(u.disp, 0); gl.drawArrays(gl.TRIANGLES, 0, foldN);                // underneath: the unmoved picture
+    gl.uniform1f(u.disp, o.energy * 0.06); gl.drawArrays(gl.TRIANGLES, 0, foldN);  // the folded mesh on top
+    gl.bindVertexArray(vao_); S.P.swap();
+  }
   const P = {};
   for (const [name, src] of Object.entries(FS)) {
     const p = gl.createProgram(); gl.attachShader(p, name.startsWith('mesh') ? meshVs : vs); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, HEAD + src));
@@ -827,7 +863,8 @@ function createSwirl2(gl, opts = {}) {
       gl.uniform1f(u.dt, dt * o.energy); gl.uniform1f(u.relax, relax); gl.uniform1f(u.flow, o.fluids ? 1 : 0); gl.uniform1f(u.disp, o.energy * 0.06); gl.uniform1f(u.spline, o.spline ? 1 : 0); gl.uniform1f(u.reveal, o.reveal || 0); gl.uniform1f(u.mac, o.smooth ? 0 : 1);
       gl.uniform1f(u.sat, Math.pow(o.saturation, f60)); gl.uniform1f(u.bright, Math.pow(o.brightness, f60)); gl.uniform1f(u.contrast, Math.pow(o.contrast, f60));
       blit(S.ink.write); S.ink.swap();
-    } else {
+    } else if (o.fold && !o.fluids) foldStep();
+    else {
       u = use('advectP', S.P.write); gl.uniform1i(u.uVel, tex(0, S.vel.read)); gl.uniform1i(u.uSrc, tex(1, S.P.read));
       gl.uniform1f(u.dt, dt * o.energy); gl.uniform1f(u.relax, relax); gl.uniform1f(u.flow, o.fluids ? 1 : 0); gl.uniform1f(u.disp, o.energy * 0.06); gl.uniform1f(u.spline, o.spline ? 1 : 0);
       blit(S.P.write); S.P.swap();
