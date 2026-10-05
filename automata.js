@@ -79,7 +79,7 @@ const AUTOMATA_PROFILES = (() => {
     'Billows (iOS)': P(0.834306, 1.079861, 1.121528, 0.923611, 0.936562, 0.809028, 1.898046, 0.392361, { grid: 14, dir: 0.5, mesh: true, torus: false, bg: 'colour noise', zoom: -0.001 }),
     'Kaleidoscope (iOS)': P(0.803576, 1.079861, 1.121528, 0.975694, 0.960625, 0.892361, 2.63981, 0.21875, { grid: 16, dir: 0.5, mesh: true, torus: false, bg: 'colour noise' }),
     'Watercolor (iOS)': P(0.824063, 1.079861, 1.100694, 1.04, 0.98, 0.13, 1.18, 0.1, { grid: 16, dir: 0.5, mesh: true, torus: false, bg: 'colour noise' }),
-    'Nebulae (iOS)': P(0.817917, 1.047367, 1.100694, 1.024306, 0.99, 0.0, 0.785398, 0.1, { grid: 16, dir: 0.5, mesh: true, torus: false, bg: 'colour noise' }),
+    // (hidden 2026-10-05, Angus) 'Nebulae (iOS)': P(0.817917, 1.047367, 1.100694, 1.024306, 0.99, 0.0, 0.785398, 0.1, { grid: 16, dir: 0.5, mesh: true, torus: false, bg: 'colour noise' }),
     'Infrared (iOS)': P(0.70934, 1.010417, 1.163194, 1.21875, 0.99999, 0.0, 0.2, 0.15, { grid: 12, dir: 0.5, mesh: true, torus: false, bg: 'colour noise' }),
     'Rainbow Sherbert (iOS)': P(0.883472, 0.942191, 0.852937, 1.5, 0.9, 0.9, 0.785398, 0.4, { grid: 12, dir: 0.5, mesh: true, torus: false, bg: 'rgb noise' }),
     'Fingerpaints (iOS)': P(0.810747, 1.107639, 1.163194, 1.024306, 0.784132, 0.579861, 0.0, 0.4, { grid: 16, dir: 0.5, mesh: true, torus: false, bg: 'colour noise lo-res' }),
@@ -90,7 +90,7 @@ const AUTOMATA_PROFILES = (() => {
     // Voronoi-style mesh (Angus liked the idea, 2026-10-05): jittered points, Delaunay triangles, mixed sizes per block
     'Ice Crack (voronoi)': P(0.824063, 1.079861, 1.100694, 0.975694, 0.95, 0.000001, 0.000001, 0.08, { grid: 18, fluids: false, mesh: true, voronoi: true, torus: false }),
     'Stained Glass (voronoi)': P(0.817917, 1.047367, 1.100694, 1.024306, 0.99, 0, 0.785398, 0.07, { grid: 12, fluids: false, mesh: true, voronoi: true, zoom: -0.04, torus: false, bg: 'colour noise lo-res' }),
-    'Ember': P(0.94, 1.0, 1.01, 1.0, 0.99, 0.4, Math.PI / 2.5, 0.35, { grid: 72, bg: 'ember field' }),
+    // (hidden 2026-10-05, Angus) 'Ember': P(0.94, 1.0, 1.01, 1.0, 0.99, 0.4, Math.PI / 2.5, 0.35, { grid: 72, bg: 'ember field' }),
   };
 })();
 
