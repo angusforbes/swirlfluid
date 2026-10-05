@@ -23,12 +23,14 @@ const AUTOMATA_BGS = {
   'ocean bands': { mode: 5, pal: 'ocean' }, 'dusk bands': { mode: 5, pal: 'dusk' }, 'ice bands': { mode: 5, pal: 'ice' },
   'ocean field': { mode: 2, pal: 'ocean' }, 'dusk field': { mode: 2, pal: 'dusk' }, 'ember field': { mode: 2, pal: 'ember' },
   'live noise': { mode: 1, px: 2, live: true },
+  // the iOS app's "Colored Noise, Lo-Res": half-resolution noise stretched up smoothly
+  'colour noise lo-res': { mode: 6, px: 2 },
   'camera': { mode: 4, camera: true }, 'image…': { mode: 4, image: true },
 };
 // profiles: the JS original's presets (blend, brightness, contrast, saturation, fluidity, momentum, angularity,
 // energy). Its "momentum" m sends 2m of the energy forward, so forward = min(1, 2m) here.
 const AUTOMATA_PROFILES = (() => {
-  const D = { grid: 13, dir: 0.5, maxOut: 1, jitter: 0, sens: 0.25, burst: 0.25, fluids: true, torus: true, bg: 'colour noise' };
+  const D = { grid: 13, dir: 0.5, maxOut: 1, jitter: 0, sens: 0.25, burst: 0.25, fluids: true, torus: true, bg: 'colour noise', mesh: false, zoom: 0 };
   const P = (b, br, c, s, fl, m, a, e, x = {}) => Object.assign({}, D, { blend: b, bright: br, contrast: c, sat: s, fluidity: fl, forward: Math.min(1, 2 * m), ang: a, energy: e }, x);
   return {
     'Watercolors': P(0.8241, 1.0799, 1.1007, 1.04, 0.985, 0.26, 1.18, 0.2),
@@ -50,12 +52,18 @@ const AUTOMATA_PROFILES = (() => {
     'Melt': P(0.93, 1.0, 1.0, 1.0, 0.995, 0.35, Math.PI / 3, 0.4, { grid: 64, maxOut: 0.15, bg: 'ocean field' }),
     'Turbulence': P(0.95, 1.0, 1.005, 1.0, 0.985, 0.3, 2.2, 0.35, { grid: 96, dir: 0.35, jitter: 0.6, bg: 'dusk bands' }),
     'Smear': P(0.9, 1.0, 1.05, 0, 0.98, 0.45, Math.PI / 5, 0.12, { grid: 48, bg: 'coarse b/w' }),
+    // mesh (2026-10-05, from the iOS original, github.com/CreativeCodingLab/FluidAutomataIOS): the previous frame is
+    // drawn onto a triangle mesh whose vertices are the cell centres moved by their vectors (at most one cell), so
+    // where vectors cross, triangles fold over each other: straight-edged shards. zoom = the iOS zoom (texture
+    // coordinates run from -zoom to 1+zoom, so below 0 the picture grows from the centre every frame)
+    'Stained Glass': P(0.817917, 1.047367, 1.100694, 1.024306, 0.99, 0, 0.785398, 0.07, { grid: 8, fluids: false, mesh: true, zoom: -0.04, torus: false, bg: 'colour noise lo-res' }),
+    'Ice Crack (mesh)': P(0.824063, 1.079861, 1.100694, 0.975694, 0.95, 0.000001, 0.000001, 0.08, { grid: 14, fluids: false, mesh: true, torus: false }),
     'Ember': P(0.94, 1.0, 1.01, 1.0, 0.99, 0.4, Math.PI / 2.5, 0.35, { grid: 72, bg: 'ember field' }),
   };
 })();
 
 function createAutomata(gl, opts = {}) {
-  const o = Object.assign({ width: gl.drawingBufferWidth, height: gl.drawingBufferHeight, vectors: false },
+  const o = Object.assign({ width: gl.drawingBufferWidth, height: gl.drawingBufferHeight, vectors: false, mesh: false, zoom: 0 },
     AUTOMATA_PROFILES.Watercolors, opts);
   const VS = `#version 300 es
   in vec2 a; out vec2 vUv; void main(){ vUv=a*.5+.5; gl_Position=vec4(a,0.,1.); }`;
@@ -121,6 +129,9 @@ function createAutomata(gl, opts = {}) {
       if(mode==0) col=vec3(rnd(c,seed));
       else if(mode==1) col=vec3(rnd(c,seed),rnd(c,seed+1.),rnd(c,seed+2.));
       else if(mode==3) col=vec3(step(.5,rnd(c,seed)));
+      else if(mode==6){ vec2 q=gl_FragCoord.xy/px-.5, i=floor(q), f=fract(q);
+        #define CN(k) vec3(rnd(i+k,seed),rnd(i+k,seed+1.),rnd(i+k,seed+2.))
+        col=mix(mix(CN(vec2(0,0)),CN(vec2(1,0)),f.x), mix(CN(vec2(0,1)),CN(vec2(1,1)),f.x), f.y); }
       else if(mode==2){   // a smooth noise field through the palette, with a little grain
         vec2 p=(vUv-.5)*vec2(aspect,1.)*3.;
         float f=clamp((fbm(p,seed)-.2)*1.6,0.,.999)*4.; int i=int(f);
@@ -177,6 +188,35 @@ function createAutomata(gl, opts = {}) {
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
   gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
 
+  // mesh: one vertex per cell centre (moved by its vector, at most one cell) plus pinned vertices on the borders;
+  // each quad is two triangles, drawn in the iOS order (columns, then rows) with no depth test, so later triangles
+  // cover earlier ones where the mesh folds. a = (rest x, rest y, cell x, cell y); cell x < 0 = pinned
+  const MESH_VS = `#version 300 es
+  precision highp float; precision highp int; precision highp sampler2D;
+  in vec4 a; out vec2 vUv; uniform sampler2D uS; uniform vec2 Nf, scale; uniform float energy, zoom;
+  void main(){ vec2 p=a.xy; vUv=-zoom+p*(1.+2.*zoom);
+    if(a.z>=0.){ vec4 s=texelFetch(uS,ivec2(a.zw),0); vec2 v=s.g*vec2(cos(s.r*6.28318530718),sin(s.r*6.28318530718))*energy*4.*scale;   // iOS: each touch adds energy, so vertices sit near the cap
+      float cap=min(1./Nf.x,1./Nf.y), l=length(v); if(l>cap) v*=cap/l; p+=v; }
+    gl_Position=vec4(p*2.-1.,0.,1.); }`;
+  const meshP = (() => { const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, MESH_VS));
+    gl.attachShader(p, sh(gl.FRAGMENT_SHADER, HEAD + `uniform sampler2D uPrev; void main(){ o=vec4(texture(uPrev,vUv).rgb,1.); }`));
+    gl.bindAttribLocation(p, 0, 'a'); gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error('automata mesh link: ' + gl.getProgramInfoLog(p));
+    const u = {}; for (const nm of ['uS', 'uPrev', 'Nf', 'scale', 'energy', 'zoom']) u[nm] = gl.getUniformLocation(p, nm); return { p, u }; })();
+  const meshVao = gl.createVertexArray(), meshBuf = gl.createBuffer(); let meshN = 0;
+  function buildMesh() {
+    const pt = (gi, gj) => { const x = gi === 0 ? 0 : gi === cols + 1 ? 1 : (gi - 0.5) / cols, y = gj === 0 ? 0 : gj === rows + 1 ? 1 : (gj - 0.5) / rows;
+      const inner = gi > 0 && gi <= cols && gj > 0 && gj <= rows; return [x, y, inner ? gi - 1 : -1, inner ? gj - 1 : -1]; };
+    const v = [];
+    for (let gi = 0; gi <= cols; gi++) for (let gj = 0; gj <= rows; gj++) {
+      const LB = pt(gi, gj), LT = pt(gi, gj + 1), RB = pt(gi + 1, gj), RT = pt(gi + 1, gj + 1);
+      v.push(...LB, ...LT, ...RB, ...RB, ...LT, ...RT);
+    }
+    meshN = v.length / 4;
+    gl.bindVertexArray(meshVao); gl.bindBuffer(gl.ARRAY_BUFFER, meshBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(v), gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 4, gl.FLOAT, false, 0, 0); gl.bindVertexArray(vao);
+  }
+
   // 8-bit textures throughout, as in the original (the state is 8-bit orientation + 8-bit magnitude)
   function target(w, h, filter) {
     const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
@@ -201,7 +241,7 @@ function createAutomata(gl, opts = {}) {
   const clearT = t => { gl.bindFramebuffer(gl.FRAMEBUFFER, t.fb); gl.viewport(0, 0, t.w, t.h); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT); };
   const hex = h => { const n = parseInt(h.slice(1), 16); return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255]; };
 
-  let S, img, bgT, cols, rows, seed = Math.floor(Math.random() * 1e6), acc = 0, lastDir = [1, 0];
+  let warpT = null, S, img, bgT, cols, rows, seed = Math.floor(Math.random() * 1e6), acc = 0, lastDir = [1, 0];
   const imgTex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, imgTex);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
@@ -209,12 +249,12 @@ function createAutomata(gl, opts = {}) {
 
   function alloc() {
     if (img) img.free(); free(bgT);
-    img = pair(o.width, o.height, gl.LINEAR); bgT = target(o.width, o.height, gl.LINEAR);
+    free(warpT); img = pair(o.width, o.height, gl.LINEAR); bgT = target(o.width, o.height, gl.LINEAR); warpT = target(o.width, o.height, gl.LINEAR);
     allocGrid(); makeBackground(); restart();
   }
   function allocGrid() {
     rows = Math.max(2, Math.round(o.grid)); cols = Math.max(2, Math.round(rows * o.width / o.height));
-    if (S) S.free(); S = pair(cols, rows, gl.NEAREST); clearT(S.r); clearT(S.w); o._grid = o.grid;
+    if (S) S.free(); S = pair(cols, rows, gl.NEAREST); clearT(S.r); clearT(S.w); o._grid = o.grid; buildMesh();
   }
   function makeBackground() {
     const b = AUTOMATA_BGS[o.bg] || AUTOMATA_BGS['colour noise'];
@@ -242,12 +282,25 @@ function createAutomata(gl, opts = {}) {
   }
   function stepImage() {
     if (AUTOMATA_BGS[o.bg]?.live || source instanceof HTMLVideoElement) makeBackground();
+    const a = o.width / o.height;
+    if (o.mesh) {   // fold the previous frame on the mesh (black where the mesh pulls away), then blend and adjust as usual
+      clearT(warpT); gl.useProgram(meshP.p); const m = meshP.u;
+      gl.uniform1i(m.uS, tex(0, S.r)); gl.uniform1i(m.uPrev, tex(1, img.r));
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.uniform2f(m.Nf, cols, rows); gl.uniform2f(m.scale, Math.min(1, 1 / a), Math.min(1, a)); gl.uniform1f(m.energy, o.energy); gl.uniform1f(m.zoom, o.zoom || 0);
+      gl.bindVertexArray(meshVao); gl.bindFramebuffer(gl.FRAMEBUFFER, warpT.fb); gl.viewport(0, 0, warpT.w, warpT.h);
+      gl.drawArrays(gl.TRIANGLES, 0, meshN); gl.bindVertexArray(vao);
+      const u = use('frame'); gl.uniform1i(u.uS, tex(0, S.r)); gl.uniform1i(u.uBg, tex(2, bgT)); gl.uniform1i(u.uPrev, tex(1, warpT));
+      gl.uniform2f(u.Nf, cols, rows); gl.uniform2f(u.scale, 0, 0); gl.uniform1f(u.energy, 0); gl.uniform1f(u.blend, o.blend);
+      gl.uniform1f(u.bright, o.bright); gl.uniform1f(u.contrast, o.contrast); gl.uniform1f(u.sat, o.sat);
+      draw(img.w); img.swap(); return;
+    }
     const u = use('frame');
     gl.uniform1i(u.uS, tex(0, S.r)); gl.uniform1i(u.uBg, tex(2, bgT)); gl.uniform1i(u.uPrev, tex(1, img.r));   // unit 1 last: the wrap below applies to it
     const wrap = o.torus ? gl.REPEAT : gl.CLAMP_TO_EDGE;   // the previous image wraps around with the fluid, or clamps at walls
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrap); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrap);
     gl.uniform2f(u.Nf, cols, rows);
-    const a = o.width / o.height; gl.uniform2f(u.scale, Math.min(1, 1 / a), Math.min(1, a));
+    gl.uniform2f(u.scale, Math.min(1, 1 / a), Math.min(1, a));
     gl.uniform1f(u.energy, o.energy); gl.uniform1f(u.blend, o.blend);
     gl.uniform1f(u.bright, o.bright); gl.uniform1f(u.contrast, o.contrast); gl.uniform1f(u.sat, o.sat);
     draw(img.w); img.swap();
@@ -297,7 +350,8 @@ function createAutomata(gl, opts = {}) {
     if (d < 0.01) return;
     lastDir = [dx / d, dy / d];
     const steps = Math.min(40, Math.ceil(d / 0.5)), amt = o.sens * Math.min(1, 0.2 + d * 0.3) / Math.sqrt(steps);
-    for (let i = 1; i <= steps; i++) { const f = i / steps; splat(x0 + (x1 - x0) * f, y0 + (y1 - y0) * f, lastDir[0] * amt, lastDir[1] * amt); }
+    const r = o.mesh ? 0.6 : 1.1;   // mesh: about one cell per touch, as in iOS, so neighbouring vertices differ and fold
+    for (let i = 1; i <= steps; i++) { const f = i / steps; splat(x0 + (x1 - x0) * f, y0 + (y1 - y0) * f, lastDir[0] * amt, lastDir[1] * amt, 0, r); }
   }
   // held still: keep adding energy in the last known direction
   const hold = (x, y) => splat(x, y, lastDir[0] * o.sens * 0.25, lastDir[1] * o.sens * 0.25);
