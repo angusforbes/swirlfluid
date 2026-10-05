@@ -85,6 +85,8 @@ const SWIRL2_PRESETS = {
   // Angus 2026-10-05: "drops of food colouring into water or milk": tap to drop colour onto milk, drag to marble it
   // Angus 2026-10-05: ink dropped into a dish of water, from above: tap to drop, it blooms and curls by itself
   'Ink in Water':{ fluids: true,  fluidity: 0.985, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 3,   heal: 0, jitter: 0, ambient: 0.15, paint: 'bands', palette: 'food', fadeMin: 0, fill: 'squares', water: true, drops: true },
+  // pour (2026-10): press and hold (not just a tap) to keep pouring ink while you drag, like moving a pipette over the water
+  'Ink Ribbons': { fluids: true,  fluidity: 0.985, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 3,   heal: 0, jitter: 0, ambient: 0.15, paint: 'bands', palette: 'food', fadeMin: 0, fill: 'squares', water: true, drops: true, pour: true },
   // Angus 2026-10-05: Mandala: Ink in Water in a kaleidoscope (6 copies, each mirrored): every drop and stir is repeated around the centre
   'Mandala':     { fluids: true,  fluidity: 0.985, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 3,   heal: 0, jitter: 0, ambient: 0, paint: 'bands', palette: 'food', fadeMin: 0, fill: 'squares', water: true, drops: true, sym: 6, symMirror: true, dropSize: 0.06 },
   'Milk Drops':  { fluids: false, fluidity: 1,     viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 0.15,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'food', freq: 4.9, fadeMin: 0, fadeMax: 22, fill: 'mixed squares', rows: 5, instant: true, compose: true, drops: true, milk: true },
@@ -903,17 +905,28 @@ function createSwirl2(gl, opts = {}) {
   let ambT = 0, idleT = 0;
   // ink drops: each grows over DROP_T seconds (easing out, like a drop spreading) to radius r (screen heights)
   const DROP_T = 0.6;
-  function drop(x, y, size) {
+  // colour order (2026-10, Angus: a tune button for how drop colours are picked): 'random' (default, never repeats
+  // the last one), 'cycle' (palette order), 'one' (always the first palette colour, like a single pot of ink).
+  // opts.k forces a colour (pour reuses the colour its stream started with); opts.splash scales the landing splash
+  // (a continuous pour uses a lighter splash per tick than a single tap). Returns the colour index used.
+  function drop(x, y, size, opts) {
+    opts = opts || {};
     const pl = SWIRL2_PALETTES[o.palette] || o.palette, n = pl.pal.length;
-    let k; do k = Math.floor(Math.random() * n); while (n > 1 && k === lastLab); lastLab = k;
-    const r = (size || o.dropSize || 0.09) * (0.75 + 0.5 * Math.random()), sd = Math.random() * 50, sp = o.splash ?? 1;
+    let k;
+    if (opts.k !== undefined) k = opts.k;
+    else if (o.dropColours === 'cycle') k = n > 1 ? (lastLab + 1) % n : 0;
+    else if (o.dropColours === 'one') k = 0;
+    else { do k = Math.floor(Math.random() * n); while (n > 1 && k === lastLab); }
+    lastLab = k;
+    const r = (size || o.dropSize || 0.09) * (0.75 + 0.5 * Math.random()), sd = Math.random() * 50, sp = opts.splash ?? o.splash ?? 1;
     const ed = []; for (let i = 0; i < Math.round(5 * sp); i++) ed.push([Math.random() * TAU, r * (0.4 + 0.6 * Math.random()), (Math.random() < 0.5 ? -1 : 1) * (3 + 5 * Math.random()) * (0.5 + 0.5 * sp)]);
     const at = symOn() ? symCopies(x, y) : [[x, y, 0, 0, 0]];
     for (const [X, Y, , , m] of at) {   // symmetry: the same drop (colour, size, splash) at every copy
-      drops.push({ x: X, y: Y, r, t: 0, a: 0, k, col: hex(pl.pal[k]), sd });
+      drops.push({ x: X, y: Y, r, t: 0, a: 0, k, col: hex(pl.pal[k]), sd, bloom: opts.bloom ?? 1, life: opts.life });
       if (o.water) { idleT = 0; noSym = true; for (const [a0, rr, s] of ed) {   // splash: a few small eddies around the landing spot (5 at 1)
         const a = m ? -a0 : a0; splat(X + Math.cos(a) * rr * o.height / o.width, Y + Math.sin(a) * rr, 0, 0, m ? -s : s, 0.0006, true); } noSym = false; }
     }
+    return k;
   }
   // water: each drop puts in its dye at once, then blooms outward for WATER_T seconds, the push easing off
   const WATER_T = 1.6, SOAP_T = 2.2;
@@ -928,17 +941,17 @@ function createSwirl2(gl, opts = {}) {
   function waterStep(dt) {
     let u;
     for (const d of drops) {
-      if (!d.inked && !d.soap) { d.inked = true; const ab = d.col.map(v => -Math.log(Math.max(0.04, v)) * 1.4);
+      if (!d.inked && !d.soap) { d.inked = true; const ab = d.col.map(v => -Math.log(Math.max(0.04, v)) * 1.4 * (o.inkStrength ?? 1));   // ink strength: scales absorbance (pale wash .. deep dye); waterShow still never lets it go black
         u = use('waterDye', S.dye.write); gl.uniform1i(u.uSrc, tex(0, S.dye.read)); gl.uniform2f(u.c, d.x, d.y);
         gl.uniform1f(u.R, d.r * 0.6); gl.uniform1f(u.sd, d.sd); gl.uniform1f(u.rag, o.ragged ?? 0.5); gl.uniform3fv(u.ab, ab); blit(S.dye.write); S.dye.swap(); }
-      const T = d.soap ? SOAP_T : WATER_T; d.t = Math.min(T, d.t + dt); const q = 1 - d.t / T, Rt = d.r * (0.45 + 0.55 * (1 - q * q));
+      const T = d.soap ? SOAP_T : (d.life || WATER_T); d.t = Math.min(T, d.t + dt); const q = 1 - d.t / T, Rt = d.r * (0.45 + 0.55 * (1 - q * q));
       u = use('waterPush', S.vel.write); gl.uniform1i(u.uVel, tex(0, S.vel.read)); gl.uniform2f(u.c, d.x, d.y);
       gl.uniform1f(u.R, Rt); gl.uniform1f(u.sd, d.sd); gl.uniform1f(u.rag, d.soap ? 0.15 : (o.ragged ?? 0.5));
-      gl.uniform1f(u.sp, (d.soap ? 0.6 : (o.bloom ?? 1)) * d.r * S.sh * 1.6 * q * q * dt * 12); blit(S.vel.write); S.vel.swap();
+      gl.uniform1f(u.sp, (d.soap ? 0.6 : (o.bloom ?? 1) * (d.bloom ?? 1)) * d.r * S.sh * 1.6 * q * q * dt * 12); blit(S.vel.write); S.vel.swap();
       if (d.soap) { u = use('waterClear', S.dye.write); gl.uniform1i(u.uSrc, tex(0, S.dye.read)); gl.uniform2f(u.c, d.x, d.y);
         gl.uniform1f(u.R, Rt * 0.55); gl.uniform1f(u.sd, d.sd); blit(S.dye.write); S.dye.swap(); }
     }
-    drops = drops.filter(d => d.t < (d.soap ? SOAP_T : WATER_T));
+    drops = drops.filter(d => d.t < (d.soap ? SOAP_T : (d.life || WATER_T)));
     u = use('waterAdv', S.dye.write, S.dye.read); gl.uniform1i(u.uVel, tex(0, S.vel.read)); gl.uniform1i(u.uSrc, tex(1, S.dye.read));
     gl.uniform1f(u.dt, dt * o.energy); gl.uniform1f(u.diff, Math.min(1, (o.spread ?? 0.01) * dt * 60)); blit(S.dye.write); S.dye.swap();
   }
