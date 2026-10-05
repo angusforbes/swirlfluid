@@ -114,8 +114,8 @@
   <div class="rowlabel" id="autoLabel">fluid automata</div><div class="presets" id="profiles"></div>
 </div>
 <div id="err"></div>
-<script src="swirl2.js?v=46"></script>
-<script src="automata.js?v=46"></script>
+<script src="swirl2.js?v=47"></script>
+<script src="automata.js?v=47"></script>
 <script>
 // Two engines on one canvas: "swirl" (swirl2.js: a velocity fluid that paints poster bands, ink, facets...) and
 // "fluid automata" (automata.js: an 8-bit energy automaton that smears a background image). Only one runs at a time.
@@ -137,7 +137,7 @@ const baseOfA = n => BUILTIN_A.includes(n) ? n : (AUTOMATA_PROFILES[n]?.base || 
 const PROFILES = Object.keys(AUTOMATA_PROFILES), BGS = Object.keys(AUTOMATA_BGS);
 const coarse = matchMedia('(pointer: coarse)').matches;
 const FILLS = SWIRL2_FILLS;
-const BASE = { fill: 'squares', cell: Math.max(4, Math.round(innerHeight / 24)), freq: 3, palette: 'ocean', saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, wash: false, facets: false, jitter: 0, ambient: 1, fadeMin: 8, fadeMax: 22, outline: false, grain: true, tile: 1, mapCell: 1, spline: false, reach: 1, instant: false, startStir: 0, smoothPng: false, reveal: 0, inside: 0, burst: 0.01, imgTile: 1 };
+const BASE = { fill: 'squares', cell: Math.max(4, Math.round(innerHeight / 24)), freq: 3, palette: 'ocean', saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, wash: false, facets: false, jitter: 0, ambient: 1, fadeMin: 8, fadeMax: 22, outline: false, grain: true, tile: 1, mapCell: 1, spline: false, reach: 1, instant: false, startStir: 0, smoothPng: true, reveal: 0, inside: 0, burst: 0.01, imgTile: 1 };
 // the knobs: [key, label, min, max, step, format]
 const KNOBS = [
   // fluidity: finer toward the top: the left half covers 0.9 to 0.99, then each further stretch adds a 9 (0.999,
@@ -457,9 +457,9 @@ $('shareBtn').onclick = e => {
 };
 // save PNG: the swirl is drawn again for the file at the screen's real pixels (phones show fewer pixels than they have,
 // for speed) times the PNG size setting (screen / 2x / 3x), so the file is never smaller or softer than the screen
-var saveX = +(localStorage.getItem('swirl-save-scale') || 1);
+var saveX = +(localStorage.getItem('swirl-save-scale-v2') || 1);   // (new key: everyone starts at screen size, Angus 2026-10-04)
 function showSaveX() { $('saveXBtn').textContent = 'PNG: ' + (saveX === 1 ? 'screen' : saveX + '×'); }
-$('saveXBtn').onclick = () => { saveX = saveX >= 3 ? 1 : saveX + 1; localStorage.setItem('swirl-save-scale', saveX); showSaveX(); };
+$('saveXBtn').onclick = () => { saveX = saveX >= 3 ? 1 : saveX + 1; localStorage.setItem('swirl-save-scale-v2', saveX); showSaveX(); };
 function save() {
   const a = document.createElement('a'); a.download = `swirlfluid-${(engine === 'swirl' ? preset : profile).replace(/[^\w]/g, '')}-${Date.now()}.png`;
   const done = blob => { a.href = URL.createObjectURL(blob); a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 60000); };
@@ -483,7 +483,7 @@ function save() {
     }
   }
   for (let k = 3; k < o.length; k += 4) o[k] = 255;
-  x.putImageData(img, 0, 0); c.toBlob(done, 'image/png'); toast(`saved ${W}×${H}${ss > 1 ? ', smooth edges (' + ss + '×)' : ''}`, 2500);
+  x.putImageData(img, 0, 0); c.toBlob(done, 'image/png'); toast(`saved ${W}×${H}` + (ss > 1 ? `, smooth edges (${ss}×)` : swirl.opts.smoothPng ? ' WITHOUT smooth edges (too big for this GPU: use PNG: screen or 2×)' : ''), ss > 1 || !swirl.opts.smoothPng ? 2500 : 6000);
 }
 $('saveBtn').onclick = save; showSaveX();
 // debug capture (d): a screenshot plus every setting, sent to the local vdebug receiver (~/.local/bin/vdebug-server,

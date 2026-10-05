@@ -67,3 +67,6 @@ on the panel.
   (uniform `pxs` + `FC` macro keep grain/tiles/outline the same size). scale = device px / canvas px (phones: canvas is
   capped at 1.5 dpr) x the PNG size setting (`swirl-save-scale`: screen / 2x / 3x). Per-pixel effects must use `FC`,
   not `gl_FragCoord`, or they shrink in 2x exports.
+- Save PNG smoothing (v47): every preset (BASE smoothPng: true) renders at up to 3x and box-averages in linear light;
+  it drops to 2x/1x when over MAX_TEXTURE_SIZE (16384 on Angus's Intel) or 120 Mpx, so PNG 3x has NO smoothing.
+  Later: tiled export (N on the card).
