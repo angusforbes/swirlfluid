@@ -98,6 +98,9 @@ const SWIRL2_PRESETS = {
   // blooming and curling on its own without a single tap; taps and drags still work as in Ink in Water
   // (hidden 2026-10-05, Angus) 'Springs':     { fluids: true,  fluidity: 0.985, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 3,   heal: 0, jitter: 0, ambient: 0.1, paint: 'bands', palette: 'tropic', fadeMin: 0, fill: 'squares', water: true, drops: true, fountains: true, fountainStrength: 1, startFountains: 3 },
   // (hidden 2026-10-05, Angus) 'Milk Drops':  { fluids: false, fluidity: 1,     viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 0.15,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'food', freq: 4.9, fadeMin: 0, fadeMax: 22, fill: 'mixed squares', rows: 5, instant: true, compose: true, drops: true, milk: true },
+  // Angus 2026-10-06, "growing patterns": a Gray-Scott reaction-diffusion (coral regime) grows and divides on its
+  // own texture, carried and bent by the swirl fluid as you stir it
+  'Coral':       { fluids: true,  fluidity: 0.996, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 0.7, grid: 0, curl: 3,   heal: 0, jitter: 0, ambient: 0.25, paint: 'bands', palette: 'sea', fill: 'field', freq: 2.2, grow: true, growKind: 'coral', growSpeed: 18, growMix: 1 },
   'Mosaic 2':    { fluids: false, fluidity: 1,     viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'pop', freq: 4.9, fadeMin: 8, fadeMax: 22, fill: 'mixed squares', rows: 5, instant: true, startStir: 6 },   // starts as if you pressed n, then m 6 times
   // Angus 2026-10-06, render-only: Mosaic 2 lit as raised glossy paint / enamel; the motion and squares are exactly Mosaic 2's
   'Enamel':      { fluids: false, fluidity: 1,     viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'pop', freq: 4.9, fadeMin: 8, fadeMax: 22, fill: 'mixed squares', rows: 5, instant: true, startStir: 6, gloss: 0.7 },
@@ -360,6 +363,35 @@ function createSwirl2(gl, opts = {}) {
         vec2 nn=vUv*2.-1.; float sheen=smoothstep(1.5,.1,length(nn-vec2(-.4,.5)));
         base+=vec3(1.)*sheen*.06;
         o=vec4(clamp(base,0.,1.),1.); }`,
+    // growing patterns (2026-10-06, Angus: "spots and stripes slowly grow and divide while you stir them"): a
+    // Gray-Scott reaction-diffusion on its own texture (x = U, y = V), carried by the swirl's velocity field each
+    // step so stirring visibly bends the pattern. Runs at half the picture's resolution (linear upsampling) and a
+    // few iterations per frame (grow speed), which keeps it cheap on an Intel iGPU.
+    growInit: `void main(){ o=vec4(1.,0.,0.,1.); }`,   // quiescent: U=1, V=0 everywhere
+    // a scattered seed: a soft disc of V (with a bit of noise so it is not a perfect circle), U dips to match
+    growSeed: `uniform sampler2D uSrc; uniform vec2 c; uniform float aspect, R, sd;
+      void main(){ vec2 d=vUv-c; d.x*=aspect; float r=length(d);
+        float m=smoothstep(R,R*.35,r)*(.55+.45*vnoise(d/max(R,1e-4)*4.+sd));
+        vec2 s=texture(uSrc,vUv).xy; float v=clamp(s.y+m,0.,1.);
+        o=vec4(clamp(s.x-m*.5,0.,1.),v,0.,1.); }`,
+    // carried by the fluid (semi-Lagrangian, same velocity field as everything else); the chemistry itself does its
+    // own diffusion, so no extra blur here
+    // mode 0: carried by the flow (fluids, water); 1: moved as the compose picture is, by this frame's change in
+    // displacement (fluids off + compose); 2: stays put (other fluids-off modes, where vel is not a flow)
+    growAdv: VELAT + `uniform sampler2D uSrc, uPrev; uniform vec2 simTexel; uniform float dt, mode, disp;
+      void main(){ vec2 c = mode<.5 ? vUv-dt*velAt(vUv)*simTexel : mode<1.5 ? vUv-(velAt(vUv)-texture(uPrev,vUv).xy)*simTexel*disp : vUv;
+        o=vec4(texture(uSrc,c).xy,0.,1.); }`,
+    // one Gray-Scott iteration: du/dt = Du*lap(u) - u*v^2 + f*(1-u), dv/dt = Dv*lap(v) + u*v^2 - (f+k)*v
+    // (a 9-point Laplacian for isotropy); f and k pick the regime (spots / maze / coral / mitosis)
+    growStep: `uniform sampler2D uSrc; uniform vec2 texel; uniform float du, dv, f, k;
+      void main(){ vec2 c=texture(uSrc,vUv).xy;
+        vec2 n=texture(uSrc,vL).xy+texture(uSrc,vR).xy+texture(uSrc,vT).xy+texture(uSrc,vB).xy;
+        vec2 d=texture(uSrc,vUv+vec2(texel.x,texel.y)).xy+texture(uSrc,vUv+vec2(-texel.x,texel.y)).xy
+              +texture(uSrc,vUv+vec2(texel.x,-texel.y)).xy+texture(uSrc,vUv+vec2(-texel.x,-texel.y)).xy;
+        vec2 lap=-c+(1./6.)*n+(1./12.)*d;   // Oono-Puri weights: the most rotationally isotropic 9-point discrete Laplacian, so fronts grow round instead of locking to the texel grid
+        float u=c.x, v=c.y, uvv=u*v*v;
+        float nu=u+du*lap.x-uvv+f*(1.-u), nv=v+dv*lap.y+uvv-(f+k)*v;
+        o=vec4(clamp(nu,0.,1.),clamp(nv,0.,1.),0.,1.); }`,
     dropInk: `uniform sampler2D uSrc; uniform vec2 c; uniform float aspect, a0, a1; uniform vec3 col;
       void main(){ vec2 d=vUv-c; d.x*=aspect; float L2=dot(d,d);
         if(L2<a1){ o=vec4(col,1.); return; }
@@ -439,6 +471,7 @@ function createSwirl2(gl, opts = {}) {
     display: INIT + LABEL + `uniform float milk; uniform sampler2D uP, uInk; uniform sampler2D uImgT; uniform float imgAspect, imgCells; uniform float sizeMix, inside; uniform sampler2D uTxt, uTxtA; uniform float txtMode; uniform vec3 txtCol; uniform vec4 LP[32], LA[32]; uniform vec2 LH[32]; uniform int nL; uniform float reveal, mapCells, tilePx, peek, time, freq, fadeMin, fadeMax, grain, seqLen, inkOn, starsOn, wash, fill, cells, seed, blocky; uniform vec2 dir, res;
       uniform vec3 pal[8]; uniform float seq[12], npal, hard; uniform vec3 outline, starC;
       uniform sampler2D uVelD; uniform vec2 mvTexel; uniform float motion, mvDisp, mvRings, mvSect;
+      uniform sampler2D uGrow; uniform float growMix, growDbg;
       vec3 colAt(float k){ int i=int(mod(k,seqLen)); return pal[int(seq[i])]; }
       // colour fade: every square (or band) fades from its colour into a randomly chosen palette colour, each
       // taking its own time between fadeMin and fadeMax seconds (fadeMin 0 = off). Returns (colour step, fade 0..1);
@@ -567,6 +600,23 @@ function createSwirl2(gl, opts = {}) {
         if(txtMode>2.5&&peek<.5) for(int i=0;i<32;i++){ if(i>=nL) break;   // drift: each letter whole, where the fluid pushed it, turned by its swirl
           vec2 l=rot(-LP[i].z)*((vUv-LP[i].xy)*vec2(aspect,1.)), h=LH[i];
           if(abs(l.x)<h.x&&abs(l.y)<h.y) col=mix(col, txtCol, texture(uTxtA, LA[i].xy+(l/h*.5+.5)*LA[i].zw).r); }
+        // growing patterns: the reaction-diffusion concentration (V) through the current palette, crisp-ish
+        // edges, painted only where the pattern actually is (t>0): the picture (or background) stays visible
+        // everywhere the pattern has not grown into yet, instead of being wiped to a flat colour
+        if(growMix>0.){
+          // a soft 5-tap blur of the concentration before the threshold: the reaction front is only a texel or two
+          // wide at the grow texture's resolution, so thresholding it raw stair-steps along the texel grid; blurring
+          // first (independent of how coarse that resolution is) gives a smooth, round, antialiased edge instead
+          vec2 gt=1./vec2(textureSize(uGrow,0));
+          float v=texture(uGrow,vUv).y*.4
+            +(texture(uGrow,vUv+vec2(gt.x,0.)).y+texture(uGrow,vUv-vec2(gt.x,0.)).y+texture(uGrow,vUv+vec2(0.,gt.y)).y+texture(uGrow,vUv-vec2(0.,gt.y)).y)*.15;
+          float t=smoothstep(.16,.32,v);
+          vec3 body=mix(pal[2],vec3(1.),.12);          // the pattern's own colour, a little brightened
+          vec3 glow=mix(body,vec3(1.),.6);              // a soft bright edge (growing tips / ridgelines)
+          float edge=1.-abs(smoothstep(.08,.4,v)*2.-1.);
+          vec3 gc=mix(body,glow,smoothstep(.3,1.,edge));
+          if(growDbg>.5) col=vec3(v*2.5); else col=mix(col,gc,growMix*t);
+        }
         if(starsOn>.5){
           vec2 g=gl_FragCoord.xy/res.y*14.; vec2 i=floor(g), f=fract(g)-.5;
           float rr=hash(i); vec2 q=abs(f-(vec2(hash(i+2.),hash(i+9.))-.5)*.5);
@@ -655,15 +705,58 @@ function createSwirl2(gl, opts = {}) {
 
   let S = {};
   let drops = [], lastLab = -1;   // ink drops (see drop())
+  let growAcc = 0;   // growing patterns: fractional RD iterations carried over frame to frame (dt-scaled, see growStep)
   let fountains = [];   // fountains (see plantFountain()): { x, y, ang, spin, ab, sd }, up to FOUNTAIN_MAX
   const aspect = () => o.width / o.height;
   function alloc() {
     const sh_ = o.simRes, sw_ = Math.round(sh_ * aspect());
     const ch = Math.min(o.coordRes, o.height), cw = Math.round(ch * aspect());
+    // grow: 3/4 of the picture's resolution, linear-upsampled on display: fine enough that the reaction-diffusion
+    // reads as organic (not grid-aligned), while a few iterations of it are still cheap next to the rest of the frame
+    const gh = Math.max(96, Math.round(ch * 0.75)), gw = Math.round(gh * aspect());
     S = { vel: dbl(sw_, sh_, true), velPrev: fbo(sw_, sh_, true),   // full float: fluidity can be 0.99999, which half float would round to 1
       press: dbl(sw_, sh_), div: fbo(sw_, sh_), curl: fbo(sw_, sh_), v0: fbo(sw_, sh_),
-          P: dbl(cw, ch, true), P0: fbo(cw, ch, true), ink: dbl(cw, ch), dye: dbl(cw, ch), fresh: fbo(cw, ch), tmp: fbo(cw, ch), out: fbo(o.width, o.height), out2: fbo(o.width, o.height), sw: sw_, sh: sh_ };   // out/out2: scratch for post passes (outline, fx: colour split, fx: hair streaks)
+          P: dbl(cw, ch, true), P0: fbo(cw, ch, true), ink: dbl(cw, ch), dye: dbl(cw, ch), fresh: fbo(cw, ch), tmp: fbo(cw, ch), out: fbo(o.width, o.height), out2: fbo(o.width, o.height), grow: dbl(gw, gh), sw: sw_, sh: sh_ };   // out/out2: scratch for post passes (outline, fx: colour split, fx: hair streaks)
     reset();
+  }
+  // f/k pick the regime (Gray-Scott feed/kill rates); du/dv (diffusion) found by testing each regime to the point it
+  // actually fills a screen in a few seconds without dying out or locking to the texel grid (du/dv too small reads
+  // as square/grid-aligned growth; too large and the high-kill regimes (spots, mitosis) die out before they spread)
+  const GROW_KINDS = {
+    spots:   { f: 0.025,  k: 0.0565, du: 0.2, dv: 0.1 },
+    maze:    { f: 0.029,  k: 0.057,  du: 0.5, dv: 0.25 },
+    coral:   { f: 0.0545, k: 0.062,  du: 0.5, dv: 0.25 },
+    mitosis: { f: 0.0367, k: 0.0599, du: 0.2, dv: 0.1 },
+  };
+  // quiescent everywhere (both buffers, so whichever is read next is clean)
+  function growClear() { if (!S.grow) return;
+    use('growInit', S.grow.write); blit(S.grow.write); S.grow.swap();
+    use('growInit', S.grow.write); blit(S.grow.write); S.grow.swap(); }
+  // scatter n seeds (n reseeds, Angus: 'n' key while grow is on); a good few texels wide at the grow resolution,
+  // well above the critical nucleation size, so they take hold instead of dying back out
+  function seedGrow(n) { if (!S.grow) return;
+    for (let i = 0; i < n; i++) {
+      const u = use('growSeed', S.grow.write); gl.uniform1i(u.uSrc, tex(0, S.grow.read));
+      gl.uniform2f(u.c, 0.08 + 0.84 * Math.random(), 0.08 + 0.84 * Math.random());
+      gl.uniform1f(u.R, 0.03 + Math.random() * 0.025); gl.uniform1f(u.sd, Math.random() * 50);
+      blit(S.grow.write); S.grow.swap();
+    }
+  }
+  function growReset() { growClear(); growAcc = 0; seedGrow(Math.round(o.growSeeds ?? 10)); }
+  // one visual frame of growth: advect by the velocity field (bends the pattern as you stir), then a Gray-Scott
+  // iterations (grow speed, scaled by dt so the pattern grows at the same wall-clock rate at any frame rate: grow
+  // speed is iterations per 1/60s of simulated time, not per rendered frame)
+  function growStep(dt, mode = 0) {
+    if (!S.grow) return;
+    let u = use('growAdv', S.grow.write); gl.uniform1i(u.uVel, tex(0, S.vel.read)); gl.uniform1i(u.uSrc, tex(1, S.grow.read)); gl.uniform1i(u.uPrev, tex(2, S.velPrev));
+    gl.uniform1f(u.dt, dt * o.energy); gl.uniform1f(u.mode, mode); gl.uniform1f(u.disp, o.energy * 0.06); blit(S.grow.write); S.grow.swap();
+    const kind = GROW_KINDS[o.growKind] || GROW_KINDS.coral;
+    growAcc += (o.growSpeed || 10) * dt * 60; const n = Math.min(90, Math.floor(growAcc)); growAcc -= n;
+    for (let i = 0; i < n; i++) {
+      u = use('growStep', S.grow.write); gl.uniform1i(u.uSrc, tex(0, S.grow.read));
+      gl.uniform1f(u.du, o.growDu ?? kind.du); gl.uniform1f(u.dv, o.growDv ?? kind.dv); gl.uniform1f(u.f, o.growF ?? kind.f); gl.uniform1f(u.k, o.growK ?? kind.k);
+      blit(S.grow.write); S.grow.swap();
+    }
   }
   const palArr = pl => { const a = new Float32Array(24); pl.pal.slice(0, 8).forEach((c, i) => a.set(hex(c), i * 3)); return a; };
   const hex = h => { const n = parseInt(h.slice(1), 16); return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255]; };
@@ -696,6 +789,7 @@ function createSwirl2(gl, opts = {}) {
   function reset(same = false) {
     drops = []; fountains = [];
     if (S.dye) [S.dye.read, S.dye.write].forEach(clear);
+    growClear(); if (o.grow) seedGrow(Math.round(o.growSeeds ?? 10));
     if (!same) seed = 1 + Math.floor(Math.random() * 1e5);
     for (const L of letters) { L.pos = L.home.slice(); L.ang = 0; }
     if (!same && resets++ && !o.fixedSwirls) {
@@ -716,6 +810,7 @@ function createSwirl2(gl, opts = {}) {
     gl.uniform1i(u.uP, tex(0, src)); gl.uniform1i(u.uInk, tex(1, S.div));   // placeholder: never sample the target
     gl.uniform1i(u.uTxt, tex(6, { t: txtT })); gl.uniform1i(u.uTxtA, tex(7, { t: atlasT }));
     gl.uniform1i(u.uVelD, tex(8, S.vel.read)); gl.uniform2f(u.mvTexel, 1 / S.sw, 1 / S.sh); gl.uniform1f(u.motion, o.motion || 0); gl.uniform1f(u.mvRings, o.motionRings ?? 2); gl.uniform1f(u.mvSect, o.motionSectors ?? 6); gl.uniform1f(u.mvDisp, o.fluids ? 0.06 : o.energy * 0.06);
+    gl.uniform1i(u.uGrow, tex(9, S.grow ? S.grow.read : S.div)); gl.uniform1f(u.growMix, o.grow ? (o.growMix ?? 1) : 0); gl.uniform1f(u.growDbg, o.growDbg ? 1 : 0);
     if (o.textMode === 3 && letters.length) { const n = letters.length, lp = new Float32Array(128), la = new Float32Array(128), lh = new Float32Array(64);
       letters.forEach((L, i) => { lp.set([L.pos[0], L.pos[1], L.ang, 0], i * 4); la.set(L.atlas, i * 4); lh.set(L.hs, i * 2); });
       gl.uniform4fv(u.LP, lp); gl.uniform4fv(u.LA, la); gl.uniform2fv(u.LH, lh); gl.uniform1i(u.nL, n); } else gl.uniform1i(u.nL, 0); gl.uniform1f(u.txtMode, o.text && o.textMode ? o.textMode : 0); gl.uniform3fv(u.txtCol, o.textColour === 'black' ? [0.02, 0.02, 0.03] : [1, 1, 1]);
@@ -876,6 +971,7 @@ function createSwirl2(gl, opts = {}) {
   // size and both turns, scattered over the screen; on the lattice presets every vertex gets a random direction
   function randomize(energy = 1) {
     const R = Math.random;
+    if (o.grow) seedGrow(Math.max(1, Math.round((o.growSeeds ?? 10) / 2)));   // n: a few new scattered seeds, on top of what is already growing
     if (o.grid >= 2) { const { ms, os } = lattice(); for (let i = 0; i < os.length; i++) { os[i] = R() * TAU; ms[i] = 0.06 * energy * (0.5 + R()); } return; }
     if (o.water) { for (let k = 0; k < (o.sym > 1 ? 2 : 5); k++) drop(0.15 + 0.7 * R(), 0.15 + 0.7 * R()); return; }   // water: n drops a few at random
     [S.vel.read, S.vel.write].forEach(clear); idleT = 0;
@@ -1172,6 +1268,7 @@ function createSwirl2(gl, opts = {}) {
       if (!composing) { u = use('scale', S.velPrev); gl.uniform1i(u.uSrc, tex(0, S.vel.read)); gl.uniform1f(u.k, 1); blit(S.velPrev); composing = true; }   // just switched on: start from now
       u = use('composeP', S.P.write); gl.uniform1i(u.uVel, tex(0, S.vel.read)); gl.uniform1i(u.uSrc, tex(1, S.P.read)); gl.uniform1i(u.uPrev, tex(2, S.velPrev));
       gl.uniform1f(u.disp, o.energy * 0.06); blit(S.P.write); S.P.swap();
+      if (o.grow) growStep(dt, 1);   // growing patterns move with the picture (before velPrev catches up)
       u = use('scale', S.velPrev); gl.uniform1i(u.uSrc, tex(0, S.vel.read)); gl.uniform1f(u.k, 1); blit(S.velPrev);
     } else if (o.fold && !o.fluids) foldStep();
     else {
@@ -1179,6 +1276,7 @@ function createSwirl2(gl, opts = {}) {
       gl.uniform1f(u.dt, dt * o.energy); gl.uniform1f(u.relax, relax); gl.uniform1f(u.flow, o.fluids ? 1 : 0); gl.uniform1f(u.disp, o.energy * 0.06); gl.uniform1f(u.spline, o.spline ? 1 : 0);
       blit(S.P.write); S.P.swap();
     }
+    if (o.grow && !(o.compose && !o.fluids && !o.water && o.paint !== 'ink')) growStep(dt, o.fluids || o.water ? 0 : 2);
     if (!o.water) stepDrops(dt);
   }
   // Save PNG (Angus: it shouldn't lose resolution): draw the current picture again, scale times the canvas size, into
@@ -1248,8 +1346,11 @@ function createSwirl2(gl, opts = {}) {
   }
   // switching paint mode: start the ink from the current bands so nothing jumps
   function set(params) {
-    const wasInk = o.paint === 'ink', fillWas = o.fill;
+    const wasInk = o.paint === 'ink', fillWas = o.fill, wasGrow = !!o.grow, wasKind = o.growKind;
     Object.assign(o, params);
+    // turning grow on (or switching regime) starts it fresh: an idle field never grows, and a parameter change can
+    // push an established pattern out of its stable range
+    if (o.grow && (!wasGrow || o.growKind !== wasKind)) growReset();
     if ('text' in params || ('textMode' in params && (params.textMode === 4) !== (textDrawnBig))) setText();
     // a new fill keeps your motion and the stirred coordinates (the pattern you made, now in the new fill / picture);
     // only the ink is redrawn from them. Clicking the same fill again (re-roll) and presets still reset
