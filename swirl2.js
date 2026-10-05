@@ -298,7 +298,7 @@ function createSwirl2(gl, opts = {}) {
       void main(){ vec2 d=vUv-c; d.x*=aspect; float r=length(d), an=atan(d.y,d.x);
         float e=R*(.8+.45*vnoise(vec2(cos(an),sin(an))*2.2+sd)+.18*vnoise(vec2(cos(an),sin(an))*7.+sd*1.7));
         float m=smoothstep(e,e*.55,r)*(.7+.5*vnoise(d/R*3.+sd));
-        o=vec4(texture(uSrc,vUv).rgb+ab*m,1.); }`,
+        o=vec4(mix(texture(uSrc,vUv).rgb, ab, clamp(m,0.,1.)),1.); }`,   // replaces what was there: new ink pushes the old aside, never piles on it
     // a drop's bloom: flow outward from its centre (like a spreading source), stronger in some directions than
     // others, so the rim pushes out unevenly and curls into fingers
     waterPush: `uniform sampler2D uVel; uniform vec2 c; uniform float aspect, R, sp, sd;
@@ -306,7 +306,8 @@ function createSwirl2(gl, opts = {}) {
         float f=r<R ? r/R : R/r; f*=exp(-max(0.,r-R)/(R*1.5));
         float k=.35+1.3*vnoise(vec2(cos(an),sin(an))*2.5+sd)+.5*vnoise(vec2(cos(an),sin(an))*9.+sd*2.3);
         o=vec4(texture(uVel,vUv).xy+d/r*sp*f*k,0.,1.); }`,
-    waterShow: `uniform sampler2D uSrc; void main(){ vec3 a=texture(uSrc,vUv).rgb; o=vec4(vec3(.985,.98,.965)*exp(-a),1.); }`,
+    // however much dye piles up it never goes black: the absorbance levels off at 1.4 (each colour keeps a quarter of the light)
+    waterShow: `uniform sampler2D uSrc; void main(){ vec3 a=texture(uSrc,vUv).rgb; a=1.4*(1.-exp(-a/1.4)); o=vec4(vec3(.985,.98,.965)*exp(-a),1.); }`,
     dropInk: `uniform sampler2D uSrc; uniform vec2 c; uniform float aspect, a0, a1; uniform vec3 col;
       void main(){ vec2 d=vUv-c; d.x*=aspect; float L2=dot(d,d);
         if(L2<a1){ o=vec4(col,1.); return; }

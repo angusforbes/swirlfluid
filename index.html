@@ -108,14 +108,14 @@
 </div>
 <div id="help" class="panel">
   <span class="mouse">drag to stir · hold <kbd>shift</kbd>+<kbd>→</kbd> / <kbd>shift</kbd>+<kbd>←</kbd> to spin a whirlpool under the cursor · hold <kbd>z</kbd> / <kbd>x</kbd> or scroll to dive in / out<br>
-  <kbd>1</kbd>–<kbd>9</kbd> presets · <kbd>e</kbd> swap engine · <kbd>t</kbd> tune · <kbd>space</kbd> pause · <kbd>R</kbd> new start · <kbd>g</kbd> random stir · <kbd>k</kbd> stars · <kbd>n</kbd> random vectors · <kbd>m</kbd> / <kbd>M</kbd> more / less energy · <kbd>esc</kbd> hide all · hold <kbd>shift</kbd> to move the mouse without stirring · <kbd>s</kbd> save · <kbd>d</kbd> debug · <kbd>h</kbd> hide<span class="swirlOnly"> · <kbd>c</kbd> palette · <kbd>p</kbd> pin sliders · <kbd>f</kbd> fill · <kbd>r</kbd> back to the grid · hold <kbd>l</kbd> map</span><span class="autoOnly"> · <kbd>b</kbd> background · <kbd>v</kbd> vectors · drop an image to smear it</span></span>
+  <kbd>1</kbd>–<kbd>9</kbd> presets · <kbd>e</kbd> swap engine · <kbd>t</kbd> tune · <kbd>space</kbd> pause · <kbd>R</kbd> new start · <kbd>g</kbd> random stir · <kbd>k</kbd> stars · <kbd>n</kbd> random vectors · <kbd>m</kbd> / <kbd>M</kbd> more / less energy · <kbd>esc</kbd> hide all · hold <kbd>shift</kbd> to move the mouse without stirring · <kbd>s</kbd> save · <kbd>d</kbd> debug · <kbd>h</kbd> hide<span class="swirlOnly"> · <kbd>c</kbd> palette · <kbd>i</kbd> drop ink (with drops on) · <kbd>p</kbd> pin sliders · <kbd>f</kbd> fill · <kbd>r</kbd> back to the grid · hold <kbd>l</kbd> map</span><span class="autoOnly"> · <kbd>b</kbd> background · <kbd>v</kbd> vectors · drop an image to smear it</span></span>
   <span class="touch">one finger stirs · press and hold to spin · twist two fingers to spin either way · spread two fingers to dive in · tap to bring this back</span>
   <div class="rowlabel" id="swirlLabel">swirl</div><div class="presets" id="presets"></div>
   <div class="rowlabel" id="autoLabel">fluid automata</div><div class="presets" id="profiles"></div>
 </div>
 <div id="err"></div>
-<script src="swirl2.js?v=63"></script>
-<script src="automata.js?v=63"></script>
+<script src="swirl2.js?v=64"></script>
+<script src="automata.js?v=64"></script>
 <script>
 // Two engines on one canvas: "swirl" (swirl2.js: a velocity fluid that paints poster bands, ink, facets...) and
 // "fluid automata" (automata.js: an 8-bit energy automaton that smears a background image). Only one runs at a time.
@@ -719,6 +719,7 @@ addEventListener('keydown', e => {
   else if (e.key === 'M') { cur().boost(1 / 1.5); wake(); }   // shift+m: less energy, same directions
   else if (e.key === 's') save();
   else if (e.key === 'd') capture();
+  else if (e.key === 'i' && !A && swirl.opts.drops) { const h = hover || [0.15 + 0.7 * Math.random(), 0.15 + 0.7 * Math.random()]; swirl.drop(h[0], h[1]); wake(); }   // i: drop ink at the mouse (anywhere when it's off the picture)
 });
 addEventListener('keyup', e => { if (e.key === 'l' && swirl) { swirl.peek = false; wake(); } if (e.key === 'z' || e.key === 'x') zoomKey = 0; if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'Shift') keySpin = 0; });
 
