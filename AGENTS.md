@@ -49,7 +49,7 @@ on the panel.
 
 ## State as of 2026-10-04 (v39) and open threads
 
-- Keys: n random vectors, m more energy (x1.5), g random stir, space new start (new squares + preset's `startStir`),
+- Keys: n random vectors, m more energy (x1.5), g random stir, space pause (freezes step + time, still renders), R new start (new squares + preset's `startStir`),
   r back to the grid (same squares, `reset(true)`), l hold = peek map, c palette, p pin (fluidity..bands keep values
   across presets), k stars (off by default), Esc hide all panels, hold Shift = mouse hands off.
 - Browser-remembered prefs (localStorage): `swirl-mixed-squares` (mixed squares default unless '0'), `swirl-pin`,

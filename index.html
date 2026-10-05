@@ -103,19 +103,19 @@
   </div>
   <div class="row"><input id="txtIn" placeholder="text (a / b = two lines)" style="width:12em"><button id="txtModeBtn" title="text: off / still (the colours go around it) / flows (written into the colours, stirred with them) / drift (each letter whole, pushed and turned by the fluid) / inside (big letters, the colours flow only inside them)">text: off</button><button id="txtColBtn" title="text colour (inside: the background colour)">white</button></div>
   <div class="row" id="driftRow"><label title="drift: how far a letter can turn (about 0 to 90 degrees)">spin <input id="driftSpin" type="range" min="0" max="1.6" step="0.05"></label><label title="drift: how far the fluid can push a letter">push <input id="driftPush" type="range" min="0" max="1" step="0.01"></label></div>
-  <div class="row"><button id="pinBtn" title="pin (p): the sliders from fluidity to bands keep your values when you switch presets; unpin to get each preset's own values">pin</button><button id="shareBtn">copy link</button><button id="debugBtn" title="debug capture (d): saves a screenshot and every setting for the agent (local receiver, else downloads)">debug</button><button id="presetBtn" title="save these settings as a preset in this browser (long-press or right-click one of yours to forget it)">save preset</button><button id="saveBtn">save PNG</button><button id="resetBtn2">reset</button></div>
+  <div class="row"><button id="pinBtn" title="pin (p): the sliders from fluidity to bands keep your values when you switch presets; unpin to get each preset's own values">pin</button><button id="shareBtn">copy link</button><button id="debugBtn" title="debug capture (d): saves a screenshot and every setting for the agent (local receiver, else downloads)">debug</button><button id="presetBtn" title="save these settings as a preset in this browser (long-press or right-click one of yours to forget it)">save preset</button><button id="pauseBtn" title="pause (space): freeze everything, e.g. before saving a PNG">pause</button><button id="saveBtn">save PNG</button><button id="resetBtn2">reset</button></div>
   <p>Ideas borrowed from <a href="https://github.com/CreativeCodingLab/FluidAutomataJS" style="color:inherit">Fluid Automata</a>. <a href="classic/" style="color:inherit">classic version</a> · <a href="https://github.com/angusforbes/swirlfluid" style="color:inherit">source</a></p>
 </div>
 <div id="help" class="panel">
   <span class="mouse">drag to stir · hold <kbd>shift</kbd>+<kbd>→</kbd> / <kbd>shift</kbd>+<kbd>←</kbd> to spin a whirlpool under the cursor · hold <kbd>z</kbd> / <kbd>x</kbd> or scroll to dive in / out<br>
-  <kbd>1</kbd>–<kbd>9</kbd> presets · <kbd>e</kbd> swap engine · <kbd>t</kbd> tune · <kbd>space</kbd> new start · <kbd>g</kbd> random stir · <kbd>k</kbd> stars · <kbd>n</kbd> random vectors · <kbd>m</kbd> more energy · <kbd>esc</kbd> hide all · hold <kbd>shift</kbd> to move the mouse without stirring · <kbd>s</kbd> save · <kbd>d</kbd> debug · <kbd>h</kbd> hide<span class="swirlOnly"> · <kbd>c</kbd> palette · <kbd>p</kbd> pin sliders · <kbd>f</kbd> fill · <kbd>r</kbd> back to the grid · hold <kbd>l</kbd> map</span><span class="autoOnly"> · <kbd>b</kbd> background · <kbd>v</kbd> vectors · drop an image to smear it</span></span>
+  <kbd>1</kbd>–<kbd>9</kbd> presets · <kbd>e</kbd> swap engine · <kbd>t</kbd> tune · <kbd>space</kbd> pause · <kbd>R</kbd> new start · <kbd>g</kbd> random stir · <kbd>k</kbd> stars · <kbd>n</kbd> random vectors · <kbd>m</kbd> more energy · <kbd>esc</kbd> hide all · hold <kbd>shift</kbd> to move the mouse without stirring · <kbd>s</kbd> save · <kbd>d</kbd> debug · <kbd>h</kbd> hide<span class="swirlOnly"> · <kbd>c</kbd> palette · <kbd>p</kbd> pin sliders · <kbd>f</kbd> fill · <kbd>r</kbd> back to the grid · hold <kbd>l</kbd> map</span><span class="autoOnly"> · <kbd>b</kbd> background · <kbd>v</kbd> vectors · drop an image to smear it</span></span>
   <span class="touch">one finger stirs · press and hold to spin · twist two fingers to spin either way · spread two fingers to dive in · tap to bring this back</span>
   <div class="rowlabel" id="swirlLabel">swirl</div><div class="presets" id="presets"></div>
   <div class="rowlabel" id="autoLabel">fluid automata</div><div class="presets" id="profiles"></div>
 </div>
 <div id="err"></div>
-<script src="swirl2.js?v=43"></script>
-<script src="automata.js?v=43"></script>
+<script src="swirl2.js?v=44"></script>
+<script src="automata.js?v=44"></script>
 <script>
 // Two engines on one canvas: "swirl" (swirl2.js: a velocity fluid that paints poster bands, ink, facets...) and
 // "fluid automata" (automata.js: an 8-bit energy automaton that smears a background image). Only one runs at a time.
@@ -662,10 +662,11 @@ addEventListener('keydown', e => {
   else if (e.key === 'c' && !A) { swirl.set({ palette: PALS[(PALS.indexOf(swirl.opts.palette) + 1) % PALS.length] }); sync(); }
   else if (e.key === 'f' && !A) $('fills').children[(FILLS.indexOf(swirl.opts.fill) + 1) % FILLS.length].click();
   else if (e.key === 'r' && !A) { swirl.reset(true); wake(); }   // back to the grid: no stirring, the same squares
+  else if (e.key === 'R') { cur().reset(); if (!A) kick(); wake(); }   // new start: new squares, and the preset's starting move
   else if (e.key === 'b' && A) { const n = BGS.filter(k => AUTOMATA_BGS[k].mode !== 4); setBg(n[(n.indexOf(auto.opts.bg) + 1) % n.length]); }
   else if (e.key === 'v' && A) { auto.set({ vectors: !auto.opts.vectors }); sync(); }
   else if (e.key === 't') toggleTune();
-  else if (e.key === ' ') { cur().reset(); if (!A) kick(); wake(); e.preventDefault(); }   // new squares, and the preset's starting move
+  else if (e.key === ' ') { togglePause(); e.preventDefault(); }   // pause / resume everything (Angus: freeze it before saving)
   else if (e.key === 'h') { help.classList.toggle('faded'); tuneBtn.classList.toggle('faded', help.classList.contains('faded')); }
   else if (e.key === 'g') randomStir();
   else if (e.key === 'k' && !A) { stars = !stars; localStorage.setItem('swirl-stars', stars ? '1' : '0'); swirl.set({ stars }); toast(stars ? 'stars on' : 'stars off'); wake(); }
@@ -693,8 +694,16 @@ addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout((
 
 let prev = performance.now(), t0 = prev;
 let liveN = 0;
+// pause (space / pause button): nothing moves (no step, time frozen), but the frozen frame is still drawn, so palette
+// changes show and Save PNG gets it; on resume time carries on from where it stopped
+var paused = false;
+function togglePause() { paused = !paused; $('pauseBtn').classList.toggle('on', paused); $('pauseBtn').textContent = paused ? 'play' : 'pause';
+  toast(paused ? 'paused (space to go on)' : 'playing', 1500); wake(); }
+$('pauseBtn').onclick = togglePause;
 function frame(now) {
   const dt = Math.min((now - prev) / 1000, 1 / 30); prev = now;
+  if (paused) { t0 += now - (frame.last || now); frame.last = now; if (!document.hidden) cur().render((now - t0) / 1000); requestAnimationFrame(frame); return; }
+  frame.last = now;
   if (!document.hidden) { spinInput(dt, now); const x = cur(); x.step(dt); x.render((now - t0) / 1000);
     if (engine === 'automata' && x.opts.auto && ++liveN % 10 === 0) for (const k of ['bright', 'contrast']) {   // auto light moves these
       const e = inputs.automata[k]; if (e) { e.inp.value = x.opts[k]; e.out.textContent = e.fmt(+x.opts[k]); } } }
