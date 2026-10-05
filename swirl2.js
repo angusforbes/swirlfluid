@@ -98,7 +98,7 @@ const SWIRL2_PRESETS = {
   'Smudge 2':    { fluids: false, fluidity: 1,     viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1.3, grid: 0, curl: 15,  heal: 0,   jitter: 0, memory: 0.99,  carry: 0,   paint: 'bands', wash: true, facets: false, crisp: 0, palette: 'jelly', freq: 3.2, fadeMin: 0, fadeMax: 0, fill: 'squares', rows: 2, grain: false, compose: true },
   // Angus 2026-10-05 "smudge squares": Smudge from the clean squares (no start stir), no thickness, so each stroke
   // smears the squares only while you drag and the rest stay crisp
-  'Smudge Squares':{ fluids: false, fluidity: 1,   viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'pop', freq: 4.9, fadeMin: 8, fadeMax: 22, fill: 'mixed squares', rows: 5, compose: true },
+  'Smudge Squares':{ fluids: false, fluidity: 1,   viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 0,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'pop', freq: 4.9, fadeMin: 8, fadeMax: 22, fill: 'mixed squares', rows: 5, compose: true, box: true, axisSnap: true },
   'Smudge Rings':{ fluids: false, fluidity: 1,     viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'pop', freq: 4.9, fadeMin: 8, fadeMax: 22, fill: 'mixed squares', rows: 5, instant: true, startStir: 6, compose: true, motion: 0.5 },
   'jag1':        { fluids: false, fluidity: 0.9999, viscosity: 0, momentum: 0, angularity: 0, energy: 2.5, grid: 0, curl: 0, heal: 0, jitter: 0, memory: 0.99, carry: 0, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'sorbet', freq: 2.4, fadeMin: 0, fadeMax: 0, fill: 'squares', rows: 3, spline: false },
   'jag2':        { fluids: false, fluidity: 0.9999, viscosity: 0, momentum: 0, angularity: 0, energy: 2.5, grid: 0, curl: 0, heal: 0, jitter: 0, memory: 0.99, carry: 0, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'sorbet', freq: 2.4, fadeMin: 0, fadeMax: 0, fill: 'squares', rows: 3, spline: true },
@@ -219,8 +219,9 @@ function createSwirl2(gl, opts = {}) {
         float l=dot(col,vec3(.2125,.7154,.0721));
         col=mix(vec3(l),col,sat); col*=bright; col=mix(vec3(.5),col,contrast);
         o=vec4(clamp(crisp(col,fr),0.,1.),ins); }`,
-    splat: `uniform sampler2D uTarget; uniform vec2 point, force; uniform float radius, aspect, spin;
-      void main(){ vec2 d=vUv-point; d.x*=aspect; float r2=dot(d,d); float g=exp(-r2/radius);
+    // box (2026-10-05): the push falls off in squares (distance = the larger of the two gaps) instead of circles
+    splat: `uniform sampler2D uTarget; uniform vec2 point, force; uniform float radius, aspect, spin, box;
+      void main(){ vec2 d=vUv-point; d.x*=aspect; float r2=dot(d,d); if(box>.5){ float c=max(abs(d.x),abs(d.y)); r2=c*c; } float g=exp(-r2/radius);
         vec2 tan_=vec2(-d.y,d.x)*radius/(r2+radius)*exp(-r2/(radius*5.));
         o=vec4(texture(uTarget,vUv).xy + force*g + spin*tan_*.6,0.,1.); }`,
     // text that stays still: no motion inside the letters, and motion heading into them turned along their edge, so the
@@ -700,7 +701,8 @@ function createSwirl2(gl, opts = {}) {
     // when you stop
     if (!ambient && o.instant && o.viscosity > 0) { const r1 = radius + o.viscosity * INSTANT, k = radius / r1; fx *= k; fy *= k; spin *= k; radius = r1; }
     if (o.grid >= 2) return latticeSplat(x, y, fx, fy, spin, radius);
-    const u = use('splat', S.vel.write);
+    if (o.axisSnap) { spin = 0; if (Math.abs(fx * S.sw) > Math.abs(fy * S.sh)) fy = 0; else fx = 0; }   // axis snap: straight pushes only, along the nearest axis
+    const u = use('splat', S.vel.write); gl.uniform1f(u.box, o.box ? 1 : 0);
     gl.uniform1i(u.uTarget, tex(0, S.vel.read)); gl.uniform2f(u.point, x, y);
     gl.uniform2f(u.force, fx * S.sw, fy * S.sh); gl.uniform1f(u.spin, spin * S.sh); gl.uniform1f(u.radius, radius);
     blit(S.vel.write); S.vel.swap();
