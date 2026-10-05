@@ -35,6 +35,7 @@ const SWIRL2_PALETTES = {
   cubist: { pal: ['#2b2620', '#8a6f4d', '#d2bf94', '#5d6b6a', '#a3542f', '#c9a227', '#3e5c76', '#e8dcc2'], seq: [0, 1, 3, 2, 1, 4, 3, 2, 5, 6, 7, 4], outline: '#1a1612' },
   tar:    { pal: ['#0b0907', '#2a211b', '#6b4e3a', '#c08a52', '#3d2f25', '#8c5a3c', '#e0b07a', '#4f3a2c'], seq: [0, 1, 0, 4, 1, 0, 2, 3, 7, 5, 0, 6], outline: '#050403' },
   // bright
+  food:   { pal: ['#d7262e', '#ffcc00', '#1d4fd8', '#1d9a48', '#ff4f9a', '#7a3dc2', '#ff7a00', '#00a3b4'], seq: [0, 1, 2, 3, 4, 5, 6, 7, 0, 2, 1, 3], outline: '#1a1a1a' },
   pop:    { pal: ['#14111f', '#ff006e', '#fb5607', '#ffbe0b', '#3a86ff', '#8338ec', '#06d6a0', '#f8f7ff'], seq: [0, 1, 2, 3, 0, 4, 5, 0, 6, 7, 3, 1], outline: '#0a0812' },
   candy:  { pal: ['#011627', '#ff4365', '#00d9c0', '#fffb46', '#7b2cbf', '#ff9f1c', '#2ec4ff', '#fdfffc'], seq: [0, 1, 2, 3, 4, 5, 0, 6, 7, 1, 3, 2], outline: '#000b14' },
   tropic: { pal: ['#0b3954', '#00a6a6', '#efca08', '#f49f0a', '#d81159', '#8f2d56', '#7ae582', '#ffe8d6'], seq: [0, 1, 2, 3, 4, 0, 5, 6, 7, 1, 2, 4], outline: '#05202f' },
@@ -81,6 +82,8 @@ const SWIRL2_PRESETS = {
   'Al Held':     { fluids: false, fluidity: 0.999, viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'pop', freq: 4.9, fadeMin: 8, fadeMax: 22, fill: 'squares', rows: 5 },
   // Al Held that stays where you put it, like Mosaic (Angus): fluidity 1 (no fading, no idle eddies) and instant
   // thickness (each push is broad and soft the moment you make it; nothing creeps or stops abruptly); colours still fade
+  // Angus 2026-10-05: "drops of food colouring into water or milk": tap to drop colour onto milk, drag to marble it
+  'Milk Drops':  { fluids: false, fluidity: 1,     viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 0.15,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'food', freq: 4.9, fadeMin: 0, fadeMax: 22, fill: 'mixed squares', rows: 5, instant: true, compose: true, drops: true, milk: true },
   'Mosaic 2':    { fluids: false, fluidity: 1,     viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'pop', freq: 4.9, fadeMin: 8, fadeMax: 22, fill: 'mixed squares', rows: 5, instant: true, startStir: 6 },   // starts as if you pressed n, then m 6 times
   // a pair to compare (Angus): high energy, fluids off. jag1 follows the motion with straight lines between its grid
   // points (sawtooth edges where it bends hard); jag2 is the same with smooth on (cubic B-spline)
@@ -155,6 +158,9 @@ function createSwirl2(gl, opts = {}) {
   vec2 initP(vec2 uv){ return (zA*uv+zB-.5)*vec2(aspect,1.)*2.; }
   vec2 swirled(vec2 p){ for(int i=0;i<6;i++) if(i<nsw) p=swirl(p,sw[i]); return p; }
   `;
+  // the drop label of the map (w; 1 = none), from the nearest pixel (never blended)
+  const LABEL = `
+  float label(sampler2D s, vec2 uv){ ivec2 z=textureSize(s,0); return texelFetch(s, clamp(ivec2(uv*vec2(z)),ivec2(0),z-1), 0).w; }`;
   const VELAT = `
   uniform sampler2D uVel;
   vec2 velAt(vec2 uv){ return texture(uVel,uv).xy; }`;
@@ -191,12 +197,12 @@ function createSwirl2(gl, opts = {}) {
         o=vec4(out_ ? initP(vUv) : initP(vUv)+(s.xy-initP(y))*zs, out_ ? 0. : s.z, 1.); }`,
     advect: `uniform sampler2D uVel, uSrc; uniform vec2 simTexel; uniform float dt;
       void main(){ vec2 c=vUv-dt*texture(uVel,vUv).xy*simTexel; o=texture(uSrc,c); }`,
-    advectP: INIT + VELAT + `uniform sampler2D uSrc; uniform vec2 simTexel; uniform float dt, relax, flow, disp;` + BSPL + `
+    advectP: INIT + VELAT + LABEL + `uniform sampler2D uSrc; uniform vec2 simTexel; uniform float dt, relax, flow, disp;` + BSPL + `
       void main(){
         // fluids off: the motion field is a displacement of the original picture (stays put, no smearing)
         if(flow<.5){ o=vec4(initP(vUv-velS(vUv)*simTexel*disp),0.,1.); return; }
         vec2 c=vUv-dt*velAt(vUv)*simTexel;
-        o=vec4(mix(texture(uSrc,c).xy, initP(vUv), relax),0.,1.); }`,
+        o=vec4(mix(texture(uSrc,c).xy, initP(vUv), relax),0.,label(uSrc,c)); }`,
     inkFwd: VELAT + `uniform sampler2D uSrc; uniform vec2 simTexel; uniform float dt;
       void main(){ o=texture(uSrc, vUv-dt*velAt(vUv)*simTexel); }`,
     // MacCormack: forward step, backward check, correct half the error, clamp to the source texels (keeps ink sharp)
@@ -269,8 +275,19 @@ function createSwirl2(gl, opts = {}) {
     scale: `uniform sampler2D uSrc; uniform float k; void main(){ o=texture(uSrc,vUv)*k; }`,
     // compose (2026-10-05): with fluids off, move the picture as it is now by only what the motion changed this frame,
     // so each stroke drags the already-stirred picture (folds on folds) instead of adding to one total displacement
-    composeP: VELAT + `uniform sampler2D uSrc, uPrev; uniform vec2 simTexel; uniform float disp;
-      void main(){ vec2 d=(velAt(vUv)-texture(uPrev,vUv).xy)*simTexel*disp; o=vec4(texture(uSrc,vUv-d).xyz,1.); }`,
+    composeP: VELAT + LABEL + `uniform sampler2D uSrc, uPrev; uniform vec2 simTexel; uniform float disp;
+      void main(){ vec2 d=(velAt(vUv)-texture(uPrev,vUv).xy)*simTexel*disp; o=vec4(texture(uSrc,vUv-d).xyz,label(uSrc,vUv-d)); }`,
+    // ink drops (2026-10-05, Angus: "drops of food colouring into water or milk"): a drop of area a1 (growing from a0)
+    // at c pushes everything outward without mixing (marbling: what was at distance sqrt(r^2-(a1-a0)) is now at r);
+    // inside, the drop's label (w = 2 + palette colour). Labels are moved nearest-pixel, so drops stay crisp
+    drop: LABEL + `uniform sampler2D uSrc; uniform vec2 c; uniform float aspect, a0, a1, lab;
+      void main(){ vec2 d=vUv-c; d.x*=aspect; float L2=dot(d,d);
+        if(L2<a1){ o=vec4(texture(uSrc,c).xyz, lab); return; }
+        vec2 p=c+(vUv-c)*sqrt(max(0.,1.-(a1-a0)/L2)); o=vec4(texture(uSrc,p).xyz, label(uSrc,p)); }`,
+    dropInk: `uniform sampler2D uSrc; uniform vec2 c; uniform float aspect, a0, a1; uniform vec3 col;
+      void main(){ vec2 d=vUv-c; d.x*=aspect; float L2=dot(d,d);
+        if(L2<a1){ o=vec4(col,1.); return; }
+        o=texture(uSrc, c+(vUv-c)*sqrt(max(0.,1.-(a1-a0)/L2))); }`,
     press: `uniform sampler2D uP, uDiv;
       void main(){ float L=texture(uP,vL).x, R=texture(uP,vR).x, T=texture(uP,vT).x, B=texture(uP,vB).x;
         o=vec4((L+R+B+T-texture(uDiv,vUv).x)*.25,0.,0.,1.); }`,
@@ -296,7 +313,7 @@ function createSwirl2(gl, opts = {}) {
       void main(){ vec3 fr=texture(uFresh,vUv).rgb, c=mix(fr, texture(uSrc,uv2()).rgb, blend);
         c=mix(vec3(dot(c,vec3(.2125,.7154,.0721))),c,sat); c*=bright; c=mix(vec3(.5),c,contrast);
         o=vec4(clamp(crisp(c,fr),0.,1.),1.); }`,
-    display: INIT + `uniform sampler2D uP, uInk; uniform sampler2D uImgT; uniform float imgAspect, imgCells; uniform float sizeMix, inside; uniform sampler2D uTxt, uTxtA; uniform float txtMode; uniform vec3 txtCol; uniform vec4 LP[32], LA[32]; uniform vec2 LH[32]; uniform int nL; uniform float reveal, mapCells, tilePx, peek, time, freq, fadeMin, fadeMax, grain, seqLen, inkOn, starsOn, wash, fill, cells, seed, blocky; uniform vec2 dir, res;
+    display: INIT + LABEL + `uniform float milk; uniform sampler2D uP, uInk; uniform sampler2D uImgT; uniform float imgAspect, imgCells; uniform float sizeMix, inside; uniform sampler2D uTxt, uTxtA; uniform float txtMode; uniform vec3 txtCol; uniform vec4 LP[32], LA[32]; uniform vec2 LH[32]; uniform int nL; uniform float reveal, mapCells, tilePx, peek, time, freq, fadeMin, fadeMax, grain, seqLen, inkOn, starsOn, wash, fill, cells, seed, blocky; uniform vec2 dir, res;
       uniform vec3 pal[8]; uniform float seq[12], npal, hard; uniform vec3 outline, starC;
       uniform sampler2D uVelD; uniform vec2 mvTexel; uniform float motion, mvDisp, mvRings, mvSect;
       vec3 colAt(float k){ int i=int(mod(k,seqLen)); return pal[int(seq[i])]; }
@@ -406,6 +423,7 @@ function createSwirl2(gl, opts = {}) {
           if(txtMode>1.5&&txtMode<2.5){   // text that flows: written into the picture at rest, so the stirring carries it
             vec2 tu=p0/(vec2(aspect,1.)*2.)+.5;   // (in the picture, so diving in enlarges it too)
             if(all(greaterThan(tu,vec2(0.)))&&all(lessThan(tu,vec2(1.)))) col=mix(col, txtCol, texture(uTxt,tu).r); }
+          if(peek<.5){ float lb=label(uP,TU()); if(lb>1.5) col=pal[int(mod(lb-2.+.5,npal))]; else if(milk>.5) col=vec3(.975,.965,.94); }   // ink drops on the map
           float shade=peek>.5 ? 0. : texture(uP,vUv).z; col=shade>0. ? mix(col,vec3(1.,.97,.9),shade*.7) : col*(1.+shade*1.1);
           // outside: what the stirring pulled in from beyond the screen; inside: what was on screen and moved
           // (the same six styles, applied to the other part)
@@ -513,6 +531,7 @@ function createSwirl2(gl, opts = {}) {
     return { get read() { return a; }, get write() { return b; }, swap() { [a, b] = [b, a]; } }; };
 
   let S = {};
+  let drops = [], lastLab = -1;   // ink drops (see drop())
   const aspect = () => o.width / o.height;
   function alloc() {
     const sh_ = o.simRes, sw_ = Math.round(sh_ * aspect());
@@ -551,6 +570,7 @@ function createSwirl2(gl, opts = {}) {
   const rndSwirl = (sgn) => [(Math.random() * 2 - 1) * aspect() * 0.8, (Math.random() * 2 - 1) * 0.75, sgn * (2.5 + Math.random() * 3.5), 0.35 + Math.random() * 0.45];
   // reset: new squares (new seed) and no motion; reset(true) (r): back to the unstirred grid, the same squares
   function reset(same = false) {
+    drops = [];
     if (!same) seed = 1 + Math.floor(Math.random() * 1e5);
     for (const L of letters) { L.pos = L.home.slice(); L.ang = 0; }
     if (!same && resets++ && !o.fixedSwirls) {
@@ -581,7 +601,7 @@ function createSwirl2(gl, opts = {}) {
     gl.uniform1f(u.sizeMix, o.fill === 'mixed squares' ? 0.67 : 0);   // (the mixed sizes slider, o.sizeMix, is commented out)
     gl.uniform1f(u.seed, seed); gl.uniform1f(u.peek, peeking ? 1 : 0); gl.uniform1f(u.reveal, o.reveal || 0); gl.uniform1f(u.inside, o.inside || 0); gl.uniform1f(u.mapCells, o.mapCell > 1 ? o.height / 2 / (o.mapCell * (o.height / Math.max(1, o.cssHeight || o.height))) : 0); gl.uniform1f(u.tilePx, o.tile > 1 ? o.tile * pxs * (o.height / Math.max(1, o.cssHeight || o.height)) : 0); gl.uniform1f(u.cells, o.height / 2 / cellPx); gl.uniform1f(u.blocky, o.fill !== 'image' && (cellPx > 1.5 || o.fill === 'squares' || o.fill === 'colour noise') ? 1 : 0);   // a picture is never cut into the preset's squares (pixelate does that)
     gl.uniform1f(u.grain, o.grain === false ? 0 : 1); gl.uniform1f(u.fadeMin, o.fadeMin); gl.uniform1f(u.fadeMax, o.fadeMax); gl.uniform2f(u.dir, o.dir[0], o.dir[1]); gl.uniform2f(u.res, o.width * pxs, o.height * pxs); gl.uniform1f(u.pxs, pxs);
-    gl.uniform3fv(u.pal, palArr(pl)); gl.uniform1f(u.npal, pl.pal.length); gl.uniform1f(u.hard, pl.hard ? 1 : 0);
+    gl.uniform1f(u.milk, o.milk ? 1 : 0); gl.uniform3fv(u.pal, palArr(pl)); gl.uniform1f(u.npal, pl.pal.length); gl.uniform1f(u.hard, pl.hard ? 1 : 0);
     const sq = new Float32Array(12); sq.set(pl.seq.slice(0, 12)); gl.uniform1fv(u.seq, sq);
     gl.uniform1f(u.seqLen, pl.seq.length); gl.uniform3fv(u.outline, hex(pl.outline)); gl.uniform3fv(u.starC, hex(pl.star || '#f7f1e1'));
     return u;
@@ -832,6 +852,25 @@ function createSwirl2(gl, opts = {}) {
     }
   }
   let ambT = 0, idleT = 0;
+  // ink drops: each grows over DROP_T seconds (easing out, like a drop spreading) to radius r (screen heights)
+  const DROP_T = 0.6;
+  function drop(x, y, size) {
+    const pl = SWIRL2_PALETTES[o.palette] || o.palette, n = pl.pal.length;
+    let k; do k = Math.floor(Math.random() * n); while (n > 1 && k === lastLab); lastLab = k;
+    drops.push({ x, y, r: (size || o.dropSize || 0.09) * (0.75 + 0.5 * Math.random()), t: 0, a: 0, k, col: hex(pl.pal[k]) });
+  }
+  function stepDrops(dt) {
+    if (!drops.length || o.grid >= 2) { drops = []; return; }
+    for (const d of drops) {
+      d.t = Math.min(DROP_T, d.t + dt); const f = 1 - (1 - d.t / DROP_T) ** 3, a1 = (d.r * f) ** 2;
+      if (a1 <= d.a) continue;
+      const ink = o.paint === 'ink', T = ink ? S.ink : S.P, u = use(ink ? 'dropInk' : 'drop', T.write);
+      gl.uniform1i(u.uSrc, tex(0, T.read)); gl.uniform2f(u.c, d.x, d.y); gl.uniform1f(u.a0, d.a); gl.uniform1f(u.a1, a1);
+      if (ink) gl.uniform3fv(u.col, d.col); else gl.uniform1f(u.lab, 2 + d.k);
+      blit(T.write); T.swap(); d.a = a1;
+    }
+    drops = drops.filter(d => d.t < DROP_T);
+  }
   function step(dt) {
     dt = Math.min(dt, 1 / 30); time += dt;
     if (o.grid >= 2) { gl.disable(gl.BLEND); gl.disable(gl.DEPTH_TEST); latticeStep(dt); return; }
@@ -903,6 +942,7 @@ function createSwirl2(gl, opts = {}) {
       gl.uniform1f(u.dt, dt * o.energy); gl.uniform1f(u.relax, relax); gl.uniform1f(u.flow, o.fluids ? 1 : 0); gl.uniform1f(u.disp, o.energy * 0.06); gl.uniform1f(u.spline, o.spline ? 1 : 0);
       blit(S.P.write); S.P.swap();
     }
+    stepDrops(dt);
   }
   // Save PNG (Angus: it shouldn't lose resolution): draw the current picture again, scale times the canvas size, into
   // a separate 8-bit target, and return its pixels (bottom row first). Nothing moves; the screen is untouched.
@@ -945,6 +985,6 @@ function createSwirl2(gl, opts = {}) {
   }
   function resize(w, h) { o.width = w; o.height = h; alloc(); setText(); }
   alloc(); setText();
-  return { step, render, exportPixels, splat, randomize, boost, burst, zoom, reset, resize, set, opts: o, get depth() { return depth; }, setImage, get hasImage() { return hasImage; }, get peek() { return peeking; }, set peek(v) { peeking = !!v; } };
+  return { step, render, exportPixels, splat, drop, get dropping() { return drops.length > 0; }, randomize, boost, burst, zoom, reset, resize, set, opts: o, get depth() { return depth; }, setImage, get hasImage() { return hasImage; }, get peek() { return peeking; }, set peek(v) { peeking = !!v; } };
 }
 if (typeof window !== 'undefined') { window.createSwirl2 = createSwirl2; window.SWIRL2_PALETTES = SWIRL2_PALETTES; window.SWIRL2_PRESETS = SWIRL2_PRESETS; window.SWIRL2_FILLS = SWIRL2_FILLS; }
