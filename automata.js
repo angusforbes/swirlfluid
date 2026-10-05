@@ -33,7 +33,7 @@ const AUTOMATA_BGS = {
 // profiles: the JS original's presets (blend, brightness, contrast, saturation, fluidity, momentum, angularity,
 // energy). Its "momentum" m sends 2m of the energy forward, so forward = min(1, 2m) here.
 const AUTOMATA_PROFILES = (() => {
-  const D = { grid: 13, dir: 0.5, maxOut: 1, jitter: 0, sens: 0.25, burst: 0.25, fluids: true, torus: true, bg: 'colour noise', mesh: false, zoom: 0, meshMix: 0 };
+  const D = { grid: 13, dir: 0.5, maxOut: 1, jitter: 0, sens: 0.25, burst: 0.25, fluids: true, torus: true, bg: 'colour noise', mesh: false, zoom: 0, meshMix: 0, voronoi: false };
   const P = (b, br, c, s, fl, m, a, e, x = {}) => Object.assign({}, D, { blend: b, bright: br, contrast: c, sat: s, fluidity: fl, forward: Math.min(1, 2 * m), ang: a, energy: e }, x);
   return {
     'Watercolors': P(0.8241, 1.0799, 1.1007, 1.04, 0.985, 0.26, 1.18, 0.2),
@@ -86,12 +86,38 @@ const AUTOMATA_PROFILES = (() => {
     'Propaganda (iOS)': P(0.651979, 1.223958, 1.192708, 0.975694, 0.552743, 1.0, 0.0, 1.0, { grid: 12, dir: 0.5, mesh: true, torus: false, bg: 'camera' }),
     'Columns (iOS)': P(0.744167, 1.092813, 1.192708, 0.8125, 0.915938, 0.072917, 0.479966, 0.25, { grid: 16, dir: 0.5, mesh: true, torus: false, bg: 'colour noise lo-res' }),
     'Glassy (iOS)': P(0.81792, 1.04737, 1.10069, 1.02431, 0.9999, 0.0, Math.PI / 4, 0.0, { grid: 12, dir: 0.5, mesh: true, torus: false, bg: 'colour noise lo-res', fluids: false }),
+    // Voronoi-style mesh (Angus liked the idea, 2026-10-05): jittered points, Delaunay triangles, mixed sizes per block
+    'Ice Crack (voronoi)': P(0.824063, 1.079861, 1.100694, 0.975694, 0.95, 0.000001, 0.000001, 0.08, { grid: 18, fluids: false, mesh: true, voronoi: true, torus: false }),
+    'Stained Glass (voronoi)': P(0.817917, 1.047367, 1.100694, 1.024306, 0.99, 0, 0.785398, 0.07, { grid: 12, fluids: false, mesh: true, voronoi: true, zoom: -0.04, torus: false, bg: 'colour noise lo-res' }),
     'Ember': P(0.94, 1.0, 1.01, 1.0, 0.99, 0.4, Math.PI / 2.5, 0.35, { grid: 72, bg: 'ember field' }),
   };
 })();
 
+// Bowyer-Watson Delaunay triangulation of [x, y] points; returns index triples
+function delaunay(P) {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const [x, y] of P) { minX = Math.min(minX, x); minY = Math.min(minY, y); maxX = Math.max(maxX, x); maxY = Math.max(maxY, y); }
+  const d = Math.max(maxX - minX, maxY - minY) * 20, mx = (minX + maxX) / 2, my = (minY + maxY) / 2, n = P.length;
+  const pts = P.concat([[mx - d, my - d], [mx, my + d], [mx + d, my - d]]);
+  const circ = (a, b, c) => { const [ax, ay] = pts[a], [bx, by] = pts[b], [cx, cy] = pts[c];
+    const D = 2 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by));
+    const ux = ((ax * ax + ay * ay) * (by - cy) + (bx * bx + by * by) * (cy - ay) + (cx * cx + cy * cy) * (ay - by)) / D;
+    const uy = ((ax * ax + ay * ay) * (cx - bx) + (bx * bx + by * by) * (ax - cx) + (cx * cx + cy * cy) * (bx - ax)) / D;
+    return [ux, uy, (ax - ux) ** 2 + (ay - uy) ** 2]; };
+  let tris = [[n, n + 1, n + 2, circ(n, n + 1, n + 2)]];
+  for (let i = 0; i < n; i++) {
+    const [x, y] = pts[i], bad = [], good = [];
+    for (const t of tris) ((x - t[3][0]) ** 2 + (y - t[3][1]) ** 2 < t[3][2] ? bad : good).push(t);
+    const edges = new Map();
+    for (const t of bad) for (const [a, b] of [[t[0], t[1]], [t[1], t[2]], [t[2], t[0]]]) { const k = a < b ? a + ',' + b : b + ',' + a; edges.set(k, edges.has(k) ? null : [a, b]); }
+    tris = good;
+    for (const e of edges.values()) if (e) tris.push([e[0], e[1], i, circ(e[0], e[1], i)]);
+  }
+  return tris.filter(t => t[0] < n && t[1] < n && t[2] < n).map(t => [t[0], t[1], t[2]]);
+}
+
 function createAutomata(gl, opts = {}) {
-  const o = Object.assign({ width: gl.drawingBufferWidth, height: gl.drawingBufferHeight, vectors: false, mesh: false, zoom: 0, meshMix: 0 },
+  const o = Object.assign({ width: gl.drawingBufferWidth, height: gl.drawingBufferHeight, vectors: false, mesh: false, zoom: 0, meshMix: 0, voronoi: false },
     AUTOMATA_PROFILES.Watercolors, opts);
   const VS = `#version 300 es
   in vec2 a; out vec2 vUv; void main(){ vUv=a*.5+.5; gl_Position=vec4(a,0.,1.); }`;
@@ -246,7 +272,24 @@ function createAutomata(gl, opts = {}) {
     const pt = (gi, gj) => { const x = gi === 0 ? 0 : gi === cols + 1 ? 1 : (gi - 0.5) / cols, y = gj === 0 ? 0 : gj === rows + 1 ? 1 : (gj - 0.5) / rows;
       const inner = gi > 0 && gi <= cols && gj > 0 && gj <= rows; return [x, y, inner ? gi - 1 : -1, inner ? gj - 1 : -1]; };
     const v = [];
-    if (o.meshMix > 0) {   // mixed sizes: squares 8 cells across, split at random (chance meshMix) down to one cell
+    if (o.voronoi) {   // irregular: jittered points (a random share kept per 6x6 block: mixed sizes), Delaunay triangles
+      const pts = [], add = (x, y, pin) => pts.push([x, y, pin]);
+      for (let i = 0; i <= cols; i++) { add(i / cols, 0, 1); add(i / cols, 1, 1); }   // pinned borders
+      for (let j = 1; j < rows; j++) { add(0, j / rows, 1); add(1, j / rows, 1); }
+      const keep = {};
+      for (let i = 0; i < cols; i++) for (let j = 0; j < rows; j++) {
+        const k = (i / 6 | 0) + ',' + (j / 6 | 0); keep[k] ??= 0.25 + 0.75 * Math.random();
+        if (Math.random() > keep[k]) continue;
+        add((i + 0.5 + (Math.random() - 0.5) * 0.85) / cols, (j + 0.5 + (Math.random() - 0.5) * 0.85) / rows, 0);
+      }
+      const a = o.width / o.height;
+      for (const t of delaunay(pts.map(p => [p[0] * a, p[1]]))) {   // triangulate in screen proportions
+        const c = t.reduce((s, i) => s + pts[i][0], 0) / 3;
+        v.push([c, t.flatMap(i => { const [x, y, pin] = pts[i]; return pin ? [x, y, -1, -1] : [x, y, Math.min(cols - 1, x * cols | 0), Math.min(rows - 1, y * rows | 0)]; })]);
+      }
+      v.sort((p, q) => p[0] - q[0]);   // left to right: later triangles cover earlier ones where it folds
+      const flat = v.flatMap(t => t[1]); v.length = 0; v.push(...flat);
+    } else if (o.meshMix > 0) {   // mixed sizes: squares 8 cells across, split at random (chance meshMix) down to one cell
       const B = 8, cw = 1 / cols, rh = 1 / rows;
       const q = (x, y) => { const pin = x <= 0 || x >= 1 || y <= 0 || y >= 1; return [Math.min(1, Math.max(0, x)), Math.min(1, Math.max(0, y)), pin ? -1 : -2, 0]; };
       const quad = (x, y, n) => {   // a square n cells across, lower-left at (x, y) in cells
@@ -419,10 +462,10 @@ function createAutomata(gl, opts = {}) {
   // m: more energy, same directions: every cell's magnitude k times as large
   function boost(k = 1.5) { const u = use('scale'); gl.uniform1i(u.uS, tex(0, S.r)); gl.uniform1f(u.k, k); draw(S.w); S.swap(); }
   const spin = (x, y, s, r = 2.2) => splat(x, y, 0, 0, s * o.sens, r);
-  function reset() { clearT(S.r); clearT(S.w); seed = Math.floor(Math.random() * 1e6); if (o.meshMix > 0) buildMesh(); makeBackground(); restart(); }
+  function reset() { clearT(S.r); clearT(S.w); seed = Math.floor(Math.random() * 1e6); if (o.meshMix > 0 || o.voronoi) buildMesh(); makeBackground(); restart(); }
   function set(params) {
-    const bgWas = o.bg, mixWas = o.meshMix; Object.assign(o, params);
-    if (o.meshMix !== mixWas) buildMesh();
+    const bgWas = o.bg, mixWas = o.meshMix, voroWas = o.voronoi; Object.assign(o, params);
+    if (o.meshMix !== mixWas || o.voronoi !== voroWas) buildMesh();
     if ('auto' in params || 'blend' in params || ('bright' in params || 'contrast' in params) && !params._auto) autoK = null;   // re-seed from the current values
     if (o.bg !== bgWas) { makeBackground(); }
   }

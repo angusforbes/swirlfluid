@@ -94,7 +94,7 @@
     <h4>fluid</h4><div id="fluidSliders"></div>
     <h4>image</h4><div id="imageSliders"></div>
     <div class="row">
-      <button id="aFluidsBtn" title="on: energy flows from cell to cell. off: it stays where you put it">fluids</button>
+      <button id="aFluidsBtn" title="on: energy flows from cell to cell. off: it stays where you put it">fluids</button><button id="voronoiBtn" title="voronoi: mesh presets use irregular triangles (jittered points, mixed sizes) instead of the even grid">voronoi</button>
       <button id="torusBtn" title="on: the edges wrap around. off: energy bounces off the walls">wrap</button>
       <button id="vecBtn" title="draw the energy vectors (v)">vectors</button>
       <button id="autoLightBtn" title="auto light: keeps brightness and contrast on the edge where the structures show (the picture stays mid-grey and lively instead of running off to black or white); blend stays yours">auto light</button>
@@ -114,8 +114,8 @@
   <div class="rowlabel" id="autoLabel">fluid automata</div><div class="presets" id="profiles"></div>
 </div>
 <div id="err"></div>
-<script src="swirl2.js?v=52"></script>
-<script src="automata.js?v=52"></script>
+<script src="swirl2.js?v=53"></script>
+<script src="automata.js?v=53"></script>
 <script>
 // Two engines on one canvas: "swirl" (swirl2.js: a velocity fluid that paints poster bands, ink, facets...) and
 // "fluid automata" (automata.js: an 8-bit energy automaton that smears a background image). Only one runs at a time.
@@ -212,7 +212,7 @@ const presetOpts = n => { const o = Object.assign({}, BASE, SWIRL2_PRESETS[n]); 
   if (o.imgRows) o.imgTile = Math.max(1, Math.round(innerHeight / o.imgRows));
   return o; };
 const baseOf = n => BUILTIN.includes(n) ? n : (SWIRL2_PRESETS[n]?.base || 'Poster');
-const profileOpts = n => Object.assign({ mesh: false, zoom: 0, meshMix: 0 }, AUTOMATA_PROFILES[n]);   // saved presets from before the mesh: no mesh
+const profileOpts = n => Object.assign({ mesh: false, zoom: 0, meshMix: 0, voronoi: false }, AUTOMATA_PROFILES[n]);   // saved presets from before the mesh: no mesh
 function urlOverrides(knobs) {
   const o = {};
   for (const [k] of knobs) if (q.has(k) && !isNaN(+q.get(k))) o[k] = +q.get(k);
@@ -368,7 +368,7 @@ const REVEAL = ['as is', 'dimmed', 'grey', 'washed', 'black', 'white'];
 $('insideBtn').onclick = () => { const e = getSwirl(); e.set({ inside: ((e.opts.inside || 0) + 1) % REVEAL.length }); sync(); };
 $('revealBtn').onclick = () => { const e = getSwirl(); e.set({ reveal: ((e.opts.reveal || 0) + 1) % REVEAL.length }); sync(); }; toggle('washBtn', 'wash', getSwirl); toggle('outlineBtn', 'outline', getSwirl); toggle('grainBtn', 'grain', getSwirl); toggle('splineBtn', 'spline', getSwirl);
 $('inkBtn').onclick = () => { swirl.set({ paint: swirl.opts.paint === 'ink' ? 'bands' : 'ink' }); sync(); };
-toggle('aFluidsBtn', 'fluids', getAuto); toggle('torusBtn', 'torus', getAuto); toggle('vecBtn', 'vectors', getAuto); toggle('autoLightBtn', 'auto', getAuto);
+toggle('aFluidsBtn', 'fluids', getAuto); toggle('torusBtn', 'torus', getAuto); toggle('vecBtn', 'vectors', getAuto); toggle('autoLightBtn', 'auto', getAuto); toggle('voronoiBtn', 'voronoi', getAuto);
 
 function sync() {
   const isA = engine === 'automata', o = cur().opts;
@@ -382,7 +382,7 @@ function sync() {
   for (const [k, x] of Object.entries(inputs[engine])) { if (x.sync) { x.sync(o); continue; } x.inp.value = x.map ? x.map.to(o[k]) : o[k]; x.out.textContent = x.fmt(+o[k]); }
   if (isA) {
     [...$('bgs').children].forEach(b => b.classList.toggle('on', b.textContent === o.bg));
-    $('aFluidsBtn').classList.toggle('on', !!o.fluids); $('torusBtn').classList.toggle('on', !!o.torus); $('vecBtn').classList.toggle('on', !!o.vectors); $('autoLightBtn').classList.toggle('on', !!o.auto);
+    $('aFluidsBtn').classList.toggle('on', !!o.fluids); $('torusBtn').classList.toggle('on', !!o.torus); $('vecBtn').classList.toggle('on', !!o.vectors); $('autoLightBtn').classList.toggle('on', !!o.auto); $('voronoiBtn').classList.toggle('on', !!o.voronoi);
   } else {
     [...dots.children].forEach(d => d.classList.toggle('on', d.dataset.n === o.palette));
     [...$('fills').children].forEach(b => b.classList.toggle('on', b.textContent === o.fill));
