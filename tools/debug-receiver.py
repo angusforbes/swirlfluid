@@ -6,7 +6,7 @@ and they are saved where the agent working on swirlfluid can read them:
   debug/captures.jsonl                                                       one line per capture, newest last
 
 Start it while you are sending captures (any page of the site, local or https://angusforbes.github.io/swirlfluid/,
-posts to http://127.0.0.1:8790 on the same machine):
+posts to http://127.0.0.1:8792 on the same machine):
 
   python3 tools/debug-receiver.py
 
@@ -15,7 +15,7 @@ With no receiver running (e.g. on a phone), the page downloads the screenshot an
 import base64, datetime, json, os, re
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-PORT = 8790
+PORT = 8792   # (8790 is the shared MCP gateway since 2026-10, J88)
 DEBUG = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'debug')
 
 

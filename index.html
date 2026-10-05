@@ -579,7 +579,7 @@ async function capture() {
   const png = canvas.toDataURL('image/png'), stamp = state.time.replace(/[-:]/g, '').slice(0, 15);
   try {
     const ac = new AbortController(); setTimeout(() => ac.abort(), 4000);
-    const r = await fetch('http://127.0.0.1:8790/capture', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: ac.signal,
+    const r = await fetch('http://127.0.0.1:8792/capture', { method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: ac.signal,
       body: JSON.stringify({ project: 'swirlfluid', label: name, note, state, png }) });
     const j = await r.json(); if (!j.ok) throw new Error(j.error);
     toast('debug capture saved: ' + j.dir);

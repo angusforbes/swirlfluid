@@ -8,7 +8,7 @@ Angus mostly tunes it on his phone and desktop browser; read `~/.pi/agent/notes/
 The page has a **debug** button (tune panel) and the **d** key. It asks Angus for an optional note, then saves the
 canvas plus every setting:
 
-- With the receiver running (`python3 tools/debug-receiver.py`, listens on 127.0.0.1:8790, works from the live https
+- With the receiver running (`python3 tools/debug-receiver.py`, listens on 127.0.0.1:8792; 8790 is now the MCP gateway, works from the live https
   site and from local copies on the same machine), each capture lands in this repo:
   `debug/captures/<YYYYmmdd-HHMMSS>-<preset>/shot.png`, `state.json`, `note.md`, and one line in
   `debug/captures.jsonl` (newest last). `debug/` is git-ignored.
