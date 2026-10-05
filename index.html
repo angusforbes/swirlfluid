@@ -86,7 +86,7 @@
       <!-- lattice, hidden for now: <button id="facetBtn" title="lattice: each triangle moves its piece rigidly, like cut planes">facets</button> -->
       <button id="washBtn" title="draw the bands as watercolour instead of poster">wash</button>
       <button id="grainBtn" title="wash: pigment granulation and paper grain; off keeps the colours solid">grain</button>
-      <button id="outlineBtn" title="a thin black line around every colour region; the colours inside stay clean">outline</button><button id="symBtn" title="symmetry: every stroke, drop and random stir repeated this many times around the centre (click to change)">symmetry off</button><button id="symMirrorBtn" title="mirror: each symmetric copy also mirrored, like a kaleidoscope">mirror</button><button id="dropsBtn" title="drops: a tap drops colour that spreads and pushes everything outward without mixing (like food colouring on milk); dragging still stirs">drops</button><button id="fountainsBtn" title="fountains: u places one at the mouse (shift+u clears them all), up to 8; each pours a steady push, and in water mode a steady trickle of its own colour, so the picture keeps evolving on its own">fountains</button><button id="milkBtn" title="milk: a plain milk-white background under the drops">milk</button><button id="boxBtn" title="square brush: each push falls off in squares instead of circles">square brush</button><button id="axisBtn" title="axis snap: every push goes straight up, down, left or right (no spin), for stepped, rectangular smears">axis snap</button><button id="composeBtn" title="compose: with fluids off, each stroke drags the picture as it is now (folds on folds) instead of adding to one total push">compose</button><button id="foldBtn" title="fold: with fluids off, push a mesh of triangles instead of looking each pixel up, so where the motion crosses itself the triangles fold over each other (straight-edged shards)">fold</button><button id="splineBtn" title="smooth: with fluids off, follow the motion with smooth curves instead of straight lines between grid points (no sawtooth edges at high energy)">smooth</button><button id="instantBtn" title="instant: thickness shapes each push the moment you make it (no spreading over time, so nothing creeps while you move or stops abruptly)">instant</button><button id="revealBtn" title="outside: draw what the stirring pulled in from beyond the screen differently from what was on screen and moved (the main motion, the same with ink on or off)">outside: as is</button><button id="insideBtn" title="inside: draw what was on screen and moved (everything the stirring did not pull in from beyond the screen) as is, dimmed, grey, washed, black or white">inside: as is</button>
+      <button id="outlineBtn" title="a thin black line around every colour region; the colours inside stay clean">outline</button><button id="symBtn" title="symmetry: every stroke, drop and random stir repeated this many times around the centre (click to change)">symmetry off</button><button id="symMirrorBtn" title="mirror: each symmetric copy also mirrored, like a kaleidoscope">mirror</button><button id="dropsBtn" title="drops: a tap drops colour that spreads and pushes everything outward without mixing (like food colouring on milk); dragging still stirs">drops</button><button id="pourBtn" title="pour: press and hold (not just a tap) to keep pouring ink while you drag, like moving a pipette over the water">pour</button><button id="dropColourBtn" title="colour order: random (never the same colour twice in a row), cycle (palette order), or one colour every time">colour: random</button><button id="fountainsBtn" title="fountains: u places one at the mouse (shift+u clears them all), up to 8; each pours a steady push, and in water mode a steady trickle of its own colour, so the picture keeps evolving on its own">fountains</button><button id="milkBtn" title="milk: a plain milk-white background under the drops">milk</button><button id="boxBtn" title="square brush: each push falls off in squares instead of circles">square brush</button><button id="axisBtn" title="axis snap: every push goes straight up, down, left or right (no spin), for stepped, rectangular smears">axis snap</button><button id="composeBtn" title="compose: with fluids off, each stroke drags the picture as it is now (folds on folds) instead of adding to one total push">compose</button><button id="foldBtn" title="fold: with fluids off, push a mesh of triangles instead of looking each pixel up, so where the motion crosses itself the triangles fold over each other (straight-edged shards)">fold</button><button id="splineBtn" title="smooth: with fluids off, follow the motion with smooth curves instead of straight lines between grid points (no sawtooth edges at high energy)">smooth</button><button id="instantBtn" title="instant: thickness shapes each push the moment you make it (no spreading over time, so nothing creeps while you move or stops abruptly)">instant</button><button id="revealBtn" title="outside: draw what the stirring pulled in from beyond the screen differently from what was on screen and moved (the main motion, the same with ink on or off)">outside: as is</button><button id="insideBtn" title="inside: draw what was on screen and moved (everything the stirring did not pull in from beyond the screen) as is, dimmed, grey, washed, black or white">inside: as is</button>
     </div>
   </div>
   <div id="autoTune" class="hide">
@@ -137,7 +137,7 @@ const baseOfA = n => BUILTIN_A.includes(n) ? n : (AUTOMATA_PROFILES[n]?.base || 
 const PROFILES = Object.keys(AUTOMATA_PROFILES), BGS = Object.keys(AUTOMATA_BGS);
 const coarse = matchMedia('(pointer: coarse)').matches;
 const FILLS = SWIRL2_FILLS;
-const BASE = { fill: 'squares', cell: Math.max(4, Math.round(innerHeight / 24)), freq: 3, palette: 'ocean', saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, wash: false, facets: false, jitter: 0, ambient: 1, fadeMin: 8, fadeMax: 22, outline: false, grain: true, tile: 1, mapCell: 1, spline: false, reach: 1, instant: false, startStir: 0, fold: false, foldRows: 16, compose: false, motion: 0, motionRings: 2, motionSectors: 6, box: false, axisSnap: false, drops: false, milk: false, dropSize: 0.09, water: false, bloom: 1, spread: 0.01, ragged: 0.5, splash: 1, sym: 0, symMirror: false, symCentres: null, smoothPng: true, reveal: 0, inside: 0, burst: 0.01, imgTile: 1, split: 0, hair: 0, fountains: false, fountainStrength: 1, startFountains: 0 };
+const BASE = { fill: 'squares', cell: Math.max(4, Math.round(innerHeight / 24)), freq: 3, palette: 'ocean', saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, wash: false, facets: false, jitter: 0, ambient: 1, fadeMin: 8, fadeMax: 22, outline: false, grain: true, tile: 1, mapCell: 1, spline: false, reach: 1, instant: false, startStir: 0, fold: false, foldRows: 16, compose: false, motion: 0, motionRings: 2, motionSectors: 6, box: false, axisSnap: false, drops: false, milk: false, dropSize: 0.09, water: false, bloom: 1, spread: 0.01, ragged: 0.5, splash: 1, sym: 0, symMirror: false, symCentres: null, smoothPng: true, reveal: 0, inside: 0, burst: 0.01, imgTile: 1, split: 0, hair: 0, fountains: false, fountainStrength: 1, startFountains: 0, pour: false, inkStrength: 1, dropColours: 'random' };
 // the knobs: [key, label, min, max, step, format]
 const KNOBS = [
   // fluidity: finer toward the top: the left half covers 0.9 to 0.99, then each further stretch adds a 9 (0.999,
@@ -183,6 +183,7 @@ const KNOBS = [
   ['dropSize', 'drop size', 0.02, 0.3, 0.005, v => v.toFixed(3)],
   ['ragged', 'raggedness', 0, 1.5, 0.05, v => v.toFixed(2)],
   ['splash', 'splash', 0, 3, 0.1, v => v ? v.toFixed(1) + '×' : 'off'],
+  ['inkStrength', 'ink strength', 0.2, 2, 0.05, v => v.toFixed(2) + '×'],   // how much absorbance a fresh drop puts in: pale wash .. deep dye (waterShow's never-black cap still holds)
   ['motionSectors', 'sectors', 0, 16, 1, v => v > 0 ? Math.round(v) : 'none'],   // motion colour: slices of direction   // colour by the motion: direction sectors x strength rings   // fold: how many rows of triangles (fewer = bigger shards)
   // fx (post passes on the finished picture, along the local flow velocity; both off by default)
   ['split', 'colour split', 0, 1, 0.01, v => v > 0 ? Math.round(v * 100) + '%' : 'off'],
@@ -347,7 +348,8 @@ const IDLE_BTNS = { /* facetBtn: o => o.grid >= 2 ? '' : 'no effect with the lat
   insideBtn: o => o.fluids && o.paint === 'ink' ? 'no effect with fluids and ink both on' : '',
   revealBtn: o => o.fluids && o.paint === 'ink' ? 'no effect with fluids and ink both on' : '', splineBtn: o => !o.fluids && o.grid < 2 && !o.fold ? '' : o.fold ? 'no effect with fold on' : 'only with fluids off (and the lattice off)',
   foldBtn: o => o.compose ? 'no effect with compose on' : !o.fluids && o.paint !== 'ink' ? '' : 'only with fluids off and bands paint',
-  composeBtn: o => !o.fluids && o.paint !== 'ink' ? '' : 'only with fluids off and bands paint' };
+  composeBtn: o => !o.fluids && o.paint !== 'ink' ? '' : 'only with fluids off and bands paint',
+  pourBtn: o => o.drops ? '' : 'only with drops on', dropColourBtn: o => o.drops ? '' : 'only with drops on' };
 function idleKnobs(o) {
   for (const [k, x] of Object.entries(inputs.swirl)) { if (!x.l) continue; const why = IDLE[k]?.(o) || '';
     x.l.classList.toggle('idle', !!why); x.l.title = (TIPS[k] || '') + (why ? ' (' + why + ')' : ''); }
@@ -382,7 +384,7 @@ function dualSlider(ka, kb, label, min, max, step, fmt, el, which) {
 sliders(KNOBS, $('sliders'), 'swirl');
 sliders(FLUID_KNOBS, $('fluidSliders'), 'automata'); sliders(IMAGE_KNOBS, $('imageSliders'), 'automata');
 const toggle = (id, key, eng) => $(id).onclick = () => { const e = eng(); e.set({ [key]: !e.opts[key] }); sync(); };
-toggle('fluidsBtn', 'fluids', getSwirl); toggle('foldBtn', 'fold', getSwirl); toggle('composeBtn', 'compose', getSwirl); toggle('boxBtn', 'box', getSwirl); toggle('dropsBtn', 'drops', getSwirl); toggle('fountainsBtn', 'fountains', getSwirl); toggle('symMirrorBtn', 'symMirror', getSwirl); $('symBtn').onclick = () => { const e = getSwirl(), S = [0, 2, 3, 4, 6, 8]; e.set({ sym: S[(S.indexOf(e.opts.sym || 0) + 1) % S.length] }); sync(); }; toggle('milkBtn', 'milk', getSwirl); toggle('axisBtn', 'axisSnap', getSwirl); /* toggle('facetBtn', 'facets', getSwirl); (lattice, hidden for now) */ toggle('instantBtn', 'instant', getSwirl);
+toggle('fluidsBtn', 'fluids', getSwirl); toggle('pourBtn', 'pour', getSwirl); $('dropColourBtn').onclick = () => { const e = getSwirl(), M = ['random', 'cycle', 'one']; e.set({ dropColours: M[(M.indexOf(e.opts.dropColours || 'random') + 1) % M.length] }); sync(); }; toggle('foldBtn', 'fold', getSwirl); toggle('composeBtn', 'compose', getSwirl); toggle('boxBtn', 'box', getSwirl); toggle('dropsBtn', 'drops', getSwirl); toggle('fountainsBtn', 'fountains', getSwirl); toggle('symMirrorBtn', 'symMirror', getSwirl); $('symBtn').onclick = () => { const e = getSwirl(), S = [0, 2, 3, 4, 6, 8]; e.set({ sym: S[(S.indexOf(e.opts.sym || 0) + 1) % S.length] }); sync(); }; toggle('milkBtn', 'milk', getSwirl); toggle('axisBtn', 'axisSnap', getSwirl); /* toggle('facetBtn', 'facets', getSwirl); (lattice, hidden for now) */ toggle('instantBtn', 'instant', getSwirl);
 const REVEAL = ['as is', 'dimmed', 'grey', 'washed', 'black', 'white'];
 $('insideBtn').onclick = () => { const e = getSwirl(); e.set({ inside: ((e.opts.inside || 0) + 1) % REVEAL.length }); sync(); };
 $('revealBtn').onclick = () => { const e = getSwirl(); e.set({ reveal: ((e.opts.reveal || 0) + 1) % REVEAL.length }); sync(); }; toggle('washBtn', 'wash', getSwirl); toggle('outlineBtn', 'outline', getSwirl); toggle('grainBtn', 'grain', getSwirl); toggle('splineBtn', 'spline', getSwirl);
@@ -411,7 +413,7 @@ function sync() {
     [...dots.children].forEach(d => d.classList.toggle('on', d.dataset.n === o.palette));
     [...$('fills').children].forEach(b => b.classList.toggle('on', b.textContent === o.fill));
     $('fluidsBtn').classList.toggle('on', !!o.fluids); $('inkBtn').classList.toggle('on', o.paint === 'ink');
-    $('washBtn').classList.toggle('on', !!o.wash); /* $('facetBtn').classList.toggle('on', !!o.facets); (lattice, hidden for now) */ $('instantBtn').classList.toggle('on', !!o.instant); $('foldBtn').classList.toggle('on', !!o.fold); $('composeBtn').classList.toggle('on', !!o.compose); $('boxBtn').classList.toggle('on', !!o.box); $('dropsBtn').classList.toggle('on', !!o.drops); $('fountainsBtn').classList.toggle('on', !!o.fountains); $('symBtn').classList.toggle('on', o.sym > 1); $('symBtn').textContent = o.sym > 1 ? 'symmetry ' + o.sym + '×' : 'symmetry off'; $('symMirrorBtn').classList.toggle('on', !!o.symMirror); $('milkBtn').classList.toggle('on', !!o.milk); $('axisBtn').classList.toggle('on', !!o.axisSnap); $('revealBtn').textContent = 'outside: ' + REVEAL[o.reveal || 0]; $('insideBtn').textContent = 'inside: ' + REVEAL[o.inside || 0]; $('revealBtn').classList.toggle('on', !!o.reveal); $('outlineBtn').classList.toggle('on', !!o.outline); $('grainBtn').classList.toggle('on', o.grain !== false); $('splineBtn').classList.toggle('on', !!o.spline); idleKnobs(o);
+    $('washBtn').classList.toggle('on', !!o.wash); /* $('facetBtn').classList.toggle('on', !!o.facets); (lattice, hidden for now) */ $('instantBtn').classList.toggle('on', !!o.instant); $('foldBtn').classList.toggle('on', !!o.fold); $('composeBtn').classList.toggle('on', !!o.compose); $('boxBtn').classList.toggle('on', !!o.box); $('dropsBtn').classList.toggle('on', !!o.drops); $('pourBtn').classList.toggle('on', !!o.pour); $('dropColourBtn').classList.toggle('on', (o.dropColours || 'random') !== 'random'); $('dropColourBtn').textContent = 'colour: ' + (o.dropColours || 'random'); $('fountainsBtn').classList.toggle('on', !!o.fountains); $('symBtn').classList.toggle('on', o.sym > 1); $('symBtn').textContent = o.sym > 1 ? 'symmetry ' + o.sym + '×' : 'symmetry off'; $('symMirrorBtn').classList.toggle('on', !!o.symMirror); $('milkBtn').classList.toggle('on', !!o.milk); $('axisBtn').classList.toggle('on', !!o.axisSnap); $('revealBtn').textContent = 'outside: ' + REVEAL[o.reveal || 0]; $('insideBtn').textContent = 'inside: ' + REVEAL[o.inside || 0]; $('revealBtn').classList.toggle('on', !!o.reveal); $('outlineBtn').classList.toggle('on', !!o.outline); $('grainBtn').classList.toggle('on', o.grain !== false); $('splineBtn').classList.toggle('on', !!o.spline); idleKnobs(o);
   }
 }
 function setEngine(e) {
@@ -617,12 +619,15 @@ sync();
 //   touch: one finger stirs; press and hold still spins (swirl) or keeps pushing (automata); two-finger twist spins
 const pos = e => { const r = canvas.getBoundingClientRect(); return [(e.clientX - r.left) / r.width, 1 - (e.clientY - r.top) / r.height]; };
 const pts = new Map();
+// pour (drops + pour on): a held press keeps dropping ink at the pointer, so a drag draws a ribbon the water then
+// curls; starts after a short hold or as soon as the pointer moves (a quick tap below still drops just the one, in lift())
+const POUR_HOLD = 250, POUR_INTERVAL = 90;
 let hover = null, lastHover = null, keySpin = 0, twist = null;
 canvas.addEventListener('contextmenu', e => e.preventDefault());
 canvas.addEventListener('pointerdown', e => {
   if (e.shiftKey && e.pointerType === 'mouse') return;   // shift: hands off, the mouse doesn't touch the scene
   canvas.setPointerCapture(e.pointerId);
-  const p = pos(e); pts.set(e.pointerId, { p, last: p, t0: performance.now(), moved: 0, still: 0, touch: e.pointerType !== 'mouse' });
+  const p = pos(e); pts.set(e.pointerId, { p, last: p, t0: performance.now(), moved: 0, still: 0, touch: e.pointerType !== 'mouse', pouring: false, pourT: 0, pourK: undefined });
   if (pts.size === 2) twist = null;
   if (coarse && tune.classList.contains('open')) toggleTune();
   wake();
@@ -651,7 +656,7 @@ canvas.addEventListener('pointermove', e => {
 });
 const lift = e => {
   const t = pts.get(e.pointerId); pts.delete(e.pointerId); twist = null;
-  if (t && engine === 'swirl' && swirl.opts.drops && t.moved < 8 && performance.now() - t.t0 < 350) { swirl.drop(t.p[0], t.p[1]); return; }   // drops: a tap drops colour
+  if (t && engine === 'swirl' && swirl.opts.drops && !t.pouring && t.moved < 8 && performance.now() - t.t0 < 350) { swirl.drop(t.p[0], t.p[1]); return; }   // drops: a tap drops colour (not if this press already poured)
   if (t && t.touch && t.moved < 8 && performance.now() - t.t0 < 250) wake(true);   // a tap brings the help back
 };
 canvas.addEventListener('pointerup', lift); canvas.addEventListener('pointercancel', lift);
@@ -696,6 +701,11 @@ function spinInput(dt, now) {
   if (pts.size === 1) {
     const t = pts.values().next().value;
     if (A) { if (++t.still > 2) auto.burst(t.last[0], t.last[1], Math.min(6, 1 + (t.still - 3) / 8)); }   // held still: energy shoots out in every direction, further the longer you hold
+    else if (engine === 'swirl' && swirl.opts.drops && swirl.opts.pour) {   // pour: a held press keeps dropping ink (dragging also still stirs, above); one colour per pour
+      const ps = Math.max(0.015, (swirl.opts.dropSize || 0.09) * 0.5);
+      if (!t.pouring) { if (t.moved > 8 || now - t.t0 > POUR_HOLD) { t.pouring = true; t.pourT = now; t.pourK = swirl.drop(t.p[0], t.p[1], ps, { bloom: 0, life: 0.3 }); } }
+      else if (now - t.pourT > POUR_INTERVAL) { t.pourT = now; swirl.drop(t.p[0], t.p[1], ps, { k: t.pourK, splash: 0.3, bloom: 0, life: 0.3 }); }
+    }
     else if (t.touch && t.moved < 12 && now - t.t0 > 350) swirl.splat(t.p[0], t.p[1], 0, 0, -SPIN, 0.008);
     else if (!t.touch && t.moved < 6 && now - t.t0 > 120 && swirl.opts.burst > 0) {   // mouse held still: burst outward, the ring growing as you hold
       const r = Math.min(0.35, 0.02 + (now - t.t0 - 120) / 1000 * 0.2); swirl.burst(t.p[0], t.p[1], r); wake(); }
