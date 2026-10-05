@@ -93,7 +93,7 @@ function createSwirl2(gl, opts = {}) {
     width: gl.drawingBufferWidth, height: gl.drawingBufferHeight,
     simRes: 160, coordRes: 900, palette: 'ocean', freq: 3.0, dir: [0.4, 2.2],
     swirls: [[-0.55, 0.12, 5.5, 0.75], [0.7, -0.3, -4.5, 0.6], [0.15, 0.75, 2.5, 0.4]],
-    fadeMin: 8, fadeMax: 22, ambient: 1, saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, driftSpin: 0.5, driftPush: 0.15, wash: false, facets: false, jitter: 0,
+    fadeMin: 8, fadeMax: 22, ambient: 1, saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, driftSpin: 0.5, driftPush: 0.3, wash: false, facets: false, jitter: 0,
   }, SWIRL2_PRESETS.Poster, opts);
   if (!gl.getExtension('EXT_color_buffer_float') && !gl.getExtension('EXT_color_buffer_half_float'))
     throw new Error('swirl: this GPU cannot render to float textures');
@@ -372,7 +372,7 @@ function createSwirl2(gl, opts = {}) {
             col*=mix(1., .9+.14*vnoise(p*9.+k), grain);
             col*=mix(1., .96+.05*hash(floor(gl_FragCoord.xy*.7)), grain);
           } else if(blocky<.5) col=mix(col,outline,smoothstep(w*1.4,0.,min(fr,1.-fr)-.015));
-          if(txtMode>1.5){   // text that flows: written into the picture at rest, so the stirring carries it
+          if(txtMode>1.5&&txtMode<2.5){   // text that flows: written into the picture at rest, so the stirring carries it
             vec2 tu=p0/(vec2(aspect,1.)*2.)+.5;   // (in the picture, so diving in enlarges it too)
             if(all(greaterThan(tu,vec2(0.)))&&all(lessThan(tu,vec2(1.)))) col=mix(col, txtCol, texture(uTxt,tu).r); }
           float shade=peek>.5 ? 0. : texture(uP,vUv).z; col=shade>0. ? mix(col,vec3(1.,.97,.9),shade*.7) : col*(1.+shade*1.1);
@@ -677,7 +677,8 @@ function createSwirl2(gl, opts = {}) {
     const AH = ay + ch, a = document.createElement('canvas'); a.width = AW; a.height = AH; const x = a.getContext('2d');
     x.font = font; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#f00';
     items.forEach((it, i) => { const [px, py, cw] = pos[i]; x.fillText(it.ch, px + cw / 2, py + ch / 2);
-      letters.push({ home: [it.cx / w, 1 - it.cy / h], pos: [it.cx / w, 1 - it.cy / h], ang: 0, hs: [cw / 2 / h, ch / 2 / h], atlas: [px / AW, 1 - (py + ch) / AH, cw / AW, ch / AH] }); });
+      const mt = x.measureText(it.ch), ink = [(mt.actualBoundingBoxRight - mt.actualBoundingBoxLeft) / 2 / h, (mt.actualBoundingBoxAscent - mt.actualBoundingBoxDescent) / 2 / h, (mt.actualBoundingBoxRight + mt.actualBoundingBoxLeft) / 2 / h, (mt.actualBoundingBoxAscent + mt.actualBoundingBoxDescent) / 2 / h];   // the glyph's ink: centre offset, half size
+      letters.push({ ink, home: [it.cx / w, 1 - it.cy / h], pos: [it.cx / w, 1 - it.cy / h], ang: 0, hs: [cw / 2 / h, ch / 2 / h], atlas: [px / AW, 1 - (py + ch) / AH, cw / AW, ch / AH] }); });
     gl.bindTexture(gl.TEXTURE_2D, atlasT); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, a); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
     for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
@@ -705,7 +706,10 @@ function createSwirl2(gl, opts = {}) {
       else { const s = len > 0 ? cap(len, P) / len : 0, tx = L.home[0] + vx * s / a, ty = L.home[1] + vy * s;   // fluids off: settle onto the shifted home
         L.pos[0] += (tx - L.pos[0]) * e; L.pos[1] += (ty - L.pos[1]) * e;
         const d = cap(0.5 * curl * k, R) - L.ang; L.ang += Math.max(-R * dt * 2, Math.min(R * dt * 2, d * e)); }
-      L.pos[0] = Math.min(1, Math.max(0, L.pos[0])); L.pos[1] = Math.min(1, Math.max(0, L.pos[1])); });
+      // the screen edges: the whole letter (its box as turned now) stays on screen
+      const [ox, oy, hx, hy] = L.ink, cs = Math.cos(L.ang), sn = Math.sin(L.ang), c = Math.abs(cs), s = Math.abs(sn);
+      const dx = (cs * ox - sn * oy) / a, dy = sn * ox + cs * oy, ex = Math.min(0.5, (c * hx + s * hy) / a), ey = Math.min(0.5, s * hx + c * hy);
+      L.pos[0] = Math.min(1 - ex - dx, Math.max(ex - dx, L.pos[0])); L.pos[1] = Math.min(1 - ey - dy, Math.max(ey - dy, L.pos[1])); });
   }
   gl.bindTexture(gl.TEXTURE_2D, txtT); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4));
   let textDrawnBig = false;
