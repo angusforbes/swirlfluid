@@ -103,7 +103,7 @@
   </div>
   <div class="row"><input id="txtIn" placeholder="text (a / b = two lines)" style="width:12em"><button id="txtModeBtn" title="text: off / still (the colours go around it) / flows (written into the colours, stirred with them) / drift (each letter whole, pushed and turned by the fluid) / inside (big letters, the colours flow only inside them)">text: off</button><button id="txtColBtn" title="text colour (inside: the background colour)">white</button></div>
   <div class="row" id="driftRow"><label title="drift: how far a letter can turn (about 0 to 90 degrees)">spin <input id="driftSpin" type="range" min="0" max="1.6" step="0.05"></label><label title="drift: how far the fluid can push a letter">push <input id="driftPush" type="range" min="0" max="1" step="0.01"></label></div>
-  <div class="row"><button id="pinBtn" title="pin (p): the sliders from fluidity to bands keep your values when you switch presets; unpin to get each preset's own values">pin</button><button id="shareBtn">copy link</button><button id="debugBtn" title="debug capture (d): saves a screenshot and every setting for the agent (local receiver, else downloads)">debug</button><button id="presetBtn" title="save these settings as a preset in this browser (long-press or right-click one of yours to forget it)">save preset</button><button id="pauseBtn" title="pause (space): freeze everything, e.g. before saving a PNG">pause</button><button id="saveBtn">save PNG</button><button id="resetBtn2">reset</button></div>
+  <div class="row"><button id="pinBtn" title="pin (p): the sliders from fluidity to bands keep your values when you switch presets; unpin to get each preset's own values">pin</button><button id="shareBtn">copy link</button><button id="debugBtn" title="debug capture (d): saves a screenshot and every setting for the agent (local receiver, else downloads)">debug</button><button id="presetBtn" title="save these settings as a preset in this browser (long-press or right-click one of yours to forget it)">save preset</button><button id="pauseBtn" title="pause (space): freeze everything, e.g. before saving a PNG">pause</button><button id="saveBtn">save PNG</button><button id="saveXBtn" title="PNG size: screen = the screen's real pixels; 2× / 3× = drawn again with that many more pixels (sharper, bigger file)">PNG: screen</button><button id="resetBtn2">reset</button></div>
   <p>Ideas borrowed from <a href="https://github.com/CreativeCodingLab/FluidAutomataJS" style="color:inherit">Fluid Automata</a>. <a href="classic/" style="color:inherit">classic version</a> · <a href="https://github.com/angusforbes/swirlfluid" style="color:inherit">source</a></p>
 </div>
 <div id="help" class="panel">
@@ -114,8 +114,8 @@
   <div class="rowlabel" id="autoLabel">fluid automata</div><div class="presets" id="profiles"></div>
 </div>
 <div id="err"></div>
-<script src="swirl2.js?v=44"></script>
-<script src="automata.js?v=44"></script>
+<script src="swirl2.js?v=45"></script>
+<script src="automata.js?v=45"></script>
 <script>
 // Two engines on one canvas: "swirl" (swirl2.js: a velocity fluid that paints poster bands, ink, facets...) and
 // "fluid automata" (automata.js: an 8-bit energy automaton that smears a background image). Only one runs at a time.
@@ -455,8 +455,22 @@ $('shareBtn').onclick = e => {
   (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(
     () => { e.target.textContent = 'copied'; setTimeout(() => e.target.textContent = 'copy link', 1200); }, () => {});
 };
-function save() { const a = document.createElement('a'); a.download = `swirlfluid-${(engine === 'swirl' ? preset : profile).replace(/[^\w]/g, '')}-${Date.now()}.png`; a.href = canvas.toDataURL('image/png'); a.click(); }
-$('saveBtn').onclick = save;
+// save PNG: the swirl is drawn again for the file at the screen's real pixels (phones show fewer pixels than they have,
+// for speed) times the PNG size setting (screen / 2x / 3x), so the file is never smaller or softer than the screen
+var saveX = +(localStorage.getItem('swirl-save-scale') || 1);
+function showSaveX() { $('saveXBtn').textContent = 'PNG: ' + (saveX === 1 ? 'screen' : saveX + '×'); }
+$('saveXBtn').onclick = () => { saveX = saveX >= 3 ? 1 : saveX + 1; localStorage.setItem('swirl-save-scale', saveX); showSaveX(); };
+function save() {
+  const a = document.createElement('a'); a.download = `swirlfluid-${(engine === 'swirl' ? preset : profile).replace(/[^\w]/g, '')}-${Date.now()}.png`;
+  const done = blob => { a.href = URL.createObjectURL(blob); a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 60000); };
+  if (engine !== 'swirl' || !swirl?.exportPixels) { canvas.toBlob(done, 'image/png'); return; }
+  const dev = Math.max(1, (devicePixelRatio || 1) * innerHeight / canvas.height), r = swirl.exportPixels(dev * saveX);
+  const c = document.createElement('canvas'); c.width = r.width; c.height = r.height; const x = c.getContext('2d'), img = x.createImageData(r.width, r.height), row = r.width * 4;
+  for (let y = 0; y < r.height; y++) img.data.set(r.data.subarray((r.height - 1 - y) * row, (r.height - y) * row), y * row);   // GL rows are bottom first
+  for (let k = 3; k < img.data.length; k += 4) img.data[k] = 255;
+  x.putImageData(img, 0, 0); c.toBlob(done, 'image/png'); toast(`saved ${r.width}×${r.height}`, 2500);
+}
+$('saveBtn').onclick = save; showSaveX();
 // debug capture (d): a screenshot plus every setting, sent to the local vdebug receiver (~/.local/bin/vdebug-server,
 // which writes ~/Work/swirlfluid/debug/captures/<time>-<preset>/) so an agent can read exactly what you saw; with no
 // receiver (phone), the screenshot and the state download instead

@@ -63,3 +63,7 @@ on the panel.
   (default endless), D3 strata file picker crashes Brave on file dialogs (image button, Save PNG; default keep).
 - Brave hangs/crashes on any file dialog were strata (`strata --portal`, the FileChooser portal), not the site.
 - Test server: `python3 -m http.server 8799 --bind 127.0.0.1`; Playwright scripts in /tmp/pwt.
+- Save PNG (v45): `swirl.exportPixels(scale)` re-renders the display pass into an RGBA8 target at scale x canvas
+  (uniform `pxs` + `FC` macro keep grain/tiles/outline the same size). scale = device px / canvas px (phones: canvas is
+  capped at 1.5 dpr) x the PNG size setting (`swirl-save-scale`: screen / 2x / 3x). Per-pixel effects must use `FC`,
+  not `gl_FragCoord`, or they shrink in 2x exports.

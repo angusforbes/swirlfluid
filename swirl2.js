@@ -105,6 +105,10 @@ function createSwirl2(gl, opts = {}) {
   const HEAD = `#version 300 es
   precision highp float; precision highp sampler2D;
   in vec2 vUv, vL, vR, vT, vB; out vec4 o;
+  // pxs: the export scale (Save PNG at 2x draws the same picture with twice the pixels); FC = the pixel position as
+  // if on screen, so grain and other per-pixel textures keep their size. Unset (0) = 1
+  uniform float pxs;
+  #define FC (gl_FragCoord.xy/max(pxs,1.))
   float hash(vec2 p){ p=fract(p*vec2(123.34,456.21)); p+=dot(p,p+45.32); return fract(p.x*p.y); }
   float vnoise(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.-2.*f);
     return mix(mix(hash(i),hash(i+vec2(1,0)),f.x), mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x), f.y); }
@@ -112,7 +116,7 @@ function createSwirl2(gl, opts = {}) {
   // were on screen and moved (the main motion, the same with ink on or off). mode 1 dimmed, 2 grey, 3 washed, 4 solid black, 5 solid white
   vec3 outsideStyle(vec3 c, float a, float mode){ if(mode<.5||a<=0.) return c;
     vec3 s = mode>4.5 ? vec3(1.) : mode>3.5 ? vec3(0.) : mode<1.5 ? c*.38 : mode<2.5 ? vec3(dot(c,vec3(.3,.59,.11)))*.85+.06
-      : mix(c, vec3(.96,.94,.9), .5)*(.86+.22*vnoise(gl_FragCoord.xy*.33))*(.95+.08*hash(floor(gl_FragCoord.xy*.7)));
+      : mix(c, vec3(.96,.94,.9), .5)*(.86+.22*vnoise(FC*.33))*(.95+.08*hash(floor(FC*.7)));
     return mix(c, s, a); }
   // integer hash for the noise fills: random everywhere (no repeating tiles)
   uint ih(uint x){ x^=x>>16; x*=0x7feb352du; x^=x>>15; x*=0x846ca68bu; x^=x>>16; return x; }
@@ -248,8 +252,8 @@ function createSwirl2(gl, opts = {}) {
     // colours inside left exactly as they are. Small differences (paper grain, a fade in progress) draw no line
     // one device pixel wide and black: only the pixel on one side of each edge (compared with its right and upper neighbour)
     outline: `uniform sampler2D uSrc;
-      void main(){ ivec2 q=ivec2(gl_FragCoord.xy), m=textureSize(uSrc,0)-1; vec3 c=texelFetch(uSrc,q,0).rgb;
-        float e=max(length(texelFetch(uSrc,min(q+ivec2(1,0),m),0).rgb-c), length(texelFetch(uSrc,min(q+ivec2(0,1),m),0).rgb-c));
+      void main(){ ivec2 q=ivec2(gl_FragCoord.xy), m=textureSize(uSrc,0)-1; vec3 c=texelFetch(uSrc,q,0).rgb; int k=int(max(pxs,1.)+.5);
+        float e=max(length(texelFetch(uSrc,min(q+ivec2(k,0),m),0).rgb-c), length(texelFetch(uSrc,min(q+ivec2(0,k),m),0).rgb-c));
         o=vec4(mix(c, vec3(0.), smoothstep(.1,.25,e)), 1.); }`,
     grad: `uniform sampler2D uP, uVel;
       void main(){ float L=texture(uP,vL).x, R=texture(uP,vR).x, T=texture(uP,vT).x, B=texture(uP,vB).x;
@@ -306,9 +310,9 @@ function createSwirl2(gl, opts = {}) {
             float edge=length(r-l)+length(u-d);
             col=wet*(1.-.55*smoothstep(.04,.5,edge));
             float lum=dot(col,vec3(.3,.59,.11));
-            col*=mix(1., .9+.16*vnoise(gl_FragCoord.xy*.35)*(1.-lum*.5), grain);
+            col*=mix(1., .9+.16*vnoise(FC*.35)*(1.-lum*.5), grain);
             col=mix(col,vec3(.96,.94,.88),.06);
-            col*=mix(1., .95+.06*hash(floor(gl_FragCoord.xy*.6)), grain);
+            col*=mix(1., .95+.06*hash(floor(FC*.6)), grain);
           }
           if(inside>.5) col=outsideStyle(col, texture(uInk,TU()).a, inside);   // inside with ink: what the ink says was on screen (its alpha)
         }
@@ -356,7 +360,7 @@ function createSwirl2(gl, opts = {}) {
             col=cellCol(cell, cn);
             if(wash>.5){   // watercolour on squares: grain only (no darker edges: only outline draws lines)
               col*=mix(1., .9+.14*vnoise(raw*1.7), grain);
-              col*=mix(1., .96+.05*hash(floor(gl_FragCoord.xy*.7)), grain);
+              col*=mix(1., .96+.05*hash(floor(FC*.7)), grain);
             } }
           else if(fill>.5&&fill<1.5){   // field: soft gradients between the palette levels, a little paper grain
             vec3 nxt=mix(colAt(k+1.+sh), colAt(k+2.+sh), fade);
@@ -370,7 +374,7 @@ function createSwirl2(gl, opts = {}) {
             float px=min(fr,1.-fr)/max(w,1e-4);
             col*=1.-.32*exp(-px/2.5)*wide;
             col*=mix(1., .9+.14*vnoise(p*9.+k), grain);
-            col*=mix(1., .96+.05*hash(floor(gl_FragCoord.xy*.7)), grain);
+            col*=mix(1., .96+.05*hash(floor(FC*.7)), grain);
           } else if(blocky<.5) col=mix(col,outline,smoothstep(w*1.4,0.,min(fr,1.-fr)-.015));
           if(txtMode>1.5&&txtMode<2.5){   // text that flows: written into the picture at rest, so the stirring carries it
             vec2 tu=p0/(vec2(aspect,1.)*2.)+.5;   // (in the picture, so diving in enlarges it too)
@@ -385,7 +389,7 @@ function createSwirl2(gl, opts = {}) {
         if(hard>.5&&peek<.5){ vec3 b=pal[0]; float bd=9.; for(int i=0;i<8;i++){ if(float(i)>=npal) break; vec3 d=col-pal[i]; float dd=dot(d,d); if(dd<bd){ bd=dd; b=pal[i]; } } col=b; }   // high-contrast palettes: only their own colours, no in-betweens
         if(txtMode>.5&&txtMode<1.5&&peek<.5) col=mix(col, txtCol, texture(uTxt,vUv).r);   // text that stays still, on top
         if(txtMode>3.5&&peek<.5){ vec4 tm=texture(uTxt,vUv);   // inside: the picture only within the letters, with a thin outline
-          vec2 d=2.5/res; float near=max(max(texture(uTxt,vUv+vec2(d.x,0.)).r, texture(uTxt,vUv-vec2(d.x,0.)).r), max(texture(uTxt,vUv+vec2(0.,d.y)).r, texture(uTxt,vUv-vec2(0.,d.y)).r));
+          vec2 d=2.5*max(pxs,1.)/res; float near=max(max(texture(uTxt,vUv+vec2(d.x,0.)).r, texture(uTxt,vUv-vec2(d.x,0.)).r), max(texture(uTxt,vUv+vec2(0.,d.y)).r, texture(uTxt,vUv-vec2(0.,d.y)).r));
           vec3 bg=mix(txtCol, 1.-txtCol, near*(1.-tm.r)*.85); col=mix(bg, col, tm.r); }
         if(txtMode>2.5&&peek<.5) for(int i=0;i<32;i++){ if(i>=nL) break;   // drift: each letter whole, where the fluid pushed it, turned by its swirl
           vec2 l=rot(-LP[i].z)*((vUv-LP[i].xy)*vec2(aspect,1.)), h=LH[i];
@@ -509,8 +513,8 @@ function createSwirl2(gl, opts = {}) {
     // tiles: tile 1 = off (not 1 CSS px: on a phone that is ~3 device px and pixelated everything)
     const cellPx = Math.max(1, (o.cell || 1) * (o.height / Math.max(1, o.cssHeight || o.height)));   // in device pixels
     gl.uniform1f(u.sizeMix, o.fill === 'mixed squares' ? 0.67 : 0);   // (the mixed sizes slider, o.sizeMix, is commented out)
-    gl.uniform1f(u.seed, seed); gl.uniform1f(u.peek, peeking ? 1 : 0); gl.uniform1f(u.reveal, o.reveal || 0); gl.uniform1f(u.inside, o.inside || 0); gl.uniform1f(u.mapCells, o.mapCell > 1 ? o.height / 2 / (o.mapCell * (o.height / Math.max(1, o.cssHeight || o.height))) : 0); gl.uniform1f(u.tilePx, o.tile > 1 ? o.tile * (o.height / Math.max(1, o.cssHeight || o.height)) : 0); gl.uniform1f(u.cells, o.height / 2 / cellPx); gl.uniform1f(u.blocky, o.fill !== 'image' && (cellPx > 1.5 || o.fill === 'squares' || o.fill === 'colour noise') ? 1 : 0);   // a picture is never cut into the preset's squares (pixelate does that)
-    gl.uniform1f(u.grain, o.grain === false ? 0 : 1); gl.uniform1f(u.fadeMin, o.fadeMin); gl.uniform1f(u.fadeMax, o.fadeMax); gl.uniform2f(u.dir, o.dir[0], o.dir[1]); gl.uniform2f(u.res, o.width, o.height);
+    gl.uniform1f(u.seed, seed); gl.uniform1f(u.peek, peeking ? 1 : 0); gl.uniform1f(u.reveal, o.reveal || 0); gl.uniform1f(u.inside, o.inside || 0); gl.uniform1f(u.mapCells, o.mapCell > 1 ? o.height / 2 / (o.mapCell * (o.height / Math.max(1, o.cssHeight || o.height))) : 0); gl.uniform1f(u.tilePx, o.tile > 1 ? o.tile * pxs * (o.height / Math.max(1, o.cssHeight || o.height)) : 0); gl.uniform1f(u.cells, o.height / 2 / cellPx); gl.uniform1f(u.blocky, o.fill !== 'image' && (cellPx > 1.5 || o.fill === 'squares' || o.fill === 'colour noise') ? 1 : 0);   // a picture is never cut into the preset's squares (pixelate does that)
+    gl.uniform1f(u.grain, o.grain === false ? 0 : 1); gl.uniform1f(u.fadeMin, o.fadeMin); gl.uniform1f(u.fadeMax, o.fadeMax); gl.uniform2f(u.dir, o.dir[0], o.dir[1]); gl.uniform2f(u.res, o.width * pxs, o.height * pxs); gl.uniform1f(u.pxs, pxs);
     gl.uniform3fv(u.pal, palArr(pl)); gl.uniform1f(u.npal, pl.pal.length); gl.uniform1f(u.hard, pl.hard ? 1 : 0);
     const sq = new Float32Array(12); sq.set(pl.seq.slice(0, 12)); gl.uniform1fv(u.seq, sq);
     gl.uniform1f(u.seqLen, pl.seq.length); gl.uniform3fv(u.outline, hex(pl.outline)); gl.uniform3fv(u.starC, hex(pl.star || '#f7f1e1'));
@@ -824,14 +828,32 @@ function createSwirl2(gl, opts = {}) {
       blit(S.P.write); S.P.swap();
     }
   }
+  // Save PNG (Angus: it shouldn't lose resolution): draw the current picture again, scale times the canvas size, into
+  // a separate 8-bit target, and return its pixels (bottom row first). Nothing moves; the screen is untouched.
+  let pxs = 1, lastT = 0;
+  function exportPixels(scale = 1) {
+    const max = Math.min(gl.getParameter(gl.MAX_TEXTURE_SIZE), gl.getParameter(gl.MAX_RENDERBUFFER_SIZE));
+    const s = Math.max(0.1, Math.min(scale, max / o.width, max / o.height)), W = Math.round(o.width * s), H = Math.round(o.height * s);
+    const mk = () => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, W, H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+      const fb = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0); return { t, fb, w: W, h: H }; };
+    const tgt = mk(), out = o.outline ? mk() : null, keep = S.out;
+    try {
+      pxs = s; if (out) S.out = out;
+      render(lastT, tgt);
+      const data = new Uint8Array(W * H * 4); gl.bindFramebuffer(gl.FRAMEBUFFER, tgt.fb); gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, data);
+      return { width: W, height: H, scale: s, data };
+    } finally { pxs = 1; S.out = keep; for (const f of [tgt, out]) if (f) { gl.deleteFramebuffer(f.fb); gl.deleteTexture(f.t); } gl.bindFramebuffer(gl.FRAMEBUFFER, null); }
+  }
   function render(t = time, target = null) {
+    if (!target) lastT = t;
     const line = o.outline && S.out, to = line ? S.out : target;
     const u = renderBands(S.P.read, to, t, true);
     gl.uniform1f(u.inkOn, o.paint === 'ink' ? 1 : 0); gl.uniform1i(u.uInk, tex(1, S.ink.read));
     blit(to);
     if (line) {   // outline: draw the picture, then the lines around its colour regions on top
       const v = use('outline', target || { w: o.width, h: o.height });
-      gl.uniform1i(v.uSrc, tex(0, S.out)); blit(target);
+      gl.uniform1i(v.uSrc, tex(0, S.out)); gl.uniform1f(v.pxs, pxs); blit(target);
     }
   }
   // switching paint mode: start the ink from the current bands so nothing jumps
@@ -847,6 +869,6 @@ function createSwirl2(gl, opts = {}) {
   }
   function resize(w, h) { o.width = w; o.height = h; alloc(); setText(); }
   alloc(); setText();
-  return { step, render, splat, randomize, boost, burst, zoom, reset, resize, set, opts: o, get depth() { return depth; }, setImage, get hasImage() { return hasImage; }, get peek() { return peeking; }, set peek(v) { peeking = !!v; } };
+  return { step, render, exportPixels, splat, randomize, boost, burst, zoom, reset, resize, set, opts: o, get depth() { return depth; }, setImage, get hasImage() { return hasImage; }, get peek() { return peeking; }, set peek(v) { peeking = !!v; } };
 }
 if (typeof window !== 'undefined') { window.createSwirl2 = createSwirl2; window.SWIRL2_PALETTES = SWIRL2_PALETTES; window.SWIRL2_PRESETS = SWIRL2_PRESETS; window.SWIRL2_FILLS = SWIRL2_FILLS; }
