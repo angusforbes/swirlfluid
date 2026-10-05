@@ -114,8 +114,8 @@
   <div class="rowlabel" id="autoLabel">fluid automata</div><div class="presets" id="profiles"></div>
 </div>
 <div id="err"></div>
-<script src="swirl2.js?v=45"></script>
-<script src="automata.js?v=45"></script>
+<script src="swirl2.js?v=46"></script>
+<script src="automata.js?v=46"></script>
 <script>
 // Two engines on one canvas: "swirl" (swirl2.js: a velocity fluid that paints poster bands, ink, facets...) and
 // "fluid automata" (automata.js: an 8-bit energy automaton that smears a background image). Only one runs at a time.
@@ -137,7 +137,7 @@ const baseOfA = n => BUILTIN_A.includes(n) ? n : (AUTOMATA_PROFILES[n]?.base || 
 const PROFILES = Object.keys(AUTOMATA_PROFILES), BGS = Object.keys(AUTOMATA_BGS);
 const coarse = matchMedia('(pointer: coarse)').matches;
 const FILLS = SWIRL2_FILLS;
-const BASE = { fill: 'squares', cell: Math.max(4, Math.round(innerHeight / 24)), freq: 3, palette: 'ocean', saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, wash: false, facets: false, jitter: 0, ambient: 1, fadeMin: 8, fadeMax: 22, outline: false, grain: true, tile: 1, mapCell: 1, spline: false, reach: 1, instant: false, startStir: 0, reveal: 0, inside: 0, burst: 0.01, imgTile: 1 };
+const BASE = { fill: 'squares', cell: Math.max(4, Math.round(innerHeight / 24)), freq: 3, palette: 'ocean', saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, wash: false, facets: false, jitter: 0, ambient: 1, fadeMin: 8, fadeMax: 22, outline: false, grain: true, tile: 1, mapCell: 1, spline: false, reach: 1, instant: false, startStir: 0, smoothPng: false, reveal: 0, inside: 0, burst: 0.01, imgTile: 1 };
 // the knobs: [key, label, min, max, step, format]
 const KNOBS = [
   // fluidity: finer toward the top: the left half covers 0.9 to 0.99, then each further stretch adds a 9 (0.999,
@@ -464,11 +464,26 @@ function save() {
   const a = document.createElement('a'); a.download = `swirlfluid-${(engine === 'swirl' ? preset : profile).replace(/[^\w]/g, '')}-${Date.now()}.png`;
   const done = blob => { a.href = URL.createObjectURL(blob); a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 60000); };
   if (engine !== 'swirl' || !swirl?.exportPixels) { canvas.toBlob(done, 'image/png'); return; }
-  const dev = Math.max(1, (devicePixelRatio || 1) * innerHeight / canvas.height), r = swirl.exportPixels(dev * saveX);
-  const c = document.createElement('canvas'); c.width = r.width; c.height = r.height; const x = c.getContext('2d'), img = x.createImageData(r.width, r.height), row = r.width * 4;
-  for (let y = 0; y < r.height; y++) img.data.set(r.data.subarray((r.height - 1 - y) * row, (r.height - y) * row), y * row);   // GL rows are bottom first
-  for (let k = 3; k < img.data.length; k += 4) img.data[k] = 255;
-  x.putImageData(img, 0, 0); c.toBlob(done, 'image/png'); toast(`saved ${r.width}×${r.height}`, 2500);
+  const T = Math.max(1, (devicePixelRatio || 1) * innerHeight / canvas.height) * saveX, mx = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+  // smooth edges (presets with smoothPng): draw at ss x and average each ss x ss block (in linear light, so edges
+  // don't darken); ss drops if the drawing would be too big for the GPU or memory
+  let ss = swirl.opts.smoothPng ? 3 : 1;
+  while (ss > 1 && (canvas.width * T * ss > mx || canvas.height * T * ss > mx || canvas.width * canvas.height * T * T * ss * ss > 1.2e8)) ss--;
+  const r = swirl.exportPixels(T * ss), W = Math.floor(r.width / ss), H = Math.floor(r.height / ss);
+  const c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d'), img = x.createImageData(W, H), o = img.data, d = r.data, row = r.width * 4;
+  if (ss === 1) { for (let y = 0; y < H; y++) o.set(d.subarray((H - 1 - y) * row, (H - y) * row), y * W * 4); }   // GL rows are bottom first
+  else {
+    const lin = new Float32Array(256); for (let i = 0; i < 256; i++) { const v = i / 255; lin[i] = v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }
+    const enc = new Uint8Array(4097); for (let i = 0; i <= 4096; i++) { const v = i / 4096; enc[i] = Math.round(255 * (v <= 0.0031308 ? v * 12.92 : 1.055 * Math.pow(v, 1 / 2.4) - 0.055)); }
+    const n = ss * ss;
+    for (let y = 0; y < H; y++) for (let X = 0; X < W; X++) {
+      let rr = 0, gg = 0, bb = 0;
+      for (let j = 0; j < ss; j++) { let k = (y * ss + j) * row + X * ss * 4; for (let i = 0; i < ss; i++, k += 4) { rr += lin[d[k]]; gg += lin[d[k + 1]]; bb += lin[d[k + 2]]; } }
+      const q = ((H - 1 - y) * W + X) * 4; o[q] = enc[Math.round(rr / n * 4096)]; o[q + 1] = enc[Math.round(gg / n * 4096)]; o[q + 2] = enc[Math.round(bb / n * 4096)];
+    }
+  }
+  for (let k = 3; k < o.length; k += 4) o[k] = 255;
+  x.putImageData(img, 0, 0); c.toBlob(done, 'image/png'); toast(`saved ${W}×${H}${ss > 1 ? ', smooth edges (' + ss + '×)' : ''}`, 2500);
 }
 $('saveBtn').onclick = save; showSaveX();
 // debug capture (d): a screenshot plus every setting, sent to the local vdebug receiver (~/.local/bin/vdebug-server,
