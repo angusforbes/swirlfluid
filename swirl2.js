@@ -90,6 +90,9 @@ const SWIRL2_PRESETS = {
   // the other families in a kaleidoscope (Angus 2026-10-05: "a few different mandala versions")
   'Mosaic Mandala':{ fluids: false, fluidity: 1,   viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'pop', freq: 4.9, fadeMin: 8, fadeMax: 22, fill: 'mixed squares', rows: 5, instant: true, startStir: 4, sym: 6, symMirror: true },
   'Fluid Mandala':{ fluids: true,  fluidity: 0.982, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4, heal: 0.1,  paint: 'bands', palette: 'candy', sym: 6, symMirror: true },
+  // Angus 2026-10-06, fountains: Ink in Water with 3 little springs already pouring colour and push, so it keeps
+  // blooming and curling on its own without a single tap; taps and drags still work as in Ink in Water
+  'Springs':     { fluids: true,  fluidity: 0.985, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 3,   heal: 0, jitter: 0, ambient: 0.1, paint: 'bands', palette: 'tropic', fadeMin: 0, fill: 'squares', water: true, drops: true, fountains: true, fountainStrength: 1, startFountains: 3 },
   'Milk Drops':  { fluids: false, fluidity: 1,     viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 0.15,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'food', freq: 4.9, fadeMin: 0, fadeMax: 22, fill: 'mixed squares', rows: 5, instant: true, compose: true, drops: true, milk: true },
   'Mosaic 2':    { fluids: false, fluidity: 1,     viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'pop', freq: 4.9, fadeMin: 8, fadeMax: 22, fill: 'mixed squares', rows: 5, instant: true, startStir: 6 },   // starts as if you pressed n, then m 6 times
   // a pair to compare (Angus): high energy, fluids off. jag1 follows the motion with straight lines between its grid
@@ -324,6 +327,13 @@ function createSwirl2(gl, opts = {}) {
         float e=R*(1.+.25*(vnoise(vec2(cos(an),sin(an))*3.+sd)-.5));
         o=vec4(texture(uSrc,vUv).rgb*smoothstep(e*.75,e,r),1.); }`,
     waterShow: `uniform sampler2D uSrc; void main(){ vec3 a=texture(uSrc,vUv).rgb; a=.9*(1.-exp(-a/.9)); o=vec4(vec3(.985,.98,.965)*exp(-a),1.); }`,
+    // fountains (2026-10-06, Angus: "points that keep pouring out colour and push"): in water mode each fountain
+    // trickles its own colour every frame instead of dropping it all at once; rate (0..1, how far this frame moves
+    // toward full ab) is a per-frame blend, so the dye eases in and never overshoots ab however long it runs
+    fountainDye: `uniform sampler2D uSrc; uniform vec2 c; uniform float aspect, R, sd, rate; uniform vec3 ab;
+      void main(){ vec2 d=vUv-c; d.x*=aspect; float r=length(d), an=atan(d.y,d.x);
+        float m=smoothstep(R,R*.4,r)*(.65+.5*vnoise(vec2(cos(an),sin(an))*2.5+sd));
+        o=vec4(mix(texture(uSrc,vUv).rgb, ab, clamp(m*rate,0.,1.)),1.); }`,
     dropInk: `uniform sampler2D uSrc; uniform vec2 c; uniform float aspect, a0, a1; uniform vec3 col;
       void main(){ vec2 d=vUv-c; d.x*=aspect; float L2=dot(d,d);
         if(L2<a1){ o=vec4(col,1.); return; }
@@ -598,6 +608,7 @@ function createSwirl2(gl, opts = {}) {
 
   let S = {};
   let drops = [], lastLab = -1;   // ink drops (see drop())
+  let fountains = [];   // fountains (see plantFountain()): { x, y, ang, spin, ab, sd }, up to FOUNTAIN_MAX
   const aspect = () => o.width / o.height;
   function alloc() {
     const sh_ = o.simRes, sw_ = Math.round(sh_ * aspect());
@@ -636,7 +647,7 @@ function createSwirl2(gl, opts = {}) {
   const rndSwirl = (sgn) => [(Math.random() * 2 - 1) * aspect() * 0.8, (Math.random() * 2 - 1) * 0.75, sgn * (2.5 + Math.random() * 3.5), 0.35 + Math.random() * 0.45];
   // reset: new squares (new seed) and no motion; reset(true) (r): back to the unstirred grid, the same squares
   function reset(same = false) {
-    drops = [];
+    drops = []; fountains = [];
     if (S.dye) [S.dye.read, S.dye.write].forEach(clear);
     if (!same) seed = 1 + Math.floor(Math.random() * 1e5);
     for (const L of letters) { L.pos = L.home.slice(); L.ang = 0; }
@@ -981,6 +992,48 @@ function createSwirl2(gl, opts = {}) {
     u = use('waterAdv', S.dye.write, S.dye.read); gl.uniform1i(u.uVel, tex(0, S.vel.read)); gl.uniform1i(u.uSrc, tex(1, S.dye.read));
     gl.uniform1f(u.dt, dt * o.energy); gl.uniform1f(u.diff, Math.min(1, (o.spread ?? 0.01) * dt * 60)); blit(S.dye.write); S.dye.swap();
   }
+  // fountains (2026-10-06, Angus: "points that keep pouring out colour and push, so the picture keeps evolving
+  // without strokes"): each fountain is a steady push in a slowly rotating direction; in water mode it also trickles
+  // its own palette colour every frame. Placed at the mouse (u), cleared all at once (shift+u) or by reset (r/R).
+  const FOUNTAIN_MAX = 8, FOUNTAIN_PUSH = 2.6, FOUNTAIN_R = 0.011, FOUNTAIN_DYE_R = 0.045, FOUNTAIN_TRICKLE = 0.9;
+  // ang0 / forceK let a preset (plantSprings) place fountains at fixed angles and colours, deterministic every time;
+  // left out (the u key), each fountain gets its own random start angle, spin and colour, like a drop's splash
+  function plantFountain(x, y, ang0, forceK) {
+    if (!o.fountains || fountains.length >= FOUNTAIN_MAX) return;
+    const pl = SWIRL2_PALETTES[o.palette] || o.palette, n = pl.pal.length;
+    const k = forceK == null ? Math.floor(Math.random() * n) : forceK % n, col = hex(pl.pal[k]);
+    const ab = col.map(v => -Math.log(Math.max(0.04, v)) * 1.4);
+    const a0 = ang0 ?? Math.random() * TAU, spin = (forceK == null ? (Math.random() < 0.5 ? -1 : 1) : (k % 2 ? -1 : 1)) * (0.12 + 0.22 * ((k % 5) / 5 + (forceK == null ? Math.random() : 0.4)));
+    const at = symOn() ? symCopies(x, y, Math.cos(a0), Math.sin(a0)) : [[x, y, Math.cos(a0), Math.sin(a0), 0]];
+    for (const [X, Y, VX, VY, m] of at) {
+      if (fountains.length >= FOUNTAIN_MAX) break;
+      fountains.push({ x: X, y: Y, ang: Math.atan2(VY, VX), spin: m ? -spin : spin, ab, sd: Math.random() * 50 });
+    }
+  }
+  function clearFountains() { fountains = []; }
+  // a preset's starting fountains (startFountains n): fixed spots and angles, so the preset looks the same every time
+  function plantSprings(n = 3) {
+    if (!o.fountains) return;
+    fountains = [];
+    const spots = [[0.32, 0.6, 0.3], [0.7, 0.58, 2.65], [0.5, 0.27, 4.55]];
+    for (let i = 0; i < Math.min(n, spots.length); i++) { const [x, y, a] = spots[i]; plantFountain(x, y, a, i); }
+  }
+  function stepFountains(dt) {
+    if (!o.fountains || !fountains.length) return;
+    const str = o.fountainStrength ?? 1;
+    noSym = true;   // each fountain already holds its symmetry copies from when it was placed
+    for (const fnt of fountains) {
+      fnt.ang += fnt.spin * dt;
+      const fx = Math.cos(fnt.ang), fy = Math.sin(fnt.ang);
+      splat(fnt.x, fnt.y, fx * FOUNTAIN_PUSH * str * dt, fy * FOUNTAIN_PUSH * str * dt, 0, FOUNTAIN_R, true);
+      if (o.water) {
+        const u = use('fountainDye', S.dye.write); gl.uniform1i(u.uSrc, tex(0, S.dye.read)); gl.uniform2f(u.c, fnt.x, fnt.y);
+        gl.uniform1f(u.R, FOUNTAIN_DYE_R); gl.uniform1f(u.sd, fnt.sd); gl.uniform1f(u.rate, 1 - Math.exp(-FOUNTAIN_TRICKLE * str * dt));
+        gl.uniform3fv(u.ab, fnt.ab); blit(S.dye.write); S.dye.swap();
+      }
+    }
+    noSym = false;
+  }
   function stepDrops(dt) {
     if (!drops.length || o.grid >= 2) { drops = []; return; }
     for (const d of drops) {
@@ -1045,6 +1098,7 @@ function createSwirl2(gl, opts = {}) {
     if (o.text && o.textMode === 1) { u = use('obstacle', S.vel.write); gl.uniform1i(u.uVel, tex(0, S.vel.read)); gl.uniform1i(u.uTxt, tex(1, { t: txtT })); blit(S.vel.write); S.vel.swap(); }
     // fluidity: per-frame retention of motion
     u = use('scale', S.vel.write); gl.uniform1i(u.uSrc, tex(0, S.vel.read)); gl.uniform1f(u.k, Math.pow(o.fluidity, f60)); blit(S.vel.write); S.vel.swap();
+    stepFountains(dt);   // fountains: a steady push (and, in water, a trickle of dye) every frame, after fluidity so it doesn't fade away
 
     const relax = 1 - Math.exp(-dt * o.heal);
     if (!(o.compose && !o.fluids && o.paint !== 'ink')) composing = false;
@@ -1138,6 +1192,7 @@ function createSwirl2(gl, opts = {}) {
   }
   function resize(w, h) { o.width = w; o.height = h; alloc(); setText(); }
   alloc(); setText();
-  return { step, render, exportPixels, splat, drop, soap, get dropping() { return drops.length > 0; }, randomize, boost, burst, zoom, reset, resize, set, opts: o, get depth() { return depth; }, setImage, get hasImage() { return hasImage; }, get peek() { return peeking; }, set peek(v) { peeking = !!v; } };
+  return { step, render, exportPixels, splat, drop, soap, get dropping() { return drops.length > 0; }, randomize, boost, burst, zoom, reset, resize, set, opts: o, get depth() { return depth; }, setImage, get hasImage() { return hasImage; }, get peek() { return peeking; }, set peek(v) { peeking = !!v; },
+    plantFountain, clearFountains, plantSprings, get fountainCount() { return fountains.length; } };
 }
 if (typeof window !== 'undefined') { window.createSwirl2 = createSwirl2; window.SWIRL2_PALETTES = SWIRL2_PALETTES; window.SWIRL2_PRESETS = SWIRL2_PRESETS; window.SWIRL2_FILLS = SWIRL2_FILLS; }
