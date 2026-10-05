@@ -114,6 +114,11 @@ const SWIRL2_PRESETS = {
   // Since then every preset saves this way (smoothPng: true in index.html's BASE), so these now equal Mosaic 2 / jag2
   'Mosaic 3':    { fluids: false, fluidity: 1,     viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'pop', freq: 4.9, fadeMin: 8, fadeMax: 22, fill: 'mixed squares', rows: 5, instant: true, startStir: 6, smoothPng: true },
   'jag3':        { fluids: false, fluidity: 0.9999, viscosity: 0, momentum: 0, angularity: 0, energy: 2.5, grid: 0, curl: 0, heal: 0, jitter: 0, memory: 0.99, carry: 0, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'sorbet', freq: 2.4, fadeMin: 0, fadeMax: 0, fill: 'squares', rows: 3, spline: true, smoothPng: true },
+  // fx: colour split / hair streaks, each a post pass on the finished picture along the local flow velocity (off by
+  // default everywhere else). Prism Flow: Mosaic 2's motion with full colour split so every whirl trails a rainbow
+  // fringe. Fur: Al Held's branching motion combed into fine hair streaks, like brushed fur, no colour split
+  'Prism Flow':  { fluids: false, fluidity: 1,     viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'pop', freq: 4.9, fadeMin: 8, fadeMax: 22, fill: 'mixed squares', rows: 5, instant: true, startStir: 6, split: 1 },
+  'Fur':         { fluids: false, fluidity: 0.999, viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'tar', freq: 4.9, fadeMin: 0, fadeMax: 0, fill: 'squares', rows: 5, hair: 1 },
 };
 
 function createSwirl2(gl, opts = {}) {
@@ -330,6 +335,32 @@ function createSwirl2(gl, opts = {}) {
       void main(){ ivec2 q=ivec2(gl_FragCoord.xy), m=textureSize(uSrc,0)-1; vec3 c=texelFetch(uSrc,q,0).rgb; int k=int(max(pxs,1.)+.5);
         float e=max(length(texelFetch(uSrc,min(q+ivec2(k,0),m),0).rgb-c), length(texelFetch(uSrc,min(q+ivec2(0,k),m),0).rgb-c));
         o=vec4(mix(c, vec3(0.), smoothstep(.1,.25,e)), 1.); }`,
+    // ==== fx: COLOUR SPLIT (o.split, 0..1, off by default) ====================================================
+    // a post pass over the finished picture: red, green and blue are each sampled at an offset along the LOCAL
+    // FLOW VELOCITY (uVelD, the same field the 'motion colour' option already samples), so moving regions fringe
+    // like chromatic aberration and still regions stay sharp. Render-only: the motion itself is untouched.
+    split: `uniform sampler2D uSrc, uVelD; uniform vec2 mvTexel; uniform float split;
+      void main(){ vec2 duv=texture(uVelD,vUv).xy*mvTexel; float m=length(duv);
+        vec2 dir=m>1e-6 ? duv/m : vec2(0.);
+        vec2 off=dir*split*clamp(m*22.,0.,1.)*0.02;
+        float r=texture(uSrc,vUv+off).r, g=texture(uSrc,vUv).g, b=texture(uSrc,vUv-off).b;
+        o=vec4(r,g,b,1.); }`,
+    // ==== fx: HAIR STREAKS (o.hair, 0..1, off by default) ======================================================
+    // a post pass over the finished picture: fine streaks combed along the flow, like brush bristles or combed fur.
+    // A line integral convolution of fixed fine noise (hash(), no time/seed: always the same fibres) along the
+    // LOCAL FLOW VELOCITY direction (uVelD, same field as colour split above), fading where there is no motion.
+    // Render-only: the motion itself is untouched. FC (not gl_FragCoord) keeps the fibre size the same at any
+    // Save PNG export scale. Keep this block separate from any other post pass so passes can be chained in order.
+    hair: `uniform sampler2D uSrc, uVelD; uniform vec2 mvTexel; uniform float hair;
+      void main(){ vec2 duv=texture(uVelD,vUv).xy*mvTexel; float m=length(duv);
+        vec2 dir=m>1e-6 ? duv/m : vec2(1.,0.);
+        float sum=0., wsum=0.;
+        for(int i=-12;i<=12;i++){ vec2 p=FC+dir*float(i)*1.15; float w=1.-abs(float(i))/13.;
+          sum+=hash(floor(p)+.5)*w; wsum+=w; }
+        float fiber=smoothstep(.38,.62,sum/max(wsum,1e-5));
+        vec3 c=texture(uSrc,vUv).rgb;
+        float amt=hair*clamp(m*26.,0.,1.);
+        o=vec4(c*mix(1., .55+.9*fiber, amt*.65), 1.); }`,
     grad: `uniform sampler2D uP, uVel;
       void main(){ float L=texture(uP,vL).x, R=texture(uP,vR).x, T=texture(uP,vT).x, B=texture(uP,vB).x;
         o=vec4(texture(uVel,vUv).xy-vec2(R-L,T-B),0.,1.); }`,
@@ -570,7 +601,7 @@ function createSwirl2(gl, opts = {}) {
     const ch = Math.min(o.coordRes, o.height), cw = Math.round(ch * aspect());
     S = { vel: dbl(sw_, sh_, true), velPrev: fbo(sw_, sh_, true),   // full float: fluidity can be 0.99999, which half float would round to 1
       press: dbl(sw_, sh_), div: fbo(sw_, sh_), curl: fbo(sw_, sh_), v0: fbo(sw_, sh_),
-          P: dbl(cw, ch, true), P0: fbo(cw, ch, true), ink: dbl(cw, ch), dye: dbl(cw, ch), fresh: fbo(cw, ch), tmp: fbo(cw, ch), out: fbo(o.width, o.height), sw: sw_, sh: sh_ };
+          P: dbl(cw, ch, true), P0: fbo(cw, ch, true), ink: dbl(cw, ch), dye: dbl(cw, ch), fresh: fbo(cw, ch), tmp: fbo(cw, ch), out: fbo(o.width, o.height), out2: fbo(o.width, o.height), sw: sw_, sh: sh_ };   // out/out2: scratch for post passes (outline, fx: colour split, fx: hair streaks)
     reset();
   }
   const palArr = pl => { const a = new Float32Array(24); pl.pal.slice(0, 8).forEach((c, i) => a.set(hex(c), i * 3)); return a; };
@@ -1039,24 +1070,51 @@ function createSwirl2(gl, opts = {}) {
     const mk = () => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, W, H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
       for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
       const fb = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0); return { t, fb, w: W, h: H }; };
-    const tgt = mk(), out = o.outline ? mk() : null, keep = S.out;
+    // fx: colour split / hair streaks are post passes too (same as outline): give them the same full-resolution
+    // scratch-buffer swap so Save PNG draws them at export resolution, not screen resolution
+    const needPost = o.outline || o.split > 0 || o.hair > 0;
+    const tgt = mk(), out = needPost ? mk() : null, out2 = needPost ? mk() : null, keep = S.out, keep2 = S.out2;
     try {
-      pxs = s; if (out) S.out = out;
+      pxs = s; if (out) { S.out = out; S.out2 = out2; }
       render(lastT, tgt);
       const data = new Uint8Array(W * H * 4); gl.bindFramebuffer(gl.FRAMEBUFFER, tgt.fb); gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, data);
       return { width: W, height: H, scale: s, data };
-    } finally { pxs = 1; S.out = keep; for (const f of [tgt, out]) if (f) { gl.deleteFramebuffer(f.fb); gl.deleteTexture(f.t); } gl.bindFramebuffer(gl.FRAMEBUFFER, null); }
+    } finally { pxs = 1; S.out = keep; S.out2 = keep2; for (const f of [tgt, out, out2]) if (f) { gl.deleteFramebuffer(f.fb); gl.deleteTexture(f.t); } gl.bindFramebuffer(gl.FRAMEBUFFER, null); }
   }
   function render(t = time, target = null) {
     if (!target) lastT = t;
     if (o.water) { const u = use('waterShow', target || { w: o.width, h: o.height }); gl.uniform1i(u.uSrc, tex(0, S.dye.read)); blit(target); return; }
-    const line = o.outline && S.out, to = line ? S.out : target;
-    const u = renderBands(S.P.read, to, t, true);
+    const to0 = target || { w: o.width, h: o.height };
+    const line = o.outline && S.out, doSplit = o.split > 0 && S.out2, doHair = o.hair > 0 && S.out2;
+    const stages = (line ? 1 : 0) + (doSplit ? 1 : 0) + (doHair ? 1 : 0);
+    const bufs = [S.out, S.out2]; let bi = 0, done = 0;
+    const base = stages ? bufs[bi] : target;
+    const u = renderBands(S.P.read, base, t, true);
     gl.uniform1f(u.inkOn, o.paint === 'ink' ? 1 : 0); gl.uniform1i(u.uInk, tex(1, S.ink.read));
-    blit(to);
+    blit(base);
+    let cur = base;
     if (line) {   // outline: draw the picture, then the lines around its colour regions on top
-      const v = use('outline', target || { w: o.width, h: o.height });
-      gl.uniform1i(v.uSrc, tex(0, S.out)); gl.uniform1f(v.pxs, pxs); blit(target);
+      done++; const nxt = done < stages ? bufs[(bi = 1 - bi)] : target;
+      const v = use('outline', to0); gl.uniform1i(v.uSrc, tex(0, cur)); gl.uniform1f(v.pxs, pxs); blit(nxt); cur = nxt;
+    }
+    // ==== fx: COLOUR SPLIT (o.split, off by default) ===========================================================
+    // a post pass over the finished picture (chromatic fringing along the local flow velocity, see the 'split'
+    // shader above). Kept as its own clearly-delimited step so another post pass (e.g. a 'gloss' pass on another
+    // branch) can be chained before or after it without touching this block.
+    if (doSplit) {
+      done++; const nxt = done < stages ? bufs[(bi = 1 - bi)] : target;
+      const v = use('split', to0);
+      gl.uniform1i(v.uSrc, tex(0, cur)); gl.uniform1i(v.uVelD, tex(8, S.vel.read)); gl.uniform2f(v.mvTexel, 1 / S.sw, 1 / S.sh);
+      gl.uniform1f(v.split, o.split); gl.uniform1f(v.pxs, pxs); blit(nxt); cur = nxt;
+    }
+    // ==== fx: HAIR STREAKS (o.hair, off by default) =============================================================
+    // a post pass over the finished picture (fine LIC-style streaks along the local flow velocity, see the 'hair'
+    // shader above). Kept as its own clearly-delimited step, same reason as colour split above.
+    if (doHair) {
+      done++; const nxt = done < stages ? bufs[(bi = 1 - bi)] : target;
+      const v = use('hair', to0);
+      gl.uniform1i(v.uSrc, tex(0, cur)); gl.uniform1i(v.uVelD, tex(8, S.vel.read)); gl.uniform2f(v.mvTexel, 1 / S.sw, 1 / S.sh);
+      gl.uniform1f(v.hair, o.hair); gl.uniform1f(v.pxs, pxs); blit(nxt); cur = nxt;
     }
   }
   // switching paint mode: start the ink from the current bands so nothing jumps
