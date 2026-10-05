@@ -114,8 +114,8 @@
   <div class="rowlabel" id="autoLabel">fluid automata</div><div class="presets" id="profiles"></div>
 </div>
 <div id="err"></div>
-<script src="swirl2.js?v=73"></script>
-<script src="automata.js?v=73"></script>
+<script src="swirl2.js?v=74"></script>
+<script src="automata.js?v=74"></script>
 <script>
 // Two engines on one canvas: "swirl" (swirl2.js: a velocity fluid that paints poster bands, ink, facets...) and
 // "fluid automata" (automata.js: an 8-bit energy automaton that smears a background image). Only one runs at a time.
@@ -189,7 +189,7 @@ const KNOBS = [
   ['motionSectors', 'sectors', 0, 16, 1, v => v > 0 ? Math.round(v) : 'none'],   // motion colour: slices of direction   // colour by the motion: direction sectors x strength rings   // fold: how many rows of triangles (fewer = bigger shards)
   // fx (post passes on the finished picture, along the local flow velocity; both off by default)
   ['split', 'colour split', 0, 1, 0.01, v => v > 0 ? Math.round(v * 100) + '%' : 'off'],
-  ['hair', 'hair', 0, 1, 0.01, v => v > 0 ? Math.round(v * 100) + '%' : 'off'],
+  // (hidden 2026-10-05, Angus: "get rid of hair param") ['hair', 'hair', 0, 1, 0.01, v => v > 0 ? Math.round(v * 100) + '%' : 'off'],
   // fountains (2026-10-06): how hard each fountain pushes (and, in water, how fast its dye trickles in)
   ['fountainStrength', 'fountain strength', 0.2, 3, 0.05, v => v.toFixed(2) + '×'],
 ];
