@@ -294,19 +294,25 @@ function createSwirl2(gl, opts = {}) {
         vec3 n=(texture(uSrc,c+vec2(texel.x,0.)).rgb+texture(uSrc,c-vec2(texel.x,0.)).rgb+texture(uSrc,c+vec2(0.,texel.y)).rgb+texture(uSrc,c-vec2(0.,texel.y)).rgb)*.25;
         o=vec4(mix(a,n,diff),1.); }`,
     // a drop's dye: a ragged disc (its edge wobbles with angle), denser and streaky inside
-    waterDye: `uniform sampler2D uSrc; uniform vec2 c; uniform float aspect, R, sd; uniform vec3 ab;
+    // rag (raggedness, 0.5 = as first made): how much the edge wobbles, and how unevenly the drop blooms
+    waterDye: `uniform sampler2D uSrc; uniform vec2 c; uniform float aspect, R, sd, rag; uniform vec3 ab;
       void main(){ vec2 d=vUv-c; d.x*=aspect; float r=length(d), an=atan(d.y,d.x);
-        float e=R*(.8+.45*vnoise(vec2(cos(an),sin(an))*2.2+sd)+.18*vnoise(vec2(cos(an),sin(an))*7.+sd*1.7));
+        float e=R*(1.115+2.*rag*(.45*(vnoise(vec2(cos(an),sin(an))*2.2+sd)-.5)+.18*(vnoise(vec2(cos(an),sin(an))*7.+sd*1.7)-.5)));
         float m=smoothstep(e,e*.55,r)*(.7+.5*vnoise(d/R*3.+sd));
         o=vec4(mix(texture(uSrc,vUv).rgb, ab, clamp(m,0.,1.)),1.); }`,   // replaces what was there: new ink pushes the old aside, never piles on it
     // a drop's bloom: flow outward from its centre (like a spreading source), stronger in some directions than
     // others, so the rim pushes out unevenly and curls into fingers
-    waterPush: `uniform sampler2D uVel; uniform vec2 c; uniform float aspect, R, sp, sd;
+    waterPush: `uniform sampler2D uVel; uniform vec2 c; uniform float aspect, R, sp, sd, rag;
       void main(){ vec2 d=vUv-c; d.x*=aspect; float r=max(length(d),1e-4), an=atan(d.y,d.x);
         float f=r<R ? r/R : R/r; f*=exp(-max(0.,r-R)/(R*1.5));
-        float k=.35+1.3*vnoise(vec2(cos(an),sin(an))*2.5+sd)+.5*vnoise(vec2(cos(an),sin(an))*9.+sd*2.3);
+        float k=max(0., 1.25+2.*rag*(1.3*(vnoise(vec2(cos(an),sin(an))*2.5+sd)-.5)+.5*(vnoise(vec2(cos(an),sin(an))*9.+sd*2.3)-.5)));
         o=vec4(texture(uVel,vUv).xy+d/r*sp*f*k,0.,1.); }`,
     // however much dye piles up it never goes black: the absorbance levels off at 0.9 (each colour keeps 40% of the light)
+    // soap: clears a growing hole (ragged edge) in the dye, while its push sends the colours to the rim
+    waterClear: `uniform sampler2D uSrc; uniform vec2 c; uniform float aspect, R, sd;
+      void main(){ vec2 d=vUv-c; d.x*=aspect; float r=length(d), an=atan(d.y,d.x);
+        float e=R*(1.+.25*(vnoise(vec2(cos(an),sin(an))*3.+sd)-.5));
+        o=vec4(texture(uSrc,vUv).rgb*smoothstep(e*.75,e,r),1.); }`,
     waterShow: `uniform sampler2D uSrc; void main(){ vec3 a=texture(uSrc,vUv).rgb; a=.9*(1.-exp(-a/.9)); o=vec4(vec3(.985,.98,.965)*exp(-a),1.); }`,
     dropInk: `uniform sampler2D uSrc; uniform vec2 c; uniform float aspect, a0, a1; uniform vec3 col;
       void main(){ vec2 d=vUv-c; d.x*=aspect; float L2=dot(d,d);
@@ -884,23 +890,34 @@ function createSwirl2(gl, opts = {}) {
     const pl = SWIRL2_PALETTES[o.palette] || o.palette, n = pl.pal.length;
     let k; do k = Math.floor(Math.random() * n); while (n > 1 && k === lastLab); lastLab = k;
     drops.push({ x, y, r: (size || o.dropSize || 0.09) * (0.75 + 0.5 * Math.random()), t: 0, a: 0, k, col: hex(pl.pal[k]), sd: Math.random() * 50 });
-    if (o.water) { idleT = 0; for (let i = 0; i < 5; i++) {   // a few small eddies around the landing spot: the splash's unevenness
+    const sp = o.splash ?? 1;
+    if (o.water) { idleT = 0; for (let i = 0; i < Math.round(5 * sp); i++) {   // splash: how many of these eddies (5 at 1), and how strong   // a few small eddies around the landing spot: the splash's unevenness
       const a = Math.random() * TAU, rr = drops[drops.length - 1].r * (0.4 + 0.6 * Math.random());
-      splat(x + Math.cos(a) * rr * o.height / o.width, y + Math.sin(a) * rr, 0, 0, (Math.random() < 0.5 ? -1 : 1) * (3 + 5 * Math.random()), 0.0006, true); } }
+      splat(x + Math.cos(a) * rr * o.height / o.width, y + Math.sin(a) * rr, 0, 0, (Math.random() < 0.5 ? -1 : 1) * (3 + 5 * Math.random()) * (0.5 + 0.5 * sp), 0.0006, true); } }
   }
   // water: each drop puts in its dye at once, then blooms outward for WATER_T seconds, the push easing off
-  const WATER_T = 1.6;
+  const WATER_T = 1.6, SOAP_T = 2.2;
+  // soap (shift+i): a drop of dish soap: no colour, a strong wide push that makes the colours rush away from it
+  // (water); on milk drops (marbling) a clear drop that pushes the rings aside and leaves bare milk
+  function soap(x, y) {
+    if (o.water) drops.push({ x, y, r: 0.18, t: 0, a: 0, k: 0, sd: Math.random() * 50, soap: true, inked: true });
+    else drops.push({ x, y, r: 0.12, t: 0, a: 0, k: -1, col: [1, 1, 1], sd: 0 });
+    idleT = 0;
+  }
   function waterStep(dt) {
     let u;
     for (const d of drops) {
-      if (!d.inked) { d.inked = true; const ab = d.col.map(v => -Math.log(Math.max(0.04, v)) * 1.4);
+      if (!d.inked && !d.soap) { d.inked = true; const ab = d.col.map(v => -Math.log(Math.max(0.04, v)) * 1.4);
         u = use('waterDye', S.dye.write); gl.uniform1i(u.uSrc, tex(0, S.dye.read)); gl.uniform2f(u.c, d.x, d.y);
-        gl.uniform1f(u.R, d.r * 0.6); gl.uniform1f(u.sd, d.sd); gl.uniform3fv(u.ab, ab); blit(S.dye.write); S.dye.swap(); }
-      d.t = Math.min(WATER_T, d.t + dt); const q = 1 - d.t / WATER_T, Rt = d.r * (0.45 + 0.55 * (1 - q * q));
+        gl.uniform1f(u.R, d.r * 0.6); gl.uniform1f(u.sd, d.sd); gl.uniform1f(u.rag, o.ragged ?? 0.5); gl.uniform3fv(u.ab, ab); blit(S.dye.write); S.dye.swap(); }
+      const T = d.soap ? SOAP_T : WATER_T; d.t = Math.min(T, d.t + dt); const q = 1 - d.t / T, Rt = d.r * (0.45 + 0.55 * (1 - q * q));
       u = use('waterPush', S.vel.write); gl.uniform1i(u.uVel, tex(0, S.vel.read)); gl.uniform2f(u.c, d.x, d.y);
-      gl.uniform1f(u.R, Rt); gl.uniform1f(u.sd, d.sd); gl.uniform1f(u.sp, (o.bloom ?? 1) * d.r * S.sh * 1.6 * q * q * dt * 12); blit(S.vel.write); S.vel.swap();
+      gl.uniform1f(u.R, Rt); gl.uniform1f(u.sd, d.sd); gl.uniform1f(u.rag, d.soap ? 0.15 : (o.ragged ?? 0.5));
+      gl.uniform1f(u.sp, (d.soap ? 0.6 : (o.bloom ?? 1)) * d.r * S.sh * 1.6 * q * q * dt * 12); blit(S.vel.write); S.vel.swap();
+      if (d.soap) { u = use('waterClear', S.dye.write); gl.uniform1i(u.uSrc, tex(0, S.dye.read)); gl.uniform2f(u.c, d.x, d.y);
+        gl.uniform1f(u.R, Rt * 0.55); gl.uniform1f(u.sd, d.sd); blit(S.dye.write); S.dye.swap(); }
     }
-    drops = drops.filter(d => d.t < WATER_T);
+    drops = drops.filter(d => d.t < (d.soap ? SOAP_T : WATER_T));
     u = use('waterAdv', S.dye.write, S.dye.read); gl.uniform1i(u.uVel, tex(0, S.vel.read)); gl.uniform1i(u.uSrc, tex(1, S.dye.read));
     gl.uniform1f(u.dt, dt * o.energy); gl.uniform1f(u.diff, Math.min(1, (o.spread ?? 0.01) * dt * 60)); blit(S.dye.write); S.dye.swap();
   }
@@ -911,7 +928,7 @@ function createSwirl2(gl, opts = {}) {
       if (a1 <= d.a) continue;
       const ink = o.paint === 'ink', T = ink ? S.ink : S.P, u = use(ink ? 'dropInk' : 'drop', T.write);
       gl.uniform1i(u.uSrc, tex(0, T.read)); gl.uniform2f(u.c, d.x, d.y); gl.uniform1f(u.a0, d.a); gl.uniform1f(u.a1, a1);
-      if (ink) gl.uniform3fv(u.col, d.col); else gl.uniform1f(u.lab, 2 + d.k);
+      if (ink) gl.uniform3fv(u.col, d.k < 0 ? [0.975, 0.965, 0.94] : d.col); else gl.uniform1f(u.lab, 2 + d.k);
       blit(T.write); T.swap(); d.a = a1;
     }
     drops = drops.filter(d => d.t < DROP_T);
@@ -1032,6 +1049,6 @@ function createSwirl2(gl, opts = {}) {
   }
   function resize(w, h) { o.width = w; o.height = h; alloc(); setText(); }
   alloc(); setText();
-  return { step, render, exportPixels, splat, drop, get dropping() { return drops.length > 0; }, randomize, boost, burst, zoom, reset, resize, set, opts: o, get depth() { return depth; }, setImage, get hasImage() { return hasImage; }, get peek() { return peeking; }, set peek(v) { peeking = !!v; } };
+  return { step, render, exportPixels, splat, drop, soap, get dropping() { return drops.length > 0; }, randomize, boost, burst, zoom, reset, resize, set, opts: o, get depth() { return depth; }, setImage, get hasImage() { return hasImage; }, get peek() { return peeking; }, set peek(v) { peeking = !!v; } };
 }
 if (typeof window !== 'undefined') { window.createSwirl2 = createSwirl2; window.SWIRL2_PALETTES = SWIRL2_PALETTES; window.SWIRL2_PRESETS = SWIRL2_PRESETS; window.SWIRL2_FILLS = SWIRL2_FILLS; }

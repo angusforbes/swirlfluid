@@ -108,14 +108,14 @@
 </div>
 <div id="help" class="panel">
   <span class="mouse">drag to stir · hold <kbd>shift</kbd>+<kbd>→</kbd> / <kbd>shift</kbd>+<kbd>←</kbd> to spin a whirlpool under the cursor · hold <kbd>z</kbd> / <kbd>x</kbd> or scroll to dive in / out<br>
-  <kbd>1</kbd>–<kbd>9</kbd> presets · <kbd>e</kbd> swap engine · <kbd>t</kbd> tune · <kbd>space</kbd> pause · <kbd>R</kbd> new start · <kbd>g</kbd> random stir · <kbd>k</kbd> stars · <kbd>n</kbd> random vectors · <kbd>m</kbd> / <kbd>M</kbd> more / less energy · <kbd>esc</kbd> hide all · hold <kbd>shift</kbd> to move the mouse without stirring · <kbd>s</kbd> save · <kbd>d</kbd> debug · <kbd>h</kbd> hide<span class="swirlOnly"> · <kbd>c</kbd> palette · <kbd>i</kbd> drop ink (with drops on) · <kbd>p</kbd> pin sliders · <kbd>f</kbd> fill · <kbd>r</kbd> back to the grid · hold <kbd>l</kbd> map</span><span class="autoOnly"> · <kbd>b</kbd> background · <kbd>v</kbd> vectors · drop an image to smear it</span></span>
+  <kbd>1</kbd>–<kbd>9</kbd> presets · <kbd>e</kbd> swap engine · <kbd>t</kbd> tune · <kbd>space</kbd> pause · <kbd>R</kbd> new start · <kbd>g</kbd> random stir · <kbd>k</kbd> stars · <kbd>n</kbd> random vectors · <kbd>m</kbd> / <kbd>M</kbd> more / less energy · <kbd>esc</kbd> hide all · hold <kbd>shift</kbd> to move the mouse without stirring · <kbd>s</kbd> save · <kbd>d</kbd> debug · <kbd>h</kbd> hide<span class="swirlOnly"> · <kbd>c</kbd> palette · <kbd>i</kbd> / <kbd>I</kbd> drop ink / soap (with drops on) · <kbd>p</kbd> pin sliders · <kbd>f</kbd> fill · <kbd>r</kbd> back to the grid · hold <kbd>l</kbd> map</span><span class="autoOnly"> · <kbd>b</kbd> background · <kbd>v</kbd> vectors · drop an image to smear it</span></span>
   <span class="touch">one finger stirs · press and hold to spin · twist two fingers to spin either way · spread two fingers to dive in · tap to bring this back</span>
   <div class="rowlabel" id="swirlLabel">swirl</div><div class="presets" id="presets"></div>
   <div class="rowlabel" id="autoLabel">fluid automata</div><div class="presets" id="profiles"></div>
 </div>
 <div id="err"></div>
-<script src="swirl2.js?v=65"></script>
-<script src="automata.js?v=65"></script>
+<script src="swirl2.js?v=66"></script>
+<script src="automata.js?v=66"></script>
 <script>
 // Two engines on one canvas: "swirl" (swirl2.js: a velocity fluid that paints poster bands, ink, facets...) and
 // "fluid automata" (automata.js: an 8-bit energy automaton that smears a background image). Only one runs at a time.
@@ -137,7 +137,7 @@ const baseOfA = n => BUILTIN_A.includes(n) ? n : (AUTOMATA_PROFILES[n]?.base || 
 const PROFILES = Object.keys(AUTOMATA_PROFILES), BGS = Object.keys(AUTOMATA_BGS);
 const coarse = matchMedia('(pointer: coarse)').matches;
 const FILLS = SWIRL2_FILLS;
-const BASE = { fill: 'squares', cell: Math.max(4, Math.round(innerHeight / 24)), freq: 3, palette: 'ocean', saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, wash: false, facets: false, jitter: 0, ambient: 1, fadeMin: 8, fadeMax: 22, outline: false, grain: true, tile: 1, mapCell: 1, spline: false, reach: 1, instant: false, startStir: 0, fold: false, foldRows: 16, compose: false, motion: 0, motionRings: 2, motionSectors: 6, box: false, axisSnap: false, drops: false, milk: false, dropSize: 0.09, water: false, bloom: 1, spread: 0.01, smoothPng: true, reveal: 0, inside: 0, burst: 0.01, imgTile: 1 };
+const BASE = { fill: 'squares', cell: Math.max(4, Math.round(innerHeight / 24)), freq: 3, palette: 'ocean', saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, wash: false, facets: false, jitter: 0, ambient: 1, fadeMin: 8, fadeMax: 22, outline: false, grain: true, tile: 1, mapCell: 1, spline: false, reach: 1, instant: false, startStir: 0, fold: false, foldRows: 16, compose: false, motion: 0, motionRings: 2, motionSectors: 6, box: false, axisSnap: false, drops: false, milk: false, dropSize: 0.09, water: false, bloom: 1, spread: 0.01, ragged: 0.5, splash: 1, smoothPng: true, reveal: 0, inside: 0, burst: 0.01, imgTile: 1 };
 // the knobs: [key, label, min, max, step, format]
 const KNOBS = [
   // fluidity: finer toward the top: the left half covers 0.9 to 0.99, then each further stretch adds a 9 (0.999,
@@ -176,6 +176,13 @@ const KNOBS = [
   ['foldRows', 'fold rows', 3, 64, 1, v => Math.round(v)],
   ['motion', 'motion colour', 0, 1, 0.01, v => v > 0 ? Math.round(v * 100) + '%' : 'off'],
   ['motionRings', 'rings', 0, 6, 0.25, v => v > 0 ? v + ' per halving' : 'none'],   // motion colour: rings of strength
+  // ink drops (2026-10-05): how hard a drop blooms out, how fast ink blurs and pales, how big drops are, how
+  // frilly their edges, how many little eddies each landing splashes up
+  ['bloom', 'ink bloom', 0, 3, 0.05, v => v.toFixed(2) + '×'],
+  ['spread', 'ink spread', 0, 0.06, 0.001, v => v ? v.toFixed(3) : 'off'],
+  ['dropSize', 'drop size', 0.02, 0.3, 0.005, v => v.toFixed(3)],
+  ['ragged', 'raggedness', 0, 1.5, 0.05, v => v.toFixed(2)],
+  ['splash', 'splash', 0, 3, 0.1, v => v ? v.toFixed(1) + '×' : 'off'],
   ['motionSectors', 'sectors', 0, 16, 1, v => v > 0 ? Math.round(v) : 'none'],   // motion colour: slices of direction   // colour by the motion: direction sectors x strength rings   // fold: how many rows of triangles (fewer = bigger shards)
 ];
 const maxCell = () => Math.max(2, innerHeight / 2);   // the coarsest background: 2 rows of cells
@@ -719,6 +726,7 @@ addEventListener('keydown', e => {
   else if (e.key === 'M') { cur().boost(1 / 1.5); wake(); }   // shift+m: less energy, same directions
   else if (e.key === 's') save();
   else if (e.key === 'd') capture();
+  else if (e.key === 'I' && !A && swirl.opts.drops) { const h = hover || [0.5, 0.5]; swirl.soap(h[0], h[1]); wake(); }   // shift+i: a drop of soap
   else if (e.key === 'i' && !A && swirl.opts.drops) { const h = hover || [0.15 + 0.7 * Math.random(), 0.15 + 0.7 * Math.random()]; swirl.drop(h[0], h[1]); wake(); }   // i: drop ink at the mouse (anywhere when it's off the picture)
 });
 addEventListener('keyup', e => { if (e.key === 'l' && swirl) { swirl.peek = false; wake(); } if (e.key === 'z' || e.key === 'x') zoomKey = 0; if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'Shift') keySpin = 0; });
