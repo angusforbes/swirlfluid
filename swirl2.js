@@ -87,6 +87,9 @@ const SWIRL2_PRESETS = {
   'Ink in Water':{ fluids: true,  fluidity: 0.985, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 3,   heal: 0, jitter: 0, ambient: 0.15, paint: 'bands', palette: 'food', fadeMin: 0, fill: 'squares', water: true, drops: true },
   // Angus 2026-10-05: Mandala: Ink in Water in a kaleidoscope (6 copies, each mirrored): every drop and stir is repeated around the centre
   'Mandala':     { fluids: true,  fluidity: 0.985, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 3,   heal: 0, jitter: 0, ambient: 0, paint: 'bands', palette: 'food', fadeMin: 0, fill: 'squares', water: true, drops: true, sym: 6, symMirror: true, dropSize: 0.06 },
+  // the other families in a kaleidoscope (Angus 2026-10-05: "a few different mandala versions")
+  'Mosaic Mandala':{ fluids: false, fluidity: 1,   viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'pop', freq: 4.9, fadeMin: 8, fadeMax: 22, fill: 'mixed squares', rows: 5, instant: true, startStir: 4, sym: 6, symMirror: true },
+  'Fluid Mandala':{ fluids: true,  fluidity: 0.982, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4, heal: 0.1,  paint: 'bands', palette: 'candy', sym: 6, symMirror: true },
   'Milk Drops':  { fluids: false, fluidity: 1,     viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 0.15,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'food', freq: 4.9, fadeMin: 0, fadeMax: 22, fill: 'mixed squares', rows: 5, instant: true, compose: true, drops: true, milk: true },
   'Mosaic 2':    { fluids: false, fluidity: 1,     viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'pop', freq: 4.9, fadeMin: 8, fadeMax: 22, fill: 'mixed squares', rows: 5, instant: true, startStir: 6 },   // starts as if you pressed n, then m 6 times
   // a pair to compare (Angus): high energy, fluids off. jag1 follows the motion with straight lines between its grid
@@ -751,11 +754,16 @@ function createSwirl2(gl, opts = {}) {
   // centre, and with symMirror each copy also mirrored (a kaleidoscope). Positions in uv, vectors in square units
   let inSym = false, noSym = false;
   const symOn = () => o.sym > 1 && o.grid < 2 && !inSym && !noSym;
+  // mirror points (symCentres, default the screen centre): a stroke is measured from the point nearest it and repeated
+  // around every point, so several points give several identical mandalas
   function symCopies(x, y, vx = 0, vy = 0) {
-    const n = Math.round(o.sym), a = aspect(), dx = (x - 0.5) * a, dy = y - 0.5, out = [];
-    for (let m = 0; m < (o.symMirror ? 2 : 1); m++) for (let k = 0; k < n; k++) {
+    const n = Math.round(o.sym), a = aspect(), C = o.symCentres && o.symCentres.length ? o.symCentres : [[0.5, 0.5]], out = [];
+    let c0 = C[0], best = Infinity;
+    for (const c of C) { const d = ((x - c[0]) * a) ** 2 + (y - c[1]) ** 2; if (d < best) { best = d; c0 = c; } }
+    const dx = (x - c0[0]) * a, dy = y - c0[1];
+    for (const [cx, cy] of C) for (let m = 0; m < (o.symMirror ? 2 : 1); m++) for (let k = 0; k < n; k++) {
       const t = 2 * Math.PI * k / n, c = Math.cos(t), s = Math.sin(t), ry = m ? -dy : dy, rvy = m ? -vy : vy;
-      out.push([0.5 + (c * dx - s * ry) / a, 0.5 + s * dx + c * ry, c * vx - s * rvy, s * vx + c * rvy, m]);
+      out.push([cx + (c * dx - s * ry) / a, cy + s * dx + c * ry, c * vx - s * rvy, s * vx + c * rvy, m]);
     }
     return out;
   }
