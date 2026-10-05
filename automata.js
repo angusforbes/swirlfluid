@@ -25,6 +25,9 @@ const AUTOMATA_BGS = {
   'live noise': { mode: 1, px: 2, live: true },
   // the iOS app's "Colored Noise, Lo-Res": half-resolution noise stretched up smoothly
   'colour noise lo-res': { mode: 6, px: 2 },
+  'rgb noise': { mode: 7, px: 1 },   // iOS "RGB Noise": every pixel pure red, green or blue
+  // squares of mixed sizes (a big square split at random, up to 4 times), each colour noise at its own grain
+  'mixed squares': { mode: 8, px: 256 },
   'camera': { mode: 4, camera: true }, 'image…': { mode: 4, image: true },
 };
 // profiles: the JS original's presets (blend, brightness, contrast, saturation, fluidity, momentum, angularity,
@@ -58,6 +61,28 @@ const AUTOMATA_PROFILES = (() => {
     // coordinates run from -zoom to 1+zoom, so below 0 the picture grows from the centre every frame)
     'Stained Glass': P(0.817917, 1.047367, 1.100694, 1.024306, 0.99, 0, 0.785398, 0.07, { grid: 8, fluids: false, mesh: true, zoom: -0.04, torus: false, bg: 'colour noise lo-res' }),
     'Ice Crack (mesh)': P(0.824063, 1.079861, 1.100694, 0.975694, 0.95, 0.000001, 0.000001, 0.08, { grid: 14, fluids: false, mesh: true, torus: false }),
+    // Ice Crack on squares of mixed sizes, each colour noise at its own grain (Angus 2026-10-05)
+    'Ice Crack (mixed)': P(0.824063, 1.079861, 1.100694, 0.975694, 0.95, 0.000001, 0.000001, 0.08, { grid: 14, fluids: false, mesh: true, torus: false, bg: 'mixed squares' }),
+    // the rest of the iOS presets, values as in PresetsCollection.m (blend, bright, contrast, sat, zoom | fluidity,
+    // momentum, direction, angularity, energy | rows), all on the mesh
+    "Jupiter's Moons (iOS)": P(0.93, 1.0, 1.03, 1.04, 0.9, 0.9, Math.PI / 4, 1.0, { grid: 14, dir: 0.5, mesh: true, torus: false, bg: 'colour noise' }),
+    'Tar Pit (iOS)': P(0.82, 1.107639, 1.173194, 0.5, 0.67, 0.9, Math.PI / 4, 0.2, { grid: 16, dir: 0.5, mesh: true, torus: false, bg: 'colour noise' }),
+    'Gelatinous (iOS)': P(0.855, 1.107639, 1.173194, 1.149306, 0.95, 0.68, 5.323, 0.17, { grid: 12, dir: 0.0, mesh: true, torus: false, bg: 'colour noise lo-res' }),
+    'Balloon (iOS)': P(0.87528, 1.0499, 1.044, 1.0208, 0.995, 0.68, 0.28, 0.17, { grid: 16, dir: 0.0, mesh: true, torus: false, bg: 'colour noise lo-res' }),
+    'Gumball (iOS)': P(0.855, 1.107639, 1.173194, 1.149306, 0.9, 0.9, Math.PI / 4, 1.0, { grid: 12, dir: 0.5, mesh: true, torus: false, bg: 'colour noise' }),
+    'Milky Way (iOS)': P(0.795382, 1.107639, 1.163194, 0.71875, 0.9999, 0.0, Math.PI / 4, 0.04, { grid: 16, dir: 0.5, mesh: true, torus: false, bg: 'colour noise' }),
+    'Cubism (iOS)': P(0.785139, 1.069441, 1.163194, 1.034722, 0.99, 0.0, 0.0001, 1.0, { grid: 12, dir: 0.5, mesh: true, torus: false, bg: 'colour noise' }),
+    'Ice Cream Cake (iOS)': P(0.881424, 1.079861, 1.100694, 0.975694, 0.974688, 0.9, 3.948807, 0.2, { grid: 14, dir: 0.5, mesh: true, torus: false, bg: 'colour noise' }),
+    'Billows (iOS)': P(0.834306, 1.079861, 1.121528, 0.923611, 0.936562, 0.809028, 1.898046, 0.392361, { grid: 14, dir: 0.5, mesh: true, torus: false, bg: 'colour noise', zoom: -0.001 }),
+    'Kaleidoscope (iOS)': P(0.803576, 1.079861, 1.121528, 0.975694, 0.960625, 0.892361, 2.63981, 0.21875, { grid: 16, dir: 0.5, mesh: true, torus: false, bg: 'colour noise' }),
+    'Watercolor (iOS)': P(0.824063, 1.079861, 1.100694, 1.04, 0.98, 0.13, 1.18, 0.1, { grid: 16, dir: 0.5, mesh: true, torus: false, bg: 'colour noise' }),
+    'Nebulae (iOS)': P(0.817917, 1.047367, 1.100694, 1.024306, 0.99, 0.0, 0.785398, 0.1, { grid: 16, dir: 0.5, mesh: true, torus: false, bg: 'colour noise' }),
+    'Infrared (iOS)': P(0.70934, 1.010417, 1.163194, 1.21875, 0.99999, 0.0, 0.2, 0.15, { grid: 12, dir: 0.5, mesh: true, torus: false, bg: 'colour noise' }),
+    'Rainbow Sherbert (iOS)': P(0.883472, 0.942191, 0.852937, 1.5, 0.9, 0.9, 0.785398, 0.4, { grid: 12, dir: 0.5, mesh: true, torus: false, bg: 'rgb noise' }),
+    'Fingerpaints (iOS)': P(0.810747, 1.107639, 1.163194, 1.024306, 0.784132, 0.579861, 0.0, 0.4, { grid: 16, dir: 0.5, mesh: true, torus: false, bg: 'colour noise lo-res' }),
+    'Propaganda (iOS)': P(0.651979, 1.223958, 1.192708, 0.975694, 0.552743, 1.0, 0.0, 1.0, { grid: 12, dir: 0.5, mesh: true, torus: false, bg: 'camera' }),
+    'Columns (iOS)': P(0.744167, 1.092813, 1.192708, 0.8125, 0.915938, 0.072917, 0.479966, 0.25, { grid: 16, dir: 0.5, mesh: true, torus: false, bg: 'colour noise lo-res' }),
+    'Glassy (iOS)': P(0.81792, 1.04737, 1.10069, 1.02431, 0.9999, 0.0, Math.PI / 4, 0.0, { grid: 12, dir: 0.5, mesh: true, torus: false, bg: 'colour noise lo-res', fluids: false }),
     'Ember': P(0.94, 1.0, 1.01, 1.0, 0.99, 0.4, Math.PI / 2.5, 0.35, { grid: 72, bg: 'ember field' }),
   };
 })();
@@ -129,6 +154,11 @@ function createAutomata(gl, opts = {}) {
       if(mode==0) col=vec3(rnd(c,seed));
       else if(mode==1) col=vec3(rnd(c,seed),rnd(c,seed+1.),rnd(c,seed+2.));
       else if(mode==3) col=vec3(step(.5,rnd(c,seed)));
+      else if(mode==7){ float k=floor(rnd(c,seed)*3.); col=vec3(k==0.,k==1.,k==2.); }
+      else if(mode==8){ vec2 q=gl_FragCoord.xy; float sz=px; vec2 sq=floor(q/sz);
+        for(int l=0;l<4;l++){ if(rnd(sq,seed+50.+float(l))<.55){ sz*=.5; sq=floor(q/sz); } else break; }
+        float g=exp2(floor(rnd(sq,seed+90.)*5.)); vec2 cc=floor(q/g); float k=seed+floor(rnd(sq,seed+91.)*1000.);
+        col=vec3(rnd(cc,k),rnd(cc,k+1.),rnd(cc,k+2.)); }
       else if(mode==6){ vec2 q=gl_FragCoord.xy/px-.5, i=floor(q), f=fract(q);
         #define CN(k) vec3(rnd(i+k,seed),rnd(i+k,seed+1.),rnd(i+k,seed+2.))
         col=mix(mix(CN(vec2(0,0)),CN(vec2(1,0)),f.x), mix(CN(vec2(0,1)),CN(vec2(1,1)),f.x), f.y); }
