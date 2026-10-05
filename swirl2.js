@@ -83,6 +83,8 @@ const SWIRL2_PRESETS = {
   // Al Held that stays where you put it, like Mosaic (Angus): fluidity 1 (no fading, no idle eddies) and instant
   // thickness (each push is broad and soft the moment you make it; nothing creeps or stops abruptly); colours still fade
   // Angus 2026-10-05: "drops of food colouring into water or milk": tap to drop colour onto milk, drag to marble it
+  // Angus 2026-10-05: ink dropped into a dish of water, from above: tap to drop, it blooms and curls by itself
+  'Ink in Water':{ fluids: true,  fluidity: 0.985, viscosity: 0,   momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 3,   heal: 0, jitter: 0, ambient: 0.15, paint: 'bands', palette: 'food', fadeMin: 0, fill: 'squares', water: true, drops: true },
   'Milk Drops':  { fluids: false, fluidity: 1,     viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 0.15,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'food', freq: 4.9, fadeMin: 0, fadeMax: 22, fill: 'mixed squares', rows: 5, instant: true, compose: true, drops: true, milk: true },
   'Mosaic 2':    { fluids: false, fluidity: 1,     viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'pop', freq: 4.9, fadeMin: 8, fadeMax: 22, fill: 'mixed squares', rows: 5, instant: true, startStir: 6 },   // starts as if you pressed n, then m 6 times
   // a pair to compare (Angus): high energy, fluids off. jag1 follows the motion with straight lines between its grid
@@ -284,6 +286,27 @@ function createSwirl2(gl, opts = {}) {
       void main(){ vec2 d=vUv-c; d.x*=aspect; float L2=dot(d,d);
         if(L2<a1){ o=vec4(texture(uSrc,c).xyz, lab); return; }
         vec2 p=c+(vUv-c)*sqrt(max(0.,1.-(a1-a0)/L2)); o=vec4(texture(uSrc,p).xyz, label(uSrc,p)); }`,
+    // water (2026-10-05, Angus: ink dropped into a dish of water, seen from above): dye is stored as how much each
+    // colour is absorbed (so thin dye is pale, dense dye dark, and overlapping dyes mix like real ones); it rides the
+    // fluid and spreads very slowly
+    waterAdv: VELAT + `uniform sampler2D uSrc; uniform vec2 simTexel, texel; uniform float dt, diff;
+      void main(){ vec2 c=vUv-dt*velAt(vUv)*simTexel; vec3 a=texture(uSrc,c).rgb;
+        vec3 n=(texture(uSrc,c+vec2(texel.x,0.)).rgb+texture(uSrc,c-vec2(texel.x,0.)).rgb+texture(uSrc,c+vec2(0.,texel.y)).rgb+texture(uSrc,c-vec2(0.,texel.y)).rgb)*.25;
+        o=vec4(mix(a,n,diff),1.); }`,
+    // a drop's dye: a ragged disc (its edge wobbles with angle), denser and streaky inside
+    waterDye: `uniform sampler2D uSrc; uniform vec2 c; uniform float aspect, R, sd; uniform vec3 ab;
+      void main(){ vec2 d=vUv-c; d.x*=aspect; float r=length(d), an=atan(d.y,d.x);
+        float e=R*(.8+.45*vnoise(vec2(cos(an),sin(an))*2.2+sd)+.18*vnoise(vec2(cos(an),sin(an))*7.+sd*1.7));
+        float m=smoothstep(e,e*.55,r)*(.7+.5*vnoise(d/R*3.+sd));
+        o=vec4(texture(uSrc,vUv).rgb+ab*m,1.); }`,
+    // a drop's bloom: flow outward from its centre (like a spreading source), stronger in some directions than
+    // others, so the rim pushes out unevenly and curls into fingers
+    waterPush: `uniform sampler2D uVel; uniform vec2 c; uniform float aspect, R, sp, sd;
+      void main(){ vec2 d=vUv-c; d.x*=aspect; float r=max(length(d),1e-4), an=atan(d.y,d.x);
+        float f=r<R ? r/R : R/r; f*=exp(-max(0.,r-R)/(R*1.5));
+        float k=.35+1.3*vnoise(vec2(cos(an),sin(an))*2.5+sd)+.5*vnoise(vec2(cos(an),sin(an))*9.+sd*2.3);
+        o=vec4(texture(uVel,vUv).xy+d/r*sp*f*k,0.,1.); }`,
+    waterShow: `uniform sampler2D uSrc; void main(){ vec3 a=texture(uSrc,vUv).rgb; o=vec4(vec3(.985,.98,.965)*exp(-a),1.); }`,
     dropInk: `uniform sampler2D uSrc; uniform vec2 c; uniform float aspect, a0, a1; uniform vec3 col;
       void main(){ vec2 d=vUv-c; d.x*=aspect; float L2=dot(d,d);
         if(L2<a1){ o=vec4(col,1.); return; }
@@ -538,7 +561,7 @@ function createSwirl2(gl, opts = {}) {
     const ch = Math.min(o.coordRes, o.height), cw = Math.round(ch * aspect());
     S = { vel: dbl(sw_, sh_, true), velPrev: fbo(sw_, sh_, true),   // full float: fluidity can be 0.99999, which half float would round to 1
       press: dbl(sw_, sh_), div: fbo(sw_, sh_), curl: fbo(sw_, sh_), v0: fbo(sw_, sh_),
-          P: dbl(cw, ch, true), P0: fbo(cw, ch, true), ink: dbl(cw, ch), fresh: fbo(cw, ch), tmp: fbo(cw, ch), out: fbo(o.width, o.height), sw: sw_, sh: sh_ };
+          P: dbl(cw, ch, true), P0: fbo(cw, ch, true), ink: dbl(cw, ch), dye: dbl(cw, ch), fresh: fbo(cw, ch), tmp: fbo(cw, ch), out: fbo(o.width, o.height), sw: sw_, sh: sh_ };
     reset();
   }
   const palArr = pl => { const a = new Float32Array(24); pl.pal.slice(0, 8).forEach((c, i) => a.set(hex(c), i * 3)); return a; };
@@ -571,6 +594,7 @@ function createSwirl2(gl, opts = {}) {
   // reset: new squares (new seed) and no motion; reset(true) (r): back to the unstirred grid, the same squares
   function reset(same = false) {
     drops = [];
+    if (S.dye) [S.dye.read, S.dye.write].forEach(clear);
     if (!same) seed = 1 + Math.floor(Math.random() * 1e5);
     for (const L of letters) { L.pos = L.home.slice(); L.ang = 0; }
     if (!same && resets++ && !o.fixedSwirls) {
@@ -732,6 +756,7 @@ function createSwirl2(gl, opts = {}) {
   function randomize(energy = 1) {
     const R = Math.random;
     if (o.grid >= 2) { const { ms, os } = lattice(); for (let i = 0; i < os.length; i++) { os[i] = R() * TAU; ms[i] = 0.06 * energy * (0.5 + R()); } return; }
+    if (o.water) { for (let k = 0; k < 5; k++) drop(0.15 + 0.7 * R(), 0.15 + 0.7 * R()); return; }   // water: n drops a few at random
     [S.vel.read, S.vel.write].forEach(clear); idleT = 0;
     if (o.compose && !o.fluids) {   // compose: n starts the picture over too, so it looks as when the preset is chosen
       clear(S.velPrev); composing = true; use('init', S.P.write); blit(S.P.write); S.P.swap(); }
@@ -857,7 +882,26 @@ function createSwirl2(gl, opts = {}) {
   function drop(x, y, size) {
     const pl = SWIRL2_PALETTES[o.palette] || o.palette, n = pl.pal.length;
     let k; do k = Math.floor(Math.random() * n); while (n > 1 && k === lastLab); lastLab = k;
-    drops.push({ x, y, r: (size || o.dropSize || 0.09) * (0.75 + 0.5 * Math.random()), t: 0, a: 0, k, col: hex(pl.pal[k]) });
+    drops.push({ x, y, r: (size || o.dropSize || 0.09) * (0.75 + 0.5 * Math.random()), t: 0, a: 0, k, col: hex(pl.pal[k]), sd: Math.random() * 50 });
+    if (o.water) { idleT = 0; for (let i = 0; i < 5; i++) {   // a few small eddies around the landing spot: the splash's unevenness
+      const a = Math.random() * TAU, rr = drops[drops.length - 1].r * (0.4 + 0.6 * Math.random());
+      splat(x + Math.cos(a) * rr * o.height / o.width, y + Math.sin(a) * rr, 0, 0, (Math.random() < 0.5 ? -1 : 1) * (3 + 5 * Math.random()), 0.0006, true); } }
+  }
+  // water: each drop puts in its dye at once, then blooms outward for WATER_T seconds, the push easing off
+  const WATER_T = 1.6;
+  function waterStep(dt) {
+    let u;
+    for (const d of drops) {
+      if (!d.inked) { d.inked = true; const ab = d.col.map(v => -Math.log(Math.max(0.04, v)) * 1.4);
+        u = use('waterDye', S.dye.write); gl.uniform1i(u.uSrc, tex(0, S.dye.read)); gl.uniform2f(u.c, d.x, d.y);
+        gl.uniform1f(u.R, d.r * 0.6); gl.uniform1f(u.sd, d.sd); gl.uniform3fv(u.ab, ab); blit(S.dye.write); S.dye.swap(); }
+      d.t = Math.min(WATER_T, d.t + dt); const q = 1 - d.t / WATER_T, Rt = d.r * (0.45 + 0.55 * (1 - q * q));
+      u = use('waterPush', S.vel.write); gl.uniform1i(u.uVel, tex(0, S.vel.read)); gl.uniform2f(u.c, d.x, d.y);
+      gl.uniform1f(u.R, Rt); gl.uniform1f(u.sd, d.sd); gl.uniform1f(u.sp, (o.bloom ?? 1) * d.r * S.sh * 1.6 * q * q * dt * 12); blit(S.vel.write); S.vel.swap();
+    }
+    drops = drops.filter(d => d.t < WATER_T);
+    u = use('waterAdv', S.dye.write, S.dye.read); gl.uniform1i(u.uVel, tex(0, S.vel.read)); gl.uniform1i(u.uSrc, tex(1, S.dye.read));
+    gl.uniform1f(u.dt, dt * o.energy); gl.uniform1f(u.diff, Math.min(1, (o.spread ?? 0.01) * dt * 60)); blit(S.dye.write); S.dye.swap();
   }
   function stepDrops(dt) {
     if (!drops.length || o.grid >= 2) { drops = []; return; }
@@ -924,7 +968,8 @@ function createSwirl2(gl, opts = {}) {
 
     const relax = 1 - Math.exp(-dt * o.heal);
     if (!(o.compose && !o.fluids && o.paint !== 'ink')) composing = false;
-    if (o.paint === 'ink') {
+    if (o.water) waterStep(dt);
+    else if (o.paint === 'ink') {
       renderBands(S.P0, S.fresh, time, false); blit(S.fresh);
       u = use('inkFwd', S.tmp); gl.uniform1i(u.uVel, tex(0, S.vel.read)); gl.uniform1i(u.uSrc, tex(1, S.ink.read)); gl.uniform1f(u.dt, dt * o.energy); blit(S.tmp);
       u = use('advectInk', S.ink.write); gl.uniform1i(u.uFwd, tex(3, S.tmp)); gl.uniform1i(u.uVel, tex(0, S.vel.read)); gl.uniform1i(u.uSrc, tex(1, S.ink.read)); gl.uniform1i(u.uFresh, tex(2, S.fresh));
@@ -942,7 +987,7 @@ function createSwirl2(gl, opts = {}) {
       gl.uniform1f(u.dt, dt * o.energy); gl.uniform1f(u.relax, relax); gl.uniform1f(u.flow, o.fluids ? 1 : 0); gl.uniform1f(u.disp, o.energy * 0.06); gl.uniform1f(u.spline, o.spline ? 1 : 0);
       blit(S.P.write); S.P.swap();
     }
-    stepDrops(dt);
+    if (!o.water) stepDrops(dt);
   }
   // Save PNG (Angus: it shouldn't lose resolution): draw the current picture again, scale times the canvas size, into
   // a separate 8-bit target, and return its pixels (bottom row first). Nothing moves; the screen is untouched.
@@ -963,6 +1008,7 @@ function createSwirl2(gl, opts = {}) {
   }
   function render(t = time, target = null) {
     if (!target) lastT = t;
+    if (o.water) { const u = use('waterShow', target || { w: o.width, h: o.height }); gl.uniform1i(u.uSrc, tex(0, S.dye.read)); blit(target); return; }
     const line = o.outline && S.out, to = line ? S.out : target;
     const u = renderBands(S.P.read, to, t, true);
     gl.uniform1f(u.inkOn, o.paint === 'ink' ? 1 : 0); gl.uniform1i(u.uInk, tex(1, S.ink.read));
