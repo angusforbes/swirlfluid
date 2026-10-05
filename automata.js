@@ -267,6 +267,13 @@ function createAutomata(gl, opts = {}) {
     gl.bindAttribLocation(p, 0, 'a'); gl.linkProgram(p);
     if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error('automata mesh link: ' + gl.getProgramInfoLog(p));
     const u = {}; for (const nm of ['uS', 'uPrev', 'Nf', 'scale', 'energy', 'zoom']) u[nm] = gl.getUniformLocation(p, nm); return { p, u }; })();
+  // mesh view (debug): the mesh's edges, through the same vertex shader, so the lines show where the triangles are now
+  const lineP = (() => { const p = gl.createProgram(); gl.attachShader(p, sh(gl.VERTEX_SHADER, MESH_VS));
+    gl.attachShader(p, sh(gl.FRAGMENT_SHADER, HEAD + `void main(){ o=vec4(1.,.95,.7,1.); }`));
+    gl.bindAttribLocation(p, 0, 'a'); gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error('automata line link: ' + gl.getProgramInfoLog(p));
+    const u = {}; for (const nm of ['uS', 'Nf', 'scale', 'energy', 'zoom']) u[nm] = gl.getUniformLocation(p, nm); return { p, u }; })();
+  const lineVao = gl.createVertexArray(), lineBuf = gl.createBuffer(); let lineN = 0;
   const meshVao = gl.createVertexArray(), meshBuf = gl.createBuffer(); let meshN = 0;
   function buildMesh() {
     const pt = (gi, gj) => { const x = gi === 0 ? 0 : gi === cols + 1 ? 1 : (gi - 0.5) / cols, y = gj === 0 ? 0 : gj === rows + 1 ? 1 : (gj - 0.5) / rows;
@@ -303,6 +310,11 @@ function createAutomata(gl, opts = {}) {
       v.push(...LB, ...LT, ...RB, ...RB, ...LT, ...RT);
     }
     meshN = v.length / 4;
+    const L = [];   // edges for the mesh view: each triangle's three sides
+    for (let t = 0; t < v.length; t += 12) { const P = k => v.slice(t + k * 4, t + k * 4 + 4); L.push(...P(0), ...P(1), ...P(1), ...P(2), ...P(2), ...P(0)); }
+    lineN = L.length / 4;
+    gl.bindVertexArray(lineVao); gl.bindBuffer(gl.ARRAY_BUFFER, lineBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(L), gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 4, gl.FLOAT, false, 0, 0);
     gl.bindVertexArray(meshVao); gl.bindBuffer(gl.ARRAY_BUFFER, meshBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(v), gl.STATIC_DRAW);
     gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 4, gl.FLOAT, false, 0, 0); gl.bindVertexArray(vao);
   }
@@ -427,7 +439,18 @@ function createAutomata(gl, opts = {}) {
   function render(t, target = null) {
     const u = use('show'); gl.uniform1i(u.uImg, tex(0, img.r)); gl.uniform1i(u.uS, tex(1, S.r));
     gl.uniform2f(u.Nf, cols, rows); gl.uniform2f(u.res, o.width, o.height); gl.uniform1f(u.vectors, o.vectors ? 1 : 0); draw(target);
+    if (o.meshView && o.mesh) {   // 1: the mesh over the picture, 2: the mesh alone (picture hidden)
+      if (target) { gl.bindFramebuffer(gl.FRAMEBUFFER, target.fb); gl.viewport(0, 0, target.w, target.h); }
+      else { gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, o.width, o.height); }
+      if (o.meshView === 2) { gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT);
+        if (o.vectors) { const v = use('show'); gl.uniform1i(v.uImg, tex(0, blackT)); gl.uniform1i(v.uS, tex(1, S.r)); gl.uniform2f(v.Nf, cols, rows); gl.uniform2f(v.res, o.width, o.height); gl.uniform1f(v.vectors, 1); draw(target); } }
+      gl.useProgram(lineP.p); const m = lineP.u, a = o.width / o.height;
+      gl.uniform1i(m.uS, tex(0, S.r)); gl.uniform2f(m.Nf, cols, rows); gl.uniform2f(m.scale, Math.min(1, 1 / a), Math.min(1, a));
+      gl.uniform1f(m.energy, o.energy); gl.uniform1f(m.zoom, 0);
+      gl.bindVertexArray(lineVao); gl.drawArrays(gl.LINES, 0, lineN); gl.bindVertexArray(vao);
+    }
   }
+  const blackT = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, blackT); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
   // x, y in 0..1 (y up); (ax, ay) a vector in cell units, or spin = tangential strength
   function splat(x, y, ax, ay, spin = 0, radius = 1.1) {
     const u = use('splat'); gl.uniform1i(u.uS, tex(0, S.r));

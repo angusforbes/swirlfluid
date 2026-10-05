@@ -114,8 +114,8 @@
   <div class="rowlabel" id="autoLabel">fluid automata</div><div class="presets" id="profiles"></div>
 </div>
 <div id="err"></div>
-<script src="swirl2.js?v=53"></script>
-<script src="automata.js?v=53"></script>
+<script src="swirl2.js?v=55"></script>
+<script src="automata.js?v=55"></script>
 <script>
 // Two engines on one canvas: "swirl" (swirl2.js: a velocity fluid that paints poster bands, ink, facets...) and
 // "fluid automata" (automata.js: an 8-bit energy automaton that smears a background image). Only one runs at a time.
@@ -137,7 +137,7 @@ const baseOfA = n => BUILTIN_A.includes(n) ? n : (AUTOMATA_PROFILES[n]?.base || 
 const PROFILES = Object.keys(AUTOMATA_PROFILES), BGS = Object.keys(AUTOMATA_BGS);
 const coarse = matchMedia('(pointer: coarse)').matches;
 const FILLS = SWIRL2_FILLS;
-const BASE = { fill: 'squares', cell: Math.max(4, Math.round(innerHeight / 24)), freq: 3, palette: 'ocean', saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, wash: false, facets: false, jitter: 0, ambient: 1, fadeMin: 8, fadeMax: 22, outline: false, grain: true, tile: 1, mapCell: 1, spline: false, reach: 1, instant: false, startStir: 0, fold: false, foldRows: 16, compose: false, motion: 0, smoothPng: true, reveal: 0, inside: 0, burst: 0.01, imgTile: 1 };
+const BASE = { fill: 'squares', cell: Math.max(4, Math.round(innerHeight / 24)), freq: 3, palette: 'ocean', saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, wash: false, facets: false, jitter: 0, ambient: 1, fadeMin: 8, fadeMax: 22, outline: false, grain: true, tile: 1, mapCell: 1, spline: false, reach: 1, instant: false, startStir: 0, fold: false, foldRows: 16, compose: false, motion: 0, motionRings: 2, motionSectors: 6, smoothPng: true, reveal: 0, inside: 0, burst: 0.01, imgTile: 1 };
 // the knobs: [key, label, min, max, step, format]
 const KNOBS = [
   // fluidity: finer toward the top: the left half covers 0.9 to 0.99, then each further stretch adds a 9 (0.999,
@@ -174,7 +174,9 @@ const KNOBS = [
   ['fadeMin', 'colour fade', 0, 60, 1, null, { dual: 'fadeMax', fmt: (a, b) => a ? (a === b ? a : a + '–' + b) + ' s' : 'off' }],
   ['fadeMax', '', 0, 60, 1, null, { hidden: true }],
   ['foldRows', 'fold rows', 3, 64, 1, v => Math.round(v)],
-  ['motion', 'motion colour', 0, 1, 0.01, v => v > 0 ? Math.round(v * 100) + '%' : 'off'],   // colour by the motion: direction sectors x strength rings   // fold: how many rows of triangles (fewer = bigger shards)
+  ['motion', 'motion colour', 0, 1, 0.01, v => v > 0 ? Math.round(v * 100) + '%' : 'off'],
+  ['motionRings', 'rings', 0, 6, 0.25, v => v > 0 ? v + ' per halving' : 'none'],   // motion colour: rings of strength
+  ['motionSectors', 'sectors', 0, 16, 1, v => v > 0 ? Math.round(v) : 'none'],   // motion colour: slices of direction   // colour by the motion: direction sectors x strength rings   // fold: how many rows of triangles (fewer = bigger shards)
 ];
 const maxCell = () => Math.max(2, innerHeight / 2);   // the coarsest background: 2 rows of cells
 const maxTile = () => Math.max(2, innerHeight / 50);   // the coarsest pixelate: 50 rows
@@ -312,6 +314,7 @@ const TIPS = {
 const IDLE = {   // why a setting does nothing right now ('' = it is working)
   viscosity: o => o.grid >= 2 ? 'no effect with the lattice on' : '',
   foldRows: o => o.fold && !o.fluids ? '' : 'only with fold on and fluids off',
+  motionRings: o => o.motion > 0 ? '' : 'only with motion colour on', motionSectors: o => o.motion > 0 ? '' : 'only with motion colour on',
   momentum: o => o.grid >= 2 && !o.fluids ? 'no effect: the lattice only branches with fluids on' : '',
   angularity: o => !(o.momentum > 0) ? 'no effect while branching is 0' : o.grid >= 2 && !o.fluids ? 'no effect: the lattice only branches with fluids on' : '',
   curl: o => o.grid >= 2 ? 'no effect with the lattice on' : !o.fluids ? 'no effect with fluids off' : '',
@@ -368,7 +371,12 @@ const REVEAL = ['as is', 'dimmed', 'grey', 'washed', 'black', 'white'];
 $('insideBtn').onclick = () => { const e = getSwirl(); e.set({ inside: ((e.opts.inside || 0) + 1) % REVEAL.length }); sync(); };
 $('revealBtn').onclick = () => { const e = getSwirl(); e.set({ reveal: ((e.opts.reveal || 0) + 1) % REVEAL.length }); sync(); }; toggle('washBtn', 'wash', getSwirl); toggle('outlineBtn', 'outline', getSwirl); toggle('grainBtn', 'grain', getSwirl); toggle('splineBtn', 'spline', getSwirl);
 $('inkBtn').onclick = () => { swirl.set({ paint: swirl.opts.paint === 'ink' ? 'bands' : 'ink' }); sync(); };
-toggle('aFluidsBtn', 'fluids', getAuto); toggle('torusBtn', 'torus', getAuto); toggle('vecBtn', 'vectors', getAuto); toggle('autoLightBtn', 'auto', getAuto); toggle('voronoiBtn', 'voronoi', getAuto);
+toggle('aFluidsBtn', 'fluids', getAuto); toggle('torusBtn', 'torus', getAuto); toggle('autoLightBtn', 'auto', getAuto); toggle('voronoiBtn', 'voronoi', getAuto);
+// vectors button / v: off, vectors, vectors + mesh outline (mesh presets), mesh alone (picture hidden)
+const VEC_VIEWS = ['vectors', 'vectors', 'vectors + mesh', 'mesh only'];
+function cycleVectors() { const a = getAuto(), o = a.opts, s = !o.vectors && !o.meshView ? 0 : !o.meshView ? 1 : o.meshView === 1 ? 2 : 3, n = (s + 1) % (o.mesh ? 4 : 2);
+  a.set({ vectors: n > 0, meshView: n >= 2 ? n - 1 : 0 }); sync(); }
+$('vecBtn').onclick = cycleVectors;
 
 function sync() {
   const isA = engine === 'automata', o = cur().opts;
@@ -382,7 +390,7 @@ function sync() {
   for (const [k, x] of Object.entries(inputs[engine])) { if (x.sync) { x.sync(o); continue; } x.inp.value = x.map ? x.map.to(o[k]) : o[k]; x.out.textContent = x.fmt(+o[k]); }
   if (isA) {
     [...$('bgs').children].forEach(b => b.classList.toggle('on', b.textContent === o.bg));
-    $('aFluidsBtn').classList.toggle('on', !!o.fluids); $('torusBtn').classList.toggle('on', !!o.torus); $('vecBtn').classList.toggle('on', !!o.vectors); $('autoLightBtn').classList.toggle('on', !!o.auto); $('voronoiBtn').classList.toggle('on', !!o.voronoi);
+    $('aFluidsBtn').classList.toggle('on', !!o.fluids); $('torusBtn').classList.toggle('on', !!o.torus); $('vecBtn').classList.toggle('on', !!o.vectors || !!o.meshView); $('vecBtn').textContent = o.meshView === 2 ? 'mesh only' : o.meshView === 1 ? 'vectors + mesh' : 'vectors'; $('autoLightBtn').classList.toggle('on', !!o.auto); $('voronoiBtn').classList.toggle('on', !!o.voronoi);
   } else {
     [...dots.children].forEach(d => d.classList.toggle('on', d.dataset.n === o.palette));
     [...$('fills').children].forEach(b => b.classList.toggle('on', b.textContent === o.fill));
@@ -699,7 +707,7 @@ addEventListener('keydown', e => {
   else if (e.key === 'r' && !A) { swirl.reset(true); wake(); }   // back to the grid: no stirring, the same squares
   else if (e.key === 'R') { cur().reset(); if (!A) kick(); wake(); }   // new start: new squares, and the preset's starting move
   else if (e.key === 'b' && A) { const n = BGS.filter(k => AUTOMATA_BGS[k].mode !== 4); setBg(n[(n.indexOf(auto.opts.bg) + 1) % n.length]); }
-  else if (e.key === 'v' && A) { auto.set({ vectors: !auto.opts.vectors }); sync(); }
+  else if (e.key === 'v' && A) cycleVectors();
   else if (e.key === 't') toggleTune();
   else if (e.key === ' ') { togglePause(); e.preventDefault(); }   // pause / resume everything (Angus: freeze it before saving)
   else if (e.key === 'h') { help.classList.toggle('faded'); tuneBtn.classList.toggle('faded', help.classList.contains('faded')); }
