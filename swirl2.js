@@ -133,6 +133,10 @@ const SWIRL2_PRESETS = {
   // fx: colour split / hair streaks, each a post pass on the finished picture along the local flow velocity (off by
   // default everywhere else). Prism Flow: Mosaic 2's motion with full colour split so every whirl trails a rainbow
   // fringe. Fur: Al Held's branching motion combed into fine hair streaks, like brushed fur, no colour split
+  // Klimt 2 (Angus 2026-10-06): his saved Klimt (mixed squares, motion colour in 11 sectors, compose, fluidity 0.99995),
+  // but its pinwheels are whirls you can place: it starts with 3 (like Klimt's three idle eddies after Shift+R), n adds
+  // 4 more (2 each way), w / W one at the mouse, and the mouse only nudges the whirls near it (it doesn't stir)
+  'Klimt 2':     { fluids: false, fluidity: 0.99995, viscosity: 0, momentum: 0, angularity: 0, energy: 2.5, grid: 0, curl: 0, heal: 0.1, memory: 0.985, carry: 1.5, crisp: 0, wash: false, facets: false, jitter: 0, ambient: 0, fadeMin: 0, fadeMax: 0, outline: false, grain: true, spline: false, reach: 0.65, instant: true, startStir: 0, compose: true, motion: 0.9, motionRings: 1, motionSectors: 11, burst: 0, paint: 'bands', fill: 'mixed squares', freq: 4.9, palette: 'tropic', rows: 424.5, startWhirls: 3, whirlN: 4, whirlMouse: true },
   'Prism Flow':  { fluids: false, fluidity: 1,     viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'pop', freq: 4.9, fadeMin: 8, fadeMax: 22, fill: 'mixed squares', rows: 5, instant: true, startStir: 6, split: 1 },
   // (hidden 2026-10-05, Angus) 'Fur':         { fluids: false, fluidity: 0.999, viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'tar', freq: 4.9, fadeMin: 0, fadeMax: 0, fill: 'squares', rows: 5, hair: 1 },
 };
@@ -788,7 +792,7 @@ function createSwirl2(gl, opts = {}) {
   const rndSwirl = (sgn) => [(Math.random() * 2 - 1) * aspect() * 0.8, (Math.random() * 2 - 1) * 0.75, sgn * (2.5 + Math.random() * 3.5), 0.35 + Math.random() * 0.45];
   // reset: new squares (new seed) and no motion; reset(true) (r): back to the unstirred grid, the same squares
   function reset(same = false) {
-    drops = []; fountains = []; whirls = [];
+    drops = []; fountains = []; whirls = []; if (o.startWhirls > 0) scatterWhirls(o.startWhirls);
     if (S.dye) [S.dye.read, S.dye.write].forEach(clear);
     growClear(); if (o.grow) seedGrow(Math.round(o.growSeeds ?? 10));
     if (!same) seed = 1 + Math.floor(Math.random() * 1e5);
@@ -974,6 +978,7 @@ function createSwirl2(gl, opts = {}) {
     const R = Math.random;
     if (o.grow) seedGrow(Math.max(1, Math.round((o.growSeeds ?? 10) / 2)));   // n: a few new scattered seeds, on top of what is already growing
     if (o.grid >= 2) { const { ms, os } = lattice(); for (let i = 0; i < os.length; i++) { os[i] = R() * TAU; ms[i] = 0.06 * energy * (0.5 + R()); } return; }
+    if (o.whirlN > 0) { scatterWhirls(o.whirlN); return; }   // Klimt 2: n adds a few whirls, half each way
     if (o.water) { for (let k = 0; k < (o.sym > 1 ? 2 : 5); k++) drop(0.15 + 0.7 * R(), 0.15 + 0.7 * R()); return; }   // water: n drops a few at random
     [S.vel.read, S.vel.write].forEach(clear); idleT = 0;
     if (o.compose && !o.fluids) {   // compose: n starts the picture over too, so it looks as when the preset is chosen
@@ -1097,10 +1102,20 @@ function createSwirl2(gl, opts = {}) {
   let ambT = 0, idleT = 0;
   // whirls (w / W at the mouse, 2026-10-06): extra idle eddies you place yourself, the same gentle spin every frame as
   // the three built-in ones (which make Klimt's pinwheels after Shift+R), each drifting on a small loop around where
-  // you put it; they run at any fluidity, are cleared by R / r, and at most WHIRL_MAX stay (the oldest goes)
-  let whirls = []; const WHIRL_MAX = 12;
-  function addWhirl(x, y, sgn = -1) { whirls.push({ x, y, sgn, t: 0, ph: Math.random() * TAU }); if (whirls.length > WHIRL_MAX) whirls.shift(); }
+  // you put it; they run at any fluidity, are cleared by R / r, no limit (Angus: "why a limit?")
+  let whirls = [];
+  function addWhirl(x, y, sgn = -1) { whirls.push({ x, y, sgn, t: 0, ph: Math.random() * TAU }); }
   function clearWhirls() { whirls = []; }
+  // whirlMouse (Klimt 2): the mouse only nudges the whirls near it a little, in the direction it moves
+  function nudgeWhirls(x, y, dx, dy) {
+    const a = o.width / o.height, r = 0.18, k = 0.35;
+    for (const w of whirls) { const t = w.t * 0.06 + w.ph;
+      const cx = w.x + 0.35 * Math.cos(t * 1.3) - 0.35 * Math.cos(w.ph * 1.3), cy = w.y + 0.32 * Math.sin(t * 0.9) - 0.32 * Math.sin(w.ph * 0.9);
+      const ex = (cx - x) * a, ey = cy - y, f = Math.exp(-(ex * ex + ey * ey) / (r * r));
+      w.x += dx * k * f; w.y += dy * k * f; }
+  }
+  // a few whirls at random spots, half each way (n with whirlN; a fresh start with startWhirls)
+  function scatterWhirls(n) { const R = Math.random; for (let i = 0; i < n; i++) addWhirl(0.12 + 0.76 * R(), 0.12 + 0.76 * R(), i % 2 ? 1 : -1); }
   // ink drops: each grows over DROP_T seconds (easing out, like a drop spreading) to radius r (screen heights)
   const DROP_T = 0.6;
   // colour order (2026-10, Angus: a tune button for how drop colours are picked): 'random' (default, never repeats
@@ -1372,6 +1387,6 @@ function createSwirl2(gl, opts = {}) {
   function resize(w, h) { o.width = w; o.height = h; alloc(); setText(); }
   alloc(); setText();
   return { step, render, exportPixels, splat, drop, soap, get dropping() { return drops.length > 0; }, randomize, boost, burst, zoom, reset, resize, set, opts: o, get depth() { return depth; }, setImage, get hasImage() { return hasImage; }, get peek() { return peeking; }, set peek(v) { peeking = !!v; },
-    plantFountain, clearFountains, addWhirl, clearWhirls, get whirlCount() { return whirls.length; }, plantSprings, get fountainCount() { return fountains.length; } };
+    plantFountain, clearFountains, addWhirl, clearWhirls, nudgeWhirls, get whirlCount() { return whirls.length; }, plantSprings, get fountainCount() { return fountains.length; } };
 }
 if (typeof window !== 'undefined') { window.createSwirl2 = createSwirl2; window.SWIRL2_PALETTES = SWIRL2_PALETTES; window.SWIRL2_PRESETS = SWIRL2_PRESETS; window.SWIRL2_FILLS = SWIRL2_FILLS; }
