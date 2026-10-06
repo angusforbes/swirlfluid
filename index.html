@@ -107,7 +107,7 @@
   <p>Ideas borrowed from <a href="https://github.com/CreativeCodingLab/FluidAutomataJS" style="color:inherit">Fluid Automata</a>. <a href="classic/" style="color:inherit">classic version</a> · <a href="https://github.com/angusforbes/swirlfluid" style="color:inherit">source</a></p>
 </div>
 <div id="help" class="panel">
-  <span class="mouse">drag to stir · hold <kbd>shift</kbd>+<kbd>→</kbd> / <kbd>shift</kbd>+<kbd>←</kbd> to spin a whirlpool under the cursor · hold <kbd>z</kbd> / <kbd>x</kbd> or scroll to dive in / out<br>
+  <span class="mouse">drag to stir · hold <kbd>shift</kbd>+<kbd>→</kbd> / <kbd>shift</kbd>+<kbd>←</kbd> to spin a whirlpool under the cursor · <kbd>w</kbd> / <kbd>W</kbd> or <kbd>alt</kbd>+click drops a whirl at the cursor · hold <kbd>z</kbd> / <kbd>x</kbd> or scroll to dive in / out<br>
   <kbd>1</kbd>–<kbd>9</kbd> presets · <kbd>e</kbd> swap engine · <kbd>t</kbd> tune · <kbd>space</kbd> pause · <kbd>R</kbd> new start · <kbd>g</kbd> random stir · <kbd>k</kbd> stars · <kbd>n</kbd> random vectors · <kbd>m</kbd> / <kbd>M</kbd> more / less energy · <kbd>esc</kbd> hide all · hold <kbd>shift</kbd> to move the mouse without stirring · <kbd>s</kbd> save · <kbd>d</kbd> debug · <kbd>h</kbd> hide<span class="swirlOnly"> · <kbd>c</kbd> palette · <kbd>i</kbd> / <kbd>I</kbd> drop ink / soap (with drops on) · <kbd>o</kbd> / <kbd>O</kbd> add mirror point / back to centre · <kbd>p</kbd> pin sliders · <kbd>f</kbd> fill · <kbd>r</kbd> back to the grid · hold <kbd>l</kbd> map</span><span class="autoOnly"> · <kbd>b</kbd> background · <kbd>v</kbd> vectors · drop an image to smear it</span></span>
   <span class="touch">one finger stirs · press and hold to spin · twist two fingers to spin either way · spread two fingers to dive in · tap to bring this back</span>
   <div class="rowlabel" id="swirlLabel">swirl</div><div class="presets" id="presets"></div>
@@ -640,6 +640,7 @@ let hover = null, lastHover = null, keySpin = 0, twist = null;
 canvas.addEventListener('contextmenu', e => e.preventDefault());
 canvas.addEventListener('pointerdown', e => {
   if (e.shiftKey && e.pointerType === 'mouse') return;   // shift: hands off, the mouse doesn't touch the scene
+  if (e.altKey) { e.preventDefault(); whirl(pos(e), e.button === 2 ? 1 : -1); return; }   // Alt+click: a whirl at the pointer (right button: the other way)
   canvas.setPointerCapture(e.pointerId);
   const p = pos(e); pts.set(e.pointerId, { p, last: p, t0: performance.now(), moved: 0, still: 0, touch: e.pointerType !== 'mouse', pouring: false, pourT: 0, pourK: undefined });
   if (pts.size === 2) twist = null;
@@ -707,6 +708,14 @@ function playGestures(dt) {
   if (gestures.length) wake();
 }
 
+// whirl (w / W, Alt+click, Alt+right-click): one strong whirlpool at the pointer, the same kind n scatters (a pure
+// spin, no push), boosted as if m had been pressed a few times; holding w keeps adding, so it grows. W / right: the other way
+function whirl(p, sgn) {
+  if (!p) p = [0.5, 0.5];
+  if (engine === 'automata') auto.spin(p[0], p[1], sgn * 6, 3);
+  else swirl.splat(p[0], p[1], 0, 0, sgn * (swirl.opts.energy || 1) * 45, 0.012, true);
+  wake();
+}
 function spinInput(dt, now) {
   const A = engine === 'automata', SPIN = 90 * dt;
   if (gestures.length) playGestures(dt);
@@ -757,6 +766,7 @@ addEventListener('keydown', e => {
   else if (e.key === 'c' && !A) { swirl.set({ palette: PALS[(PALS.indexOf(swirl.opts.palette) + 1) % PALS.length] }); sync(); }
   else if (e.key === 'f' && !A) $('fills').children[(FILLS.indexOf(swirl.opts.fill) + 1) % FILLS.length].click();
   else if (e.key === 'r' && !A) { swirl.reset(true); wake(); }   // back to the grid: no stirring, the same squares
+  else if (e.key === 'w' || e.key === 'W') whirl(hover, e.key === 'W' ? 1 : -1);   // a whirl under the mouse (W: the other way)
   else if (e.key === 'R') { cur().reset(); if (!A) kick(); wake(); }   // new start: new squares, and the preset's starting move
   else if (e.key === 'b' && A) { const n = BGS.filter(k => AUTOMATA_BGS[k].mode !== 4); setBg(n[(n.indexOf(auto.opts.bg) + 1) % n.length]); }
   else if (e.key === 'v' && A) cycleVectors();
