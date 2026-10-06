@@ -70,3 +70,15 @@ on the panel.
 - Save PNG smoothing (v47): every preset (BASE smoothPng: true) renders at up to 3x and box-averages in linear light;
   it drops to 2x/1x when over MAX_TEXTURE_SIZE (16384 on Angus's Intel) or 120 Mpx, so PNG 3x has NO smoothing.
   Later: tiled export (N on the card).
+
+## Added 2026-10-05 (v48–v75, Prism[a]; all options default off)
+
+- FA (automata.js): iOS mesh port (FA mesh, Stained Glass/Ice Crack, 18 iOS presets), Glassy energy 0.07, corner-quad
+  diagonal fix. Propaganda (FA) seems to need an image (unresolved).
+- Swirl: ink drops (`drops`, `milk`, palette `food`), water mode (`water`; S.dye absorbance, soft cap 0.9), keys i ink /
+  I soap, sliders bloom/spread/dropSize/ragged/splash; Ink in Water (Angus: "needs some tweaking", unspecified).
+- Symmetry `sym` 2/3/4/6/8 + `symMirror`, mirror points `symCentres` via o / O (shift+o resets); Mosaic Mandala.
+- Colour split, fountains (u / U, fountainStrength), pour, inkStrength, drop colour order, gloss (Enamel), glass dish,
+  grow (Gray-Scott on S.grow: spots/maze/coral/mitosis, growSpeed; Coral; its background shows coarse blocks).
+- render() post-pass chain: bands -> outline -> gloss -> split -> hair via S.out/S.out2; exportPixels allocates both.
+- Rake / Marbled Paper parked on branch feat/rake (Angus: "looks really bad, stop"); don't merge.
