@@ -114,8 +114,8 @@
   <div class="rowlabel" id="autoLabel">fluid automata</div><div class="presets" id="profiles"></div>
 </div>
 <div id="err"></div>
-<script src="swirl2.js?v=77"></script>
-<script src="automata.js?v=77"></script>
+<script src="swirl2.js?v=78"></script>
+<script src="automata.js?v=78"></script>
 <script>
 // Two engines on one canvas: "swirl" (swirl2.js: a velocity fluid that paints poster bands, ink, facets...) and
 // "fluid automata" (automata.js: an 8-bit energy automaton that smears a background image). Only one runs at a time.
@@ -708,12 +708,13 @@ function playGestures(dt) {
   if (gestures.length) wake();
 }
 
-// whirl (w / W, Alt+click, Alt+right-click): one strong whirlpool at the pointer, the same kind n scatters (a pure
-// spin, no push), boosted as if m had been pressed a few times; holding w keeps adding, so it grows. W / right: the other way
+// whirl (w / W, Alt+click, Alt+right-click): an idle eddy at the pointer, like the three that turn Klimt's squares into
+// pinwheels: a gentle spin every frame that builds up slowly while its centre drifts on a small loop (swirl engine).
+// W / right button: the other way. FA has no eddies: a single spin there
 function whirl(p, sgn) {
   if (!p) p = [0.5, 0.5];
   if (engine === 'automata') auto.spin(p[0], p[1], sgn * 6, 3);
-  else swirl.splat(p[0], p[1], 0, 0, sgn * (swirl.opts.energy || 1) * 45, 0.012, true);
+  else swirl.addWhirl(p[0], p[1], sgn);
   wake();
 }
 function spinInput(dt, now) {

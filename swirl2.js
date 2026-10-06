@@ -788,7 +788,7 @@ function createSwirl2(gl, opts = {}) {
   const rndSwirl = (sgn) => [(Math.random() * 2 - 1) * aspect() * 0.8, (Math.random() * 2 - 1) * 0.75, sgn * (2.5 + Math.random() * 3.5), 0.35 + Math.random() * 0.45];
   // reset: new squares (new seed) and no motion; reset(true) (r): back to the unstirred grid, the same squares
   function reset(same = false) {
-    drops = []; fountains = [];
+    drops = []; fountains = []; whirls = [];
     if (S.dye) [S.dye.read, S.dye.write].forEach(clear);
     growClear(); if (o.grow) seedGrow(Math.round(o.growSeeds ?? 10));
     if (!same) seed = 1 + Math.floor(Math.random() * 1e5);
@@ -1095,6 +1095,12 @@ function createSwirl2(gl, opts = {}) {
     }
   }
   let ambT = 0, idleT = 0;
+  // whirls (w / W at the mouse, 2026-10-06): extra idle eddies you place yourself, the same gentle spin every frame as
+  // the three built-in ones (which make Klimt's pinwheels after Shift+R), each drifting on a small loop around where
+  // you put it; they run at any fluidity, are cleared by R / r, and at most WHIRL_MAX stay (the oldest goes)
+  let whirls = []; const WHIRL_MAX = 12;
+  function addWhirl(x, y, sgn = -1) { whirls.push({ x, y, sgn, t: 0, ph: Math.random() * TAU }); if (whirls.length > WHIRL_MAX) whirls.shift(); }
+  function clearWhirls() { whirls = []; }
   // ink drops: each grows over DROP_T seconds (easing out, like a drop spreading) to radius r (screen heights)
   const DROP_T = 0.6;
   // colour order (2026-10, Angus: a tune button for how drop colours are picked): 'random' (default, never repeats
@@ -1213,6 +1219,10 @@ function createSwirl2(gl, opts = {}) {
       splat(0.5 + 0.35 * Math.cos(t * 1.3 + i), 0.5 + 0.32 * Math.sin(t * 0.9 + i * 2), 0, 0, (i % 2 ? -1 : 1) * 0.4 * o.ambient * dt, 0.02, true);
     }
     noSym = false;
+    for (const w of whirls) {   // placed whirls: symmetry copies them like a stroke
+      w.t += dt; const t = w.t * 0.06 + w.ph;   // drift about as fast as the built-in eddies (a still centre winds tight rings instead of sectors)
+      splat(w.x + 0.35 * Math.cos(t * 1.3) - 0.35 * Math.cos(w.ph * 1.3), w.y + 0.32 * Math.sin(t * 0.9) - 0.32 * Math.sin(w.ph * 0.9), 0, 0, w.sgn * 0.4 * dt, 0.02, true);
+    }
     let u;
     if (o.fluids) {
       if (o.curl > 0) {
@@ -1362,6 +1372,6 @@ function createSwirl2(gl, opts = {}) {
   function resize(w, h) { o.width = w; o.height = h; alloc(); setText(); }
   alloc(); setText();
   return { step, render, exportPixels, splat, drop, soap, get dropping() { return drops.length > 0; }, randomize, boost, burst, zoom, reset, resize, set, opts: o, get depth() { return depth; }, setImage, get hasImage() { return hasImage; }, get peek() { return peeking; }, set peek(v) { peeking = !!v; },
-    plantFountain, clearFountains, plantSprings, get fountainCount() { return fountains.length; } };
+    plantFountain, clearFountains, addWhirl, clearWhirls, get whirlCount() { return whirls.length; }, plantSprings, get fountainCount() { return fountains.length; } };
 }
 if (typeof window !== 'undefined') { window.createSwirl2 = createSwirl2; window.SWIRL2_PALETTES = SWIRL2_PALETTES; window.SWIRL2_PRESETS = SWIRL2_PRESETS; window.SWIRL2_FILLS = SWIRL2_FILLS; }
