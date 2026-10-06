@@ -1107,16 +1107,19 @@ function createSwirl2(gl, opts = {}) {
   function addWhirl(x, y, sgn = -1) { whirls.push({ x, y, sgn, s: o.whirlStrength ?? 1, t: 0, ph: Math.random() * TAU }); }   // s: strength (whirlStrength; the mouse changes it in Klimt 2)
   function clearWhirls() { whirls = []; }
   // whirlMouse (Klimt 2): the mouse only nudges the whirls near it a little, in the direction it moves
-  function nudgeWhirls(x, y, dx, dy) {   // (v3, Angus: "push the whirls in a visible way but nothing else") the mouse
-    // only moves the centres of the whirls it passes near, most of the way along with it; strength is untouched
+  function nudgeWhirls(x, y, dx, dy) {   // (v4, Angus: change the drift as well as the centre) the mouse moves the centres
+    // of the whirls it passes near along with it, and gives them its momentum: they keep gliding that way afterwards
     const a = o.width / o.height, r = 0.15;
     for (const w of whirls) { const t = w.t * 0.06 + w.ph;
       const cx = w.x + 0.35 * Math.cos(t * 1.3) - 0.35 * Math.cos(w.ph * 1.3), cy = w.y + 0.32 * Math.sin(t * 0.9) - 0.32 * Math.sin(w.ph * 0.9);
       const ex = (x - cx) * a, ey = y - cy, f = Math.exp(-(ex * ex + ey * ey) / (r * r));
       if (f < 0.01) continue;
-      w.x += dx * 0.8 * f; w.y += dy * 0.8 * f;
+      w.x += dx * 0.6 * f; w.y += dy * 0.6 * f;
+      w.vx = (w.vx || 0) + dx * 0.8 * f; w.vy = (w.vy || 0) + dy * 0.8 * f;
+      const sp = Math.hypot(w.vx, w.vy); if (sp > 0.25) { w.vx *= 0.25 / sp; w.vy *= 0.25 / sp; }
     }
   }
+
 
 
   // a few whirls at random spots, half each way (n with whirlN; a fresh start with startWhirls)
@@ -1240,6 +1243,12 @@ function createSwirl2(gl, opts = {}) {
     }
     noSym = false;
     for (const w of whirls) {   // placed whirls: symmetry copies them like a stroke
+      if (w.vx || w.vy) {   // Klimt 2: a push from the mouse keeps the whirl gliding that way, slowing over a few seconds, bouncing off the edges
+        w.x += w.vx * dt; w.y += w.vy * dt; const k = Math.exp(-dt / 3); w.vx *= k; w.vy *= k;
+        if (w.x < 0 || w.x > 1) { w.vx = -w.vx; w.x = Math.min(1, Math.max(0, w.x)); }
+        if (w.y < 0 || w.y > 1) { w.vy = -w.vy; w.y = Math.min(1, Math.max(0, w.y)); }
+        if (Math.abs(w.vx) + Math.abs(w.vy) < 1e-4) w.vx = w.vy = 0;
+      }
       w.t += dt; const t = w.t * 0.06 + w.ph;   // drift about as fast as the built-in eddies (a still centre winds tight rings instead of sectors)
       splat(w.x + 0.35 * Math.cos(t * 1.3) - 0.35 * Math.cos(w.ph * 1.3), w.y + 0.32 * Math.sin(t * 0.9) - 0.32 * Math.sin(w.ph * 0.9), 0, 0, w.sgn * w.s * 0.4 * dt, 0.02, true);
     }
@@ -1392,6 +1401,6 @@ function createSwirl2(gl, opts = {}) {
   function resize(w, h) { o.width = w; o.height = h; alloc(); setText(); }
   alloc(); setText();
   return { step, render, exportPixels, splat, drop, soap, get dropping() { return drops.length > 0; }, randomize, boost, burst, zoom, reset, resize, set, opts: o, get depth() { return depth; }, setImage, get hasImage() { return hasImage; }, get peek() { return peeking; }, set peek(v) { peeking = !!v; },
-    plantFountain, clearFountains, addWhirl, clearWhirls, nudgeWhirls, get whirlCount() { return whirls.length; }, plantSprings, get fountainCount() { return fountains.length; } };
+    plantFountain, clearFountains, addWhirl, clearWhirls, nudgeWhirls, get whirlCount() { return whirls.length; }, get whirlList() { return whirls; }, plantSprings, get fountainCount() { return fountains.length; } };
 }
 if (typeof window !== 'undefined') { window.createSwirl2 = createSwirl2; window.SWIRL2_PALETTES = SWIRL2_PALETTES; window.SWIRL2_PRESETS = SWIRL2_PRESETS; window.SWIRL2_FILLS = SWIRL2_FILLS; }

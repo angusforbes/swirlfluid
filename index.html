@@ -114,8 +114,8 @@
   <div class="rowlabel" id="autoLabel">fluid automata</div><div class="presets" id="profiles"></div>
 </div>
 <div id="err"></div>
-<script src="swirl2.js?v=81"></script>
-<script src="automata.js?v=81"></script>
+<script src="swirl2.js?v=82"></script>
+<script src="automata.js?v=82"></script>
 <script>
 // Two engines on one canvas: "swirl" (swirl2.js: a velocity fluid that paints poster bands, ink, facets...) and
 // "fluid automata" (automata.js: an 8-bit energy automaton that smears a background image). Only one runs at a time.
@@ -640,7 +640,7 @@ let hover = null, lastHover = null, keySpin = 0, twist = null;
 canvas.addEventListener('contextmenu', e => e.preventDefault());
 canvas.addEventListener('pointerdown', e => {
   if (e.shiftKey && e.pointerType === 'mouse') return;   // shift: hands off, the mouse doesn't touch the scene
-  if (e.altKey) { e.preventDefault(); whirl(pos(e), e.button === 2 ? 1 : -1); return; }   // Alt+click: a whirl at the pointer (right button: the other way)
+  if (e.altKey || (engine === 'swirl' && swirl.opts.whirlMouse && e.pointerType === 'mouse')) { e.preventDefault(); whirl(pos(e), e.button === 2 ? 1 : -1); return; }   // Alt+click: a whirl at the pointer (right button: the other way)
   canvas.setPointerCapture(e.pointerId);
   const p = pos(e); pts.set(e.pointerId, { p, last: p, t0: performance.now(), moved: 0, still: 0, touch: e.pointerType !== 'mouse', pouring: false, pourT: 0, pourK: undefined });
   if (pts.size === 2) twist = null;
