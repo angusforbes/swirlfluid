@@ -136,7 +136,9 @@ const SWIRL2_PRESETS = {
   // Klimt 2 (Angus 2026-10-06): his saved Klimt (mixed squares, motion colour in 11 sectors, compose, fluidity 0.99995),
   // but its pinwheels are whirls you can place: it starts with 3 (like Klimt's three idle eddies after Shift+R), n adds
   // 4 more (2 each way), w / W one at the mouse, and the mouse only nudges the whirls near it (it doesn't stir)
-  'Klimt 2':     { fluids: false, fluidity: 0.99995, viscosity: 0, momentum: 0, angularity: 0, energy: 2.5, grid: 0, curl: 0, heal: 0.1, memory: 0.985, carry: 1.5, crisp: 0, wash: false, facets: false, jitter: 0, ambient: 0, fadeMin: 0, fadeMax: 0, outline: false, grain: true, spline: false, reach: 0.65, instant: true, startStir: 0, compose: true, motion: 0.9, motionRings: 1, motionSectors: 11, burst: 0, paint: 'bands', fill: 'mixed squares', freq: 4.9, palette: 'tropic', rows: 424.5, startWhirls: 3, whirlN: 4, whirlMouse: true, whirlStrength: 0.45 },
+  // v83 (Angus: whirls should fade back to the squares fairly quickly): no compose (the picture is the squares displaced by
+  // the motion, so when the motion fades the squares come back), fluidity 0.985, each whirl lives 6 s; stronger to make up
+  'Klimt 2':     { fluids: false, fluidity: 0.985, viscosity: 0, momentum: 0, angularity: 0, energy: 2.5, grid: 0, curl: 0, heal: 0.1, memory: 0.985, carry: 1.5, crisp: 0, wash: false, facets: false, jitter: 0, ambient: 0, fadeMin: 0, fadeMax: 0, outline: false, grain: true, spline: false, reach: 0.65, instant: true, startStir: 0, compose: false, motion: 0.9, motionRings: 1, motionSectors: 11, burst: 0, paint: 'bands', fill: 'mixed squares', freq: 4.9, palette: 'tropic', rows: 424.5, startWhirls: 3, whirlN: 4, whirlMouse: true, whirlStrength: 3, whirlLife: 6 },
   'Prism Flow':  { fluids: false, fluidity: 1,     viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'pop', freq: 4.9, fadeMin: 8, fadeMax: 22, fill: 'mixed squares', rows: 5, instant: true, startStir: 6, split: 1 },
   // (hidden 2026-10-05, Angus) 'Fur':         { fluids: false, fluidity: 0.999, viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'tar', freq: 4.9, fadeMin: 0, fadeMax: 0, fill: 'squares', rows: 5, hair: 1 },
 };
@@ -1242,6 +1244,7 @@ function createSwirl2(gl, opts = {}) {
       splat(0.5 + 0.35 * Math.cos(t * 1.3 + i), 0.5 + 0.32 * Math.sin(t * 0.9 + i * 2), 0, 0, (i % 2 ? -1 : 1) * 0.4 * o.ambient * dt, 0.02, true);
     }
     noSym = false;
+    if (o.whirlLife > 0) whirls = whirls.filter(w => w.t < o.whirlLife);
     for (const w of whirls) {   // placed whirls: symmetry copies them like a stroke
       if (w.vx || w.vy) {   // Klimt 2: a push from the mouse keeps the whirl gliding that way, slowing over a few seconds, bouncing off the edges
         w.x += w.vx * dt; w.y += w.vy * dt; const k = Math.exp(-dt / 3); w.vx *= k; w.vy *= k;
@@ -1249,8 +1252,10 @@ function createSwirl2(gl, opts = {}) {
         if (w.y < 0 || w.y > 1) { w.vy = -w.vy; w.y = Math.min(1, Math.max(0, w.y)); }
         if (Math.abs(w.vx) + Math.abs(w.vy) < 1e-4) w.vx = w.vy = 0;
       }
+      // whirlLife (Klimt 2): a whirl lives that many seconds, swelling in and fading out, then it is gone
+      const L = o.whirlLife || 0, life = L > 0 ? Math.min(1, w.t / 0.6) * Math.max(0, 1 - Math.max(0, w.t - 0.5 * L) / (0.5 * L)) : 1;
       w.t += dt; const t = w.t * 0.06 + w.ph;   // drift about as fast as the built-in eddies (a still centre winds tight rings instead of sectors)
-      splat(w.x + 0.35 * Math.cos(t * 1.3) - 0.35 * Math.cos(w.ph * 1.3), w.y + 0.32 * Math.sin(t * 0.9) - 0.32 * Math.sin(w.ph * 0.9), 0, 0, w.sgn * w.s * 0.4 * dt, 0.02, true);
+      splat(w.x + 0.35 * Math.cos(t * 1.3) - 0.35 * Math.cos(w.ph * 1.3), w.y + 0.32 * Math.sin(t * 0.9) - 0.32 * Math.sin(w.ph * 0.9), 0, 0, w.sgn * w.s * life * 0.4 * dt, 0.02, true);
     }
     let u;
     if (o.fluids) {
