@@ -114,8 +114,8 @@
   <div class="rowlabel" id="autoLabel">fluid automata</div><div class="presets" id="profiles"></div>
 </div>
 <div id="err"></div>
-<script src="swirl2.js?v=79"></script>
-<script src="automata.js?v=79"></script>
+<script src="swirl2.js?v=80"></script>
+<script src="automata.js?v=80"></script>
 <script>
 // Two engines on one canvas: "swirl" (swirl2.js: a velocity fluid that paints poster bands, ink, facets...) and
 // "fluid automata" (automata.js: an 8-bit energy automaton that smears a background image). Only one runs at a time.
@@ -137,7 +137,7 @@ const baseOfA = n => BUILTIN_A.includes(n) ? n : (AUTOMATA_PROFILES[n]?.base || 
 const PROFILES = Object.keys(AUTOMATA_PROFILES), BGS = Object.keys(AUTOMATA_BGS);
 const coarse = matchMedia('(pointer: coarse)').matches;
 const FILLS = SWIRL2_FILLS;
-const BASE = { fill: 'squares', cell: Math.max(4, Math.round(innerHeight / 24)), freq: 3, palette: 'ocean', saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, wash: false, facets: false, jitter: 0, ambient: 1, fadeMin: 8, fadeMax: 22, outline: false, grain: true, tile: 1, mapCell: 1, spline: false, reach: 1, instant: false, startStir: 0, fold: false, foldRows: 16, compose: false, motion: 0, motionRings: 2, motionSectors: 6, box: false, axisSnap: false, drops: false, milk: false, dropSize: 0.09, water: false, bloom: 1, spread: 0.01, ragged: 0.5, splash: 1, sym: 0, symMirror: false, symCentres: null, smoothPng: true, reveal: 0, inside: 0, burst: 0.01, imgTile: 1, split: 0, hair: 0, fountains: false, fountainStrength: 1, startFountains: 0, pour: false, inkStrength: 1, dropColours: 'random', gloss: 0, dish: false, grow: false, growKind: 'coral', growSpeed: 10, growSeeds: 10, growMix: 1, startWhirls: 0, whirlN: 0, whirlMouse: false };
+const BASE = { fill: 'squares', cell: Math.max(4, Math.round(innerHeight / 24)), freq: 3, palette: 'ocean', saturation: 1, brightness: 1, contrast: 1, memory: 0.82, carry: 0.6, crisp: 0, wash: false, facets: false, jitter: 0, ambient: 1, fadeMin: 8, fadeMax: 22, outline: false, grain: true, tile: 1, mapCell: 1, spline: false, reach: 1, instant: false, startStir: 0, fold: false, foldRows: 16, compose: false, motion: 0, motionRings: 2, motionSectors: 6, box: false, axisSnap: false, drops: false, milk: false, dropSize: 0.09, water: false, bloom: 1, spread: 0.01, ragged: 0.5, splash: 1, sym: 0, symMirror: false, symCentres: null, smoothPng: true, reveal: 0, inside: 0, burst: 0.01, imgTile: 1, split: 0, hair: 0, fountains: false, fountainStrength: 1, startFountains: 0, pour: false, inkStrength: 1, dropColours: 'random', gloss: 0, dish: false, grow: false, growKind: 'coral', growSpeed: 10, growSeeds: 10, growMix: 1, startWhirls: 0, whirlN: 0, whirlMouse: false, whirlStrength: 1 };
 // the knobs: [key, label, min, max, step, format]
 const KNOBS = [
   // fluidity: finer toward the top: the left half covers 0.9 to 0.99, then each further stretch adds a 9 (0.999,

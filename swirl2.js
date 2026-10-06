@@ -136,7 +136,7 @@ const SWIRL2_PRESETS = {
   // Klimt 2 (Angus 2026-10-06): his saved Klimt (mixed squares, motion colour in 11 sectors, compose, fluidity 0.99995),
   // but its pinwheels are whirls you can place: it starts with 3 (like Klimt's three idle eddies after Shift+R), n adds
   // 4 more (2 each way), w / W one at the mouse, and the mouse only nudges the whirls near it (it doesn't stir)
-  'Klimt 2':     { fluids: false, fluidity: 0.99995, viscosity: 0, momentum: 0, angularity: 0, energy: 2.5, grid: 0, curl: 0, heal: 0.1, memory: 0.985, carry: 1.5, crisp: 0, wash: false, facets: false, jitter: 0, ambient: 0, fadeMin: 0, fadeMax: 0, outline: false, grain: true, spline: false, reach: 0.65, instant: true, startStir: 0, compose: true, motion: 0.9, motionRings: 1, motionSectors: 11, burst: 0, paint: 'bands', fill: 'mixed squares', freq: 4.9, palette: 'tropic', rows: 424.5, startWhirls: 3, whirlN: 4, whirlMouse: true },
+  'Klimt 2':     { fluids: false, fluidity: 0.99995, viscosity: 0, momentum: 0, angularity: 0, energy: 2.5, grid: 0, curl: 0, heal: 0.1, memory: 0.985, carry: 1.5, crisp: 0, wash: false, facets: false, jitter: 0, ambient: 0, fadeMin: 0, fadeMax: 0, outline: false, grain: true, spline: false, reach: 0.65, instant: true, startStir: 0, compose: true, motion: 0.9, motionRings: 1, motionSectors: 11, burst: 0, paint: 'bands', fill: 'mixed squares', freq: 4.9, palette: 'tropic', rows: 424.5, startWhirls: 3, whirlN: 4, whirlMouse: true, whirlStrength: 0.45 },
   'Prism Flow':  { fluids: false, fluidity: 1,     viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'pop', freq: 4.9, fadeMin: 8, fadeMax: 22, fill: 'mixed squares', rows: 5, instant: true, startStir: 6, split: 1 },
   // (hidden 2026-10-05, Angus) 'Fur':         { fluids: false, fluidity: 0.999, viscosity: 1.4, momentum: 0,    angularity: 0,     energy: 1,   grid: 0, curl: 4,   heal: 0.1, jitter: 0, memory: 0.985, carry: 1.5, paint: 'bands', wash: false, facets: false, outline: false, grain: false, crisp: 0, palette: 'tar', freq: 4.9, fadeMin: 0, fadeMax: 0, fill: 'squares', rows: 5, hair: 1 },
 };
@@ -1104,16 +1104,22 @@ function createSwirl2(gl, opts = {}) {
   // the three built-in ones (which make Klimt's pinwheels after Shift+R), each drifting on a small loop around where
   // you put it; they run at any fluidity, are cleared by R / r, no limit (Angus: "why a limit?")
   let whirls = [];
-  function addWhirl(x, y, sgn = -1) { whirls.push({ x, y, sgn, t: 0, ph: Math.random() * TAU }); }
+  function addWhirl(x, y, sgn = -1) { whirls.push({ x, y, sgn, s: o.whirlStrength ?? 1, t: 0, ph: Math.random() * TAU }); }   // s: strength (whirlStrength; the mouse changes it in Klimt 2)
   function clearWhirls() { whirls = []; }
   // whirlMouse (Klimt 2): the mouse only nudges the whirls near it a little, in the direction it moves
-  function nudgeWhirls(x, y, dx, dy) {
-    const a = o.width / o.height, r = 0.18, k = 0.35;
+  function nudgeWhirls(x, y, dx, dy) {   // (2026-10-06 v2) very subtle: a whisper of drift, and the move around a whirl
+    // speeds it up when it goes the whirl's way round, slows it when against (strength kept within 0.2x..4x its start)
+    const a = o.width / o.height, r = 0.2, base = o.whirlStrength ?? 1;
     for (const w of whirls) { const t = w.t * 0.06 + w.ph;
       const cx = w.x + 0.35 * Math.cos(t * 1.3) - 0.35 * Math.cos(w.ph * 1.3), cy = w.y + 0.32 * Math.sin(t * 0.9) - 0.32 * Math.sin(w.ph * 0.9);
-      const ex = (cx - x) * a, ey = cy - y, f = Math.exp(-(ex * ex + ey * ey) / (r * r));
-      w.x += dx * k * f; w.y += dy * k * f; }
+      const ex = (x - cx) * a, ey = y - cy, d = Math.hypot(ex, ey) + 1e-4, f = Math.exp(-(d * d) / (r * r));
+      if (f < 0.01) continue;
+      w.x += dx * 0.06 * f; w.y += dy * 0.06 * f;
+      const tang = (ex * dy - ey * dx * a) / d;   // + = anticlockwise around the whirl
+      w.s = Math.max(0.2 * base, Math.min(4 * base, w.s * (1 + w.sgn * tang * 2 * f)));
+    }
   }
+
   // a few whirls at random spots, half each way (n with whirlN; a fresh start with startWhirls)
   function scatterWhirls(n) { const R = Math.random; for (let i = 0; i < n; i++) addWhirl(0.12 + 0.76 * R(), 0.12 + 0.76 * R(), i % 2 ? 1 : -1); }
   // ink drops: each grows over DROP_T seconds (easing out, like a drop spreading) to radius r (screen heights)
@@ -1236,7 +1242,7 @@ function createSwirl2(gl, opts = {}) {
     noSym = false;
     for (const w of whirls) {   // placed whirls: symmetry copies them like a stroke
       w.t += dt; const t = w.t * 0.06 + w.ph;   // drift about as fast as the built-in eddies (a still centre winds tight rings instead of sectors)
-      splat(w.x + 0.35 * Math.cos(t * 1.3) - 0.35 * Math.cos(w.ph * 1.3), w.y + 0.32 * Math.sin(t * 0.9) - 0.32 * Math.sin(w.ph * 0.9), 0, 0, w.sgn * 0.4 * dt, 0.02, true);
+      splat(w.x + 0.35 * Math.cos(t * 1.3) - 0.35 * Math.cos(w.ph * 1.3), w.y + 0.32 * Math.sin(t * 0.9) - 0.32 * Math.sin(w.ph * 0.9), 0, 0, w.sgn * w.s * 0.4 * dt, 0.02, true);
     }
     let u;
     if (o.fluids) {
