@@ -1107,18 +1107,17 @@ function createSwirl2(gl, opts = {}) {
   function addWhirl(x, y, sgn = -1) { whirls.push({ x, y, sgn, s: o.whirlStrength ?? 1, t: 0, ph: Math.random() * TAU }); }   // s: strength (whirlStrength; the mouse changes it in Klimt 2)
   function clearWhirls() { whirls = []; }
   // whirlMouse (Klimt 2): the mouse only nudges the whirls near it a little, in the direction it moves
-  function nudgeWhirls(x, y, dx, dy) {   // (2026-10-06 v2) very subtle: a whisper of drift, and the move around a whirl
-    // speeds it up when it goes the whirl's way round, slows it when against (strength kept within 0.2x..4x its start)
-    const a = o.width / o.height, r = 0.2, base = o.whirlStrength ?? 1;
+  function nudgeWhirls(x, y, dx, dy) {   // (v3, Angus: "push the whirls in a visible way but nothing else") the mouse
+    // only moves the centres of the whirls it passes near, most of the way along with it; strength is untouched
+    const a = o.width / o.height, r = 0.15;
     for (const w of whirls) { const t = w.t * 0.06 + w.ph;
       const cx = w.x + 0.35 * Math.cos(t * 1.3) - 0.35 * Math.cos(w.ph * 1.3), cy = w.y + 0.32 * Math.sin(t * 0.9) - 0.32 * Math.sin(w.ph * 0.9);
-      const ex = (x - cx) * a, ey = y - cy, d = Math.hypot(ex, ey) + 1e-4, f = Math.exp(-(d * d) / (r * r));
+      const ex = (x - cx) * a, ey = y - cy, f = Math.exp(-(ex * ex + ey * ey) / (r * r));
       if (f < 0.01) continue;
-      w.x += dx * 0.06 * f; w.y += dy * 0.06 * f;
-      const tang = (ex * dy - ey * dx * a) / d;   // + = anticlockwise around the whirl
-      w.s = Math.max(0.2 * base, Math.min(4 * base, w.s * (1 + w.sgn * tang * 2 * f)));
+      w.x += dx * 0.8 * f; w.y += dy * 0.8 * f;
     }
   }
+
 
   // a few whirls at random spots, half each way (n with whirlN; a fresh start with startWhirls)
   function scatterWhirls(n) { const R = Math.random; for (let i = 0; i < n; i++) addWhirl(0.12 + 0.76 * R(), 0.12 + 0.76 * R(), i % 2 ? 1 : -1); }
